@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import datetime
 import numpy as np
-import o
+import os
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -290,3 +290,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+
