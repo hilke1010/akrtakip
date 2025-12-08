@@ -99,6 +99,11 @@ def main():
 
     # --- SIDEBAR ---
     with st.sidebar:
+        # --- EKLENEN KISIM: GÜNCELLEME NOTU ---
+        st.info("🕒 Not: Veriler her gün saat 10:00'da yenilenmektedir.")
+        st.markdown("---")
+        # --------------------------------------
+
         st.title("🔍 Filtre Paneli")
 
         # İl Filtresi
@@ -131,6 +136,17 @@ def main():
         selected_risks = st.multiselect("⚠️ Risk Durumu", all_risks)
 
         st.info(f"Excel Kayıt: {len(df)}")
+
+        # --- EKLENEN KISIM: LİNKLER VE İLETİŞİM ---
+        st.markdown("---")
+        st.header("🔗 Diğer Raporlar")
+        st.markdown("🔥 [LPG Lisans Raporu](https://lpgtakip.streamlit.app/)")
+        st.markdown("📊 [EPDK Sektör Raporu](https://pazarpayi.streamlit.app/)")
+        
+        st.markdown("---")
+        st.header("📧 İletişim")
+        st.info("kerim.aksu@milangaz.com.tr")
+        # ------------------------------------------
 
     # --- FİLTRELEME İŞLEMİ ---
     df_filtered = df.copy()
