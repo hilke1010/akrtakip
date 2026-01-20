@@ -14,10 +14,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- PERFORMANS AYARLARI ---
-MAX_ROW_DISPLAY = 1000  
-MAX_MAP_POINTS = 50000 
-PREVIEW_ROW_LIMIT = 100
+# --- PERFORMANS AYARLARI (İSTEK ÜZERİNE 500) ---
+MAX_ROW_DISPLAY = 500   # Tablo limiti 500
+MAX_MAP_POINTS = 50000  # Harita limiti
+PREVIEW_ROW_LIMIT = 100 # Önizleme limiti
 
 # --- 2. DOSYA İSİMLERİ ---
 SABIT_DOSYA_ADI = "asatis.xlsx"
@@ -116,7 +116,7 @@ if 'crm_notes' not in st.session_state:
 # --- 6. EXCEL VERİ YÜKLEME ---
 @st.cache_data
 def load_data(file_path):
-    if not os.path.exists(file_path): return None, None
+    if not os.path.exists(file_path): return None, None, None, None
     try:
         df = pd.read_excel(file_path)
         df.columns = [str(c).strip() for c in df.columns]
@@ -165,28 +165,42 @@ def load_data(file_path):
 
         if 'İl' in df.columns: df['İl'] = df['İl'].astype(str).str.upper().str.replace('i', 'İ').str.replace('ı', 'I')
         if 'İlçe' in df.columns: df['İlçe'] = df['İlçe'].astype(str).str.upper().str.replace('i', 'İ').str.replace('ı', 'I')
-        return df, target_col
-    except Exception as e: return None, str(e)
+        return df, target_col, start_col
+    except Exception as e: return None, str(e), None
 
 # --- DETAY TABLOSU ---
-def show_details_table(dataframe, target_date_col):
+def show_details_table(dataframe, target_date_col, extra_cols=None):
     if dataframe is None or dataframe.empty:
         st.info("Seçilen kriterlere uygun kayıt bulunamadı.")
         return
     record_count = len(dataframe)
+    
+    # PERFORMANS UYARISI (500 KAYIT)
     if record_count > MAX_ROW_DISPLAY:
-        st.markdown(f"<div class='warning-box'>⚠️ Performans: {record_count:,} kayıt var. Filtreleyerek {MAX_ROW_DISPLAY:,} altına düşürün.</div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="warning-box">
+            ⚠️ <b>Performans Uyarısı:</b> Listede toplam <b>{record_count:,}</b> kayıt var.<br>
+            Tarayıcınızın donmaması için aşağıda sadece ilk <b>{MAX_ROW_DISPLAY:,}</b> tanesi gösterilmektedir.<br>
+            Tüm listeyi görmek için lütfen aşağıdaki <b>Excel İndir</b> butonunu kullanın.
+        </div>
+        """, unsafe_allow_html=True)
         display_df_limit = dataframe.head(MAX_ROW_DISPLAY)
     else:
         display_df_limit = dataframe
 
-    cols = ['Unvan', 'İl', 'İlçe', 'Dağıtım Şirketi', target_date_col, 'Kalan_Gun', 'Sozlesme_Suresi_Gun', 'Risk_Durumu']
+    cols = ['Unvan', 'İl', 'İlçe', 'Dağıtım Şirketi', target_date_col, 'Kalan_Gun', 'Risk_Durumu']
+    if extra_cols:
+        cols.extend(extra_cols)
+        
     final_cols = [c for c in cols if c in display_df_limit.columns]
     display_df = display_df_limit[final_cols].copy()
     
-    if target_date_col in display_df.columns:
-        try: display_df[target_date_col] = pd.to_datetime(display_df[target_date_col]).dt.strftime('%d.%m.%Y')
+    # Tarih formatlama
+    date_columns = [col for col in display_df.columns if "Tarihi" in col or "Tarih" in col]
+    for date_col in date_columns:
+        try: display_df[date_col] = pd.to_datetime(display_df[date_col]).dt.strftime('%d.%m.%Y')
         except: pass
+
     if 'Kalan_Gun' in display_df.columns: display_df = display_df.sort_values('Kalan_Gun')
     
     def highlight_risk(val):
@@ -198,6 +212,7 @@ def show_details_table(dataframe, target_date_col):
     
     st.markdown(f"**📋 Listelenen Bayi Sayısı:** {len(display_df)}")
     
+    # EXCEL İNDİRME BUTONU
     if record_count > 0:
         buffer = io.BytesIO()
         try:
@@ -217,7 +232,7 @@ def main():
     if data_result is None or data_result[0] is None:
         st.error(f"⚠️ Hata: {data_result[1] if data_result else 'Veri Yüklenemedi'}")
         st.stop()
-    df, target_date_col = data_result
+    df, target_date_col, start_date_col = data_result
 
     with st.sidebar:
         st.info("🕒 Veriler her gün saat 10:00'da yenilenmektedir. (Dosya yükleme süresi 5 dakika)")
@@ -280,7 +295,7 @@ def main():
         "⚔️ Karşılaştırma (Vs.)", 
         "🔮 Simülasyon",         
         "📅 Takvim",
-        "📡 Sözleşme Radar", # YENİ SEKME
+        "📡 Sözleşme Radar", 
         "📍 İlçe Penetrasyonu",
         "📄 İl Karnesi", 
         "📝 CRM Lite",           
@@ -291,7 +306,9 @@ def main():
     with tab_overview:
         st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
         
-        if not df_filtered.empty:
+        if len(df_filtered) > MAX_MAP_POINTS:
+            st.warning(f"⚠️ Haritada {len(df_filtered):,} nokta var. Performans için filtreleyin.")
+        elif not df_filtered.empty:
             map_data = df_filtered['İl'].value_counts().reset_index()
             map_data.columns = ['İl', 'Adet']
             map_data['lat'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[0])
@@ -521,6 +538,17 @@ def main():
             sc1.metric("Mevcut", curr)
             sc2.metric("Kazanılacak", f"+{gain}")
             sc3.metric("Yeni Toplam", new, delta=f"%{((new-curr)/curr*100) if curr else 100:.1f}")
+            
+            # Açıklama Metni (Dinamik)
+            scope_text = sim_city if sim_city != "Tümü" else (sim_reg if sim_reg != "Tümü" else "Tüm Türkiye")
+            st.markdown(f"""
+            <div class="insight-box-info">
+                🧮 <b>Hesaplama Detayı:</b><br>
+                Seçilen <b>{scope_text}</b> bölgesinde, <b>{target}</b> firmasının toplam <b>{targ}</b> bayisi bulunmaktadır.<br>
+                Siz <b>%{rate}</b> oranında dönüşüm hedeflediğiniz için:<br>
+                <code>{targ} x {rate/100} = {gain}</code> adet yeni bayi kazanımı öngörülmektedir.
+            </div>
+            """, unsafe_allow_html=True)
 
     # 5. TAKVİM
     with tab_calendar:
@@ -542,22 +570,27 @@ def main():
                         show_details_table(df_yr[df_yr['Bitis_Ayi']==mn], target_date_col)
                     else: show_details_table(df_yr, target_date_col)
 
-    # 6. SÖZLEŞME RADAR (YENİ)
+    # 6. SÖZLEŞME RADAR (YENİ SEKME)
     with tab_radar:
         st.subheader("📡 Sözleşme Radar (Kısa Süreli Anlaşmalar)")
-        st.markdown("Başlangıç ve bitiş tarihi arasında **90 günden (3 Ay) az** süre olan sözleşmeleri tespit eder. Bu durum genellikle geçici lisansları veya hatalı verileri gösterir.")
+        st.markdown("Sözleşme Başlangıç ve Bitiş tarihi arasında **3 Aydan (90 gün) az** süre olan kayıtları listeler.")
         
-        if 'Sozlesme_Suresi_Gun' in df_filtered.columns:
-            # 90 günden az ve pozitif (hatalı eksi günleri eledik)
-            radar_df = df_filtered[(df_filtered['Sozlesme_Suresi_Gun'] < 90) & (df_filtered['Sozlesme_Suresi_Gun'] >= 0)].copy()
+        if 'Sozlesme_Suresi_Gun' in df_filtered.columns and start_date_col:
+            # Mantık: Süre < 90 ve Süre > 0 (Hatalı eksileri ele)
+            radar_df = df_filtered[(df_filtered['Sozlesme_Suresi_Gun'] < 90) & (df_filtered['Sozlesme_Suresi_Gun'] >= 0)]
             
             if not radar_df.empty:
                 st.error(f"⚠️ Toplam **{len(radar_df)}** adet 3 aydan kısa süreli sözleşme tespit edildi.")
-                show_details_table(radar_df, target_date_col)
+                # Özel sütunları göster
+                extra_cols = ['Dağıtıcı ile Yapılan Sözleşme Başlangıç Tarihi', 'Dağıtıcı ile Yapılan Sözleşme Bitiş Tarihi', 'Sozlesme_Suresi_Gun']
+                # Eğer standart ad farklıysa dinamik olanı kullan
+                if start_date_col not in extra_cols: extra_cols[0] = start_date_col
+                
+                show_details_table(radar_df, target_date_col, extra_cols=extra_cols)
             else:
                 st.success("✅ Seçilen kriterlerde 3 aydan kısa süreli (şüpheli) sözleşme bulunmamaktadır.")
         else:
-            st.warning("Veri setinde Sözleşme Başlangıç Tarihi bulunamadığı için hesaplanamıyor.")
+            st.warning("Veri setinde Başlangıç Tarihi sütunu bulunamadı.")
 
     # 7. İLÇE PENETRASYONU
     with tab_ilce:
@@ -584,10 +617,9 @@ def main():
                     cols = st.columns(4)
                     for i, d in enumerate(miss): cols[i%4].warning(f"📍 {d}")
 
-    # 8. İL KARNESİ (YENİLENMİŞ - YILLIK DETAY)
+    # 8. İL KARNESİ (YILLIK GÖRÜNÜM)
     with tab_report:
         st.subheader("📄 Tek Tuşla İl Karnesi")
-        st.markdown("Seçilen ilin tüm kritik verilerini tek sayfada özetler.")
         
         all_provinces = sorted(df['İl'].unique().tolist())
         default_province_idx = 0
@@ -604,7 +636,6 @@ def main():
             market_leader = competitors_city.idxmax() if not competitors_city.empty else "Veri Yok"
             leader_count = competitors_city.max() if not competitors_city.empty else 0
             
-            # BİZİM DURUMUMUZ (GÜZEL ENERJİ)
             my_city_df = city_df[city_df['Dağıtım Şirketi'] == "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"]
             my_city_count = len(my_city_df)
             
@@ -612,7 +643,6 @@ def main():
             st.markdown(f"<h1 style='text-align: center; color: #2980b9;'>{report_city} İLİ PAZAR KARNESİ</h1>", unsafe_allow_html=True)
             st.markdown(f"<p style='text-align: center;'>Rapor Tarihi: {datetime.date.today().strftime('%d.%m.%Y')}</p>", unsafe_allow_html=True)
             
-            # KPI
             rk1, rk2, rk3 = st.columns(3)
             rk1.metric("Toplam İstasyon", total_stations_city)
             rk2.metric("Pazar Lideri", f"{leader_count} Bayi", help=market_leader)
@@ -620,7 +650,7 @@ def main():
             
             st.divider()
             
-            # YILLIK SÖZLEŞME BİTİŞ TAKVİMİ (KUTULAR HALİNDE)
+            # YILLIK SÖZLEŞME BİTİŞ TAKVİMİ (KUTULAR)
             st.subheader(f"📅 Güzel Enerji Sözleşme Bitiş Projeksiyonu ({report_city})")
             
             if not my_city_df.empty and 'Bitis_Yili' in my_city_df.columns:
@@ -628,10 +658,13 @@ def main():
                 future_expirations = my_city_df[my_city_df['Bitis_Yili'] >= current_year]['Bitis_Yili'].value_counts().sort_index()
                 
                 if not future_expirations.empty:
-                    # Kutuları yan yana dizmek için columns kullan
-                    cols = st.columns(len(future_expirations))
-                    for idx, (year, count) in enumerate(future_expirations.items()):
-                        with cols[idx]:
+                    cols = st.columns(min(len(future_expirations), 5)) # En fazla 5 sütun yan yana
+                    # Fazla yıl varsa alt satıra geçmek için bir container kullanmak daha iyi olur ama basitlik için ilk N tanesi
+                    # Tüm yılları göstermek için döngü:
+                    for i, (year, count) in enumerate(future_expirations.items()):
+                        col_idx = i % 5 # 5'li satırlar
+                        if col_idx == 0 and i > 0: cols = st.columns(min(len(future_expirations)-i, 5))
+                        with cols[col_idx]:
                             st.markdown(f"""
                             <div class="year-box">
                                 <div class="year-title">{int(year)}</div>
@@ -650,7 +683,6 @@ def main():
 
             st.divider()
             
-            # Grafikler
             rc1, rc2 = st.columns(2)
             with rc1:
                 st.subheader("Dağıtıcı Pazar Payı")
