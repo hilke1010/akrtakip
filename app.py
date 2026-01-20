@@ -48,7 +48,6 @@ st.markdown("""
         border-radius: 4px;
         font-weight: bold;
     }
-    /* Makine Analizi Kutuları */
     .insight-box-success {
         padding: 15px; border-radius: 8px; background-color: #d4edda; border-left: 5px solid #28a745; color: #155724; margin-bottom: 10px;
     }
@@ -61,7 +60,6 @@ st.markdown("""
     .insight-box-info {
         padding: 15px; border-radius: 8px; background-color: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460; margin-bottom: 10px;
     }
-    /* İlçe Etiketleri (Chip Style) */
     .district-chip {
         display: inline-block;
         background-color: #f1f3f5;
@@ -70,7 +68,7 @@ st.markdown("""
         border-radius: 15px;
         font-size: 0.9em;
         border: 1px solid #ddd;
-        cursor: help; /* Üzerine gelince soru işareti çıksın */
+        cursor: help;
     }
     .district-chip:hover {
         background-color: #e2e6ea;
@@ -332,11 +330,10 @@ def main():
         fig_city.update_layout(yaxis=dict(title='Toplam Bayi Sayısı'), margin=dict(t=50, b=100))
         
         st.plotly_chart(fig_city, use_container_width=True, on_select="rerun", key="overview_bar_chart")
-        st.caption("ℹ️ *Grafiği sağ üst köşesinden büyütebilir, üzerine gelerek detayları görebilirsiniz.*")
+        st.caption("ℹ️ *👇 Grafiğin çubuklarına tıklayarak aşağıdaki listeyi filtreleyebilirsiniz.*")
 
         st.markdown("---")
         
-        # İki Pasta Yan Yana (Şehir ve Dağıtıcı)
         col_pie1, col_pie2 = st.columns(2)
         
         with col_pie1:
@@ -352,16 +349,13 @@ def main():
 
         with col_pie2:
             if 'Dağıtım Şirketi' in df_filtered.columns:
+                # --- GÜNCELLENDİ: TÜM ŞİRKETLER ---
                 dist_pie_data = df_filtered['Dağıtım Şirketi'].value_counts().reset_index()
                 dist_pie_data.columns = ['Dağıtım Şirketi', 'Adet']
-                if len(dist_pie_data) > 5:
-                    top_5 = dist_pie_data.iloc[:5]
-                    others = pd.DataFrame({'Dağıtım Şirketi': ['DİĞER'], 'Adet': [dist_pie_data.iloc[5:]['Adet'].sum()]})
-                    dist_pie_data = pd.concat([top_5, others])
+                # Filtreleme yok, hepsini göster
                 fig_dist_pie = px.pie(dist_pie_data, values='Adet', names='Dağıtım Şirketi', hole=0.4, title="Pazar Payı (Dağıtıcı)")
                 st.plotly_chart(fig_dist_pie, use_container_width=True)
 
-        # Tablo
         selected_chart_city = None
         try:
             if st.session_state.get("overview_bar_chart") and st.session_state["overview_bar_chart"]['selection']['points']:
@@ -406,8 +400,6 @@ def main():
             all_scope_districts = scope_df['İlçe'].unique()
             my_districts = my_df['İlçe'].unique()
             missing_districts = sorted(list(set(all_scope_districts) - set(my_districts)))
-            
-            # İlçe bazlı toplam pazar büyüklüğünü hesapla (Tooltip için)
             district_market_size = scope_df['İlçe'].value_counts()
 
             if len(missing_districts) > 0:
@@ -419,14 +411,11 @@ def main():
                 """, unsafe_allow_html=True)
                 
                 with st.expander("📄 Tüm Eksik İlçeleri Listele (Üzerine Gelip Pazar Büyüklüğünü Görün)", expanded=False):
-                    # HTML ile Chip tasarımı oluşturuyoruz
                     html_chips = ""
                     for dist in missing_districts:
-                        # O ilçedeki toplam istasyon sayısı
                         total_stations = district_market_size.get(dist, 0)
                         tooltip_text = f"{dist}: Bizde 0, Toplam Pazar: {total_stations} Bayi"
                         html_chips += f'<span class="district-chip" title="{tooltip_text}">{dist}</span>'
-                    
                     st.markdown(html_chips, unsafe_allow_html=True)
                     st.info("💡 **İpucu:** İlçelerin üzerine gelerek (mouse ile), o ilçedeki toplam rakip istasyon sayısını görebilirsiniz.")
             else:
@@ -434,8 +423,7 @@ def main():
 
             # --- SÖZLEŞME BİTİŞ YILLARI (2026 DAHİL) ---
             if 'Bitis_Yili' in my_df.columns:
-                current_year = datetime.date.today().year # 2026
-                # Şu anki yıl ve sonrası
+                current_year = datetime.date.today().year
                 future_expirations = my_df[my_df['Bitis_Yili'] >= current_year]['Bitis_Yili'].value_counts().sort_index()
                 
                 if not future_expirations.empty:
@@ -461,7 +449,6 @@ def main():
             share_pct = (my_share / total_market) * 100
             
             col_share_text, col_share_chart = st.columns([1, 1])
-            
             with col_share_text:
                 st.markdown(f"""
                 <div class="insight-box-info">
@@ -471,22 +458,13 @@ def main():
                     Sizin İstasyonunuz: <b>{my_share}</b>
                 </div>
                 """, unsafe_allow_html=True)
-                
             with col_share_chart:
                 others_share = total_market - my_share
-                fig_my_share = px.pie(
-                    names=['GÜZEL ENERJİ', 'RAKİPLER'],
-                    values=[my_share, others_share],
-                    hole=0.5,
-                    title=f"Bölgesel Hakimiyet Oranı",
-                    color_discrete_sequence=['#2ecc71', '#e74c3c'] 
-                )
+                fig_my_share = px.pie(names=['GÜZEL ENERJİ', 'RAKİPLER'], values=[my_share, others_share], hole=0.5, title=f"Bölgesel Hakimiyet Oranı", color_discrete_sequence=['#2ecc71', '#e74c3c'])
                 fig_my_share.update_layout(margin=dict(t=30, b=0, l=0, r=0))
                 st.plotly_chart(fig_my_share, use_container_width=True)
-
         else:
             st.warning(f"Seçilen bölgede ({analiz_bolge}) GÜZEL ENERJİ verisine rastlanmadı.")
-
 
     # 3. KARŞILAŞTIRMA (VS.)
     with tab_compare:
@@ -591,6 +569,7 @@ def main():
                     m_cnt = df_yr.groupby(['Bitis_Ayi_No']).agg(Adet=('Unvan','count'), Ay=('Bitis_Ayi','first')).reset_index().sort_values('Bitis_Ayi_No')
                     fig_cal = px.bar(m_cnt, x='Ay', y='Adet', text='Adet', title=f"{sel_yr} Dağılımı")
                     sel = st.plotly_chart(fig_cal, use_container_width=True, on_select="rerun", key="cal_sel")
+                    st.caption("ℹ️ *👇 Grafiğin çubuklarına tıklayarak aşağıdaki listeyi filtreleyebilirsiniz.*")
                     if sel and sel['selection']['points']:
                         mn = sel['selection']['points'][0]['x']
                         st.success(f"🗓️ **{mn} {sel_yr}**")
@@ -606,6 +585,7 @@ def main():
                 d_cnt = df_filtered.groupby(['İlçe']).size().reset_index(name='Adet').sort_values('Adet', ascending=True)
                 fig_ilce = px.bar(d_cnt, x='Adet', y='İlçe', orientation='h', text='Adet', height=600)
                 sel_ilce = st.plotly_chart(fig_ilce, use_container_width=True, on_select="rerun", key="ilce_sel")
+                st.caption("ℹ️ *👇 Grafiğin çubuklarına tıklayarak aşağıdaki listeyi filtreleyebilirsiniz.*")
                 if sel_ilce and sel_ilce['selection']['points']:
                     dst = sel_ilce['selection']['points'][0]['y']
                     st.success(f"📍 **{dst}**")
