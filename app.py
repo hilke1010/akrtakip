@@ -15,9 +15,9 @@ st.set_page_config(
 )
 
 # --- PERFORMANS AYARLARI ---
-MAX_ROW_DISPLAY = 1000  # Tablo limiti
-MAX_MAP_POINTS = 50000  # Harita limiti
-PREVIEW_ROW_LIMIT = 100 # Önizleme limiti
+MAX_ROW_DISPLAY = 1000  
+MAX_MAP_POINTS = 50000 
+PREVIEW_ROW_LIMIT = 100
 
 # --- 2. DOSYA İSİMLERİ ---
 SABIT_DOSYA_ADI = "asatis.xlsx"
@@ -167,7 +167,7 @@ def load_data(file_path):
         return df, target_col, start_col
     except Exception as e: return None, str(e), None
 
-# --- DETAY TABLOSU (DÜZELTİLDİ: SÜTUN TEKRARINI ÖNLEME) ---
+# --- DETAY TABLOSU ---
 def show_details_table(dataframe, target_date_col, extra_cols=None):
     if dataframe is None or dataframe.empty:
         st.info("Seçilen kriterlere uygun kayıt bulunamadı.")
@@ -184,13 +184,11 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
     if extra_cols:
         cols.extend(extra_cols)
     
-    # SÜTUN TEKRARINI ÖNLE (KEYERROR ÇÖZÜMÜ)
     seen = set()
     final_cols = [c for c in cols if c in display_df_limit.columns and not (c in seen or seen.add(c))]
     
     display_df = display_df_limit[final_cols].copy()
     
-    # Tarih formatlama
     date_columns = [col for col in display_df.columns if "Tarihi" in col or "Tarih" in col]
     for date_col in date_columns:
         try: display_df[date_col] = pd.to_datetime(display_df[date_col]).dt.strftime('%d.%m.%Y')
@@ -300,9 +298,8 @@ def main():
     with tab_overview:
         st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
         
-        if len(df_filtered) > MAX_MAP_POINTS:
-            st.warning(f"⚠️ Haritada {len(df_filtered):,} nokta var. Performans için filtreleyin.")
-        elif not df_filtered.empty:
+        # Harita Performansı
+        if not df_filtered.empty:
             map_data = df_filtered['İl'].value_counts().reset_index()
             map_data.columns = ['İl', 'Adet']
             map_data['lat'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[0])
@@ -323,6 +320,7 @@ def main():
                     fig_map.update_layout(mapbox_center={"lat": 39.0, "lon": 35.0}, mapbox_zoom=4.8)
                 fig_map.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
                 st.plotly_chart(fig_map, use_container_width=True)
+                
                 st.info("ℹ️ **Lejand:** 🔴 Koyu = Yüksek Yoğunluk, 🔵 Açık = Düşük Yoğunluk, ⚪ Büyüklük = İstasyon Sayısı")
 
         st.divider()
@@ -355,10 +353,7 @@ def main():
         with col_pie1:
             city_pie_data = df_filtered['İl'].value_counts().reset_index()
             city_pie_data.columns = ['İl', 'Adet']
-            if len(city_pie_data) > 10:
-                top_10 = city_pie_data.iloc[:10]
-                others = pd.DataFrame({'İl': ['DİĞER'], 'Adet': [city_pie_data.iloc[10:]['Adet'].sum()]})
-                city_pie_data = pd.concat([top_10, others])
+            # ŞEHİR PASTASINDA DA HEPSİNİ GÖSTER (GÜNCELLENDİ)
             fig_city_pie = px.pie(city_pie_data, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı (%)")
             st.plotly_chart(fig_city_pie, use_container_width=True)
 
@@ -563,7 +558,7 @@ def main():
                         show_details_table(df_yr[df_yr['Bitis_Ayi']==mn], target_date_col)
                     else: show_details_table(df_yr, target_date_col)
 
-    # 6. SÖZLEŞME RADAR
+    # 6. SÖZLEŞME RADAR (YENİ SEKME)
     with tab_radar:
         st.subheader("📡 Sözleşme Radar (Kısa Süreli Anlaşmalar)")
         st.markdown("Sözleşme Başlangıç ve Bitiş tarihi arasında **3 Aydan (90 gün) az** süre olan kayıtları listeler.")
@@ -605,7 +600,7 @@ def main():
                     cols = st.columns(4)
                     for i, d in enumerate(miss): cols[i%4].warning(f"📍 {d}")
 
-    # 8. İL KARNESİ (YENİLENMİŞ - YILLIK DETAY)
+    # 8. İL KARNESİ (YENİLENMİŞ)
     with tab_report:
         st.subheader("📄 Tek Tuşla İl Karnesi")
         st.markdown("Seçilen ilin tüm kritik verilerini tek sayfada özetler.")
