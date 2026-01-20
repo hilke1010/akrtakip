@@ -48,7 +48,6 @@ st.markdown("""
         border-radius: 4px;
         font-weight: bold;
     }
-    /* Makine Analizi Kutuları */
     .insight-box-success {
         padding: 15px; border-radius: 8px; background-color: #d4edda; border-left: 5px solid #28a745; color: #155724; margin-bottom: 10px;
     }
@@ -226,7 +225,7 @@ def main():
     if selected_cities: df_filtered = df_filtered[df_filtered['İl'].isin(selected_cities)]
     if selected_districts: df_filtered = df_filtered[df_filtered['İlçe'].isin(selected_districts)]
     
-    df_filtered_geo_only = df_filtered.copy() # Şirket filtresi uygulanmamış (Karşılaştırma için)
+    df_filtered_geo_only = df_filtered.copy()
     if selected_companies: df_filtered = df_filtered[df_filtered['Dağıtım Şirketi'].isin(selected_companies)]
 
     # --- KPI ---
@@ -243,7 +242,7 @@ def main():
     # --- SEKMELER ---
     tab_overview, tab_machine, tab_compare, tab_sim, tab_calendar, tab_ilce, tab_crm, tab_data = st.tabs([
         "📊 Bölgesel & Durum",
-        "🤖 Makine Analizi",     # YENİ
+        "🤖 Makine Analizi",     
         "⚔️ Karşılaştırma (Vs.)", 
         "🔮 Simülasyon",         
         "📅 Takvim", 
@@ -252,7 +251,7 @@ def main():
         "📋 Ham Veri"
     ])
 
-    # 1. BÖLGESEL & DURUM (LEJAND EKLENDİ)
+    # 1. BÖLGESEL & DURUM
     with tab_overview:
         st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
         
@@ -280,23 +279,40 @@ def main():
                 fig_map.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
                 st.plotly_chart(fig_map, use_container_width=True)
                 
-                # HARİTA AÇIKLAMASI (LEJAND)
                 st.info("""
                 ℹ️ **Harita Lejandı:**
-                *   🔴 **Kırmızı / Koyu Renkler:** Yoğunluğun çok yüksek olduğu bölgeler (Çok sayıda bayi).
-                *   🔵 **Mavi / Açık Renkler:** Yoğunluğun düşük olduğu bölgeler.
-                *   ⚪ **Daire Büyüklüğü:** O ildeki toplam istasyon sayısı ile orantılıdır.
+                *   🔴 **Koyu Renkler:** Yoğunluğun yüksek olduğu bölgeler.
+                *   🔵 **Açık Renkler:** Yoğunluğun düşük olduğu bölgeler.
+                *   ⚪ **Daire Büyüklüğü:** Toplam istasyon sayısı ile orantılıdır.
                 """)
 
         st.divider()
         st.subheader("📊 İstatistikler")
-        c_bar, c_pie1, c_pie2 = st.columns([2, 1, 1])
-        with c_bar:
-            fig_city = px.bar(map_data, x='İl', y='Adet', text='Adet', title="Şehir Sıralaması", color='Adet', color_continuous_scale='Blues')
-            st.plotly_chart(fig_city, use_container_width=True, on_select="rerun", key="overview_bar_chart")
-            st.caption("ℹ️ *Grafiği sağ üst köşesinden büyütebilir, üzerine gelerek detayları görebilirsiniz.*") # UYARI EKLENDİ
+        
+        # Çubuk Grafik
+        fig_city = px.bar(map_data, x='İl', y='Adet', text='Adet', title="Şehir Sıralaması", color='Adet', color_continuous_scale='Blues')
+        st.plotly_chart(fig_city, use_container_width=True, on_select="rerun", key="overview_bar_chart")
+        st.caption("ℹ️ *Grafiği sağ üst köşesinden büyütebilir, üzerine gelerek detayları görebilirsiniz.*")
 
-        with c_pie1:
+        st.markdown("---")
+        
+        # İki Pasta Yan Yana (Şehir ve Dağıtıcı)
+        col_pie1, col_pie2 = st.columns(2)
+        
+        with col_pie1:
+            # Şehir Pastası (İlk 10 + Diğer)
+            city_pie_data = df_filtered['İl'].value_counts().reset_index()
+            city_pie_data.columns = ['İl', 'Adet']
+            if len(city_pie_data) > 10:
+                top_10 = city_pie_data.iloc[:10]
+                others = pd.DataFrame({'İl': ['DİĞER'], 'Adet': [city_pie_data.iloc[10:]['Adet'].sum()]})
+                city_pie_data = pd.concat([top_10, others])
+            
+            fig_city_pie = px.pie(city_pie_data, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı (%)")
+            st.plotly_chart(fig_city_pie, use_container_width=True)
+
+        with col_pie2:
+            # Dağıtıcı Pastası (İlk 5 + Diğer)
             if 'Dağıtım Şirketi' in df_filtered.columns:
                 dist_pie_data = df_filtered['Dağıtım Şirketi'].value_counts().reset_index()
                 dist_pie_data.columns = ['Dağıtım Şirketi', 'Adet']
@@ -304,14 +320,8 @@ def main():
                     top_5 = dist_pie_data.iloc[:5]
                     others = pd.DataFrame({'Dağıtım Şirketi': ['DİĞER'], 'Adet': [dist_pie_data.iloc[5:]['Adet'].sum()]})
                     dist_pie_data = pd.concat([top_5, others])
-                fig_dist_pie = px.pie(dist_pie_data, values='Adet', names='Dağıtım Şirketi', hole=0.4, title="Pazar Payı")
+                fig_dist_pie = px.pie(dist_pie_data, values='Adet', names='Dağıtım Şirketi', hole=0.4, title="Pazar Payı (Dağıtıcı)")
                 st.plotly_chart(fig_dist_pie, use_container_width=True)
-
-        with c_pie2:
-            risk_counts = df_filtered['Risk_Durumu'].value_counts().reset_index()
-            risk_counts.columns = ['Risk_Durumu', 'Adet']
-            fig_risk_pie = px.pie(risk_counts, values='Adet', names='Risk_Durumu', hole=0.4, title="Risk Dağılımı", color_discrete_map={"SÜRESİ DOLDU 🚨": "red", "KRİTİK (<3 Ay) ⚠️": "orange", "YAKLAŞIYOR (<6 Ay) ⏳": "#FFD700", "GÜVENLİ ✅": "green"})
-            st.plotly_chart(fig_risk_pie, use_container_width=True)
 
         # Tablo
         selected_chart_city = None
@@ -324,20 +334,16 @@ def main():
         except: filtered_table = df_filtered
         show_details_table(filtered_table, target_date_col)
 
-    # 2. MAKİNE ANALİZİ (YENİ SEKME - OTO ANALİZ)
+    # 2. MAKİNE ANALİZİ (GÜNCELLENDİ: TÜM İLÇELERİ GÖSTER)
     with tab_machine:
         st.subheader("🤖 Makine Analizi (Akıllı Asistan)")
         st.markdown("Veriler taranarak **GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ** için özel stratejik notlar oluşturuldu.")
         
-        # Filtre Seçimi (Bu sekme için özel)
         col_ma1, col_ma2 = st.columns([1,3])
         with col_ma1:
             analiz_bolge = st.selectbox("Analiz Bölgesi", ["Tümü"] + list(BOLGE_TANIMLARI.keys()), key="ma_region")
         
-        # Analiz edilecek veriyi hazırla
         my_company = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
-        
-        # 1. Kapsam Belirle
         if analiz_bolge != "Tümü":
             scope_df = df[df['İl'].isin(BOLGE_TANIMLARI[analiz_bolge])]
             st.caption(f"📍 **Kapsam:** {analiz_bolge} Bölgesi")
@@ -345,76 +351,57 @@ def main():
             scope_df = df.copy()
             st.caption("📍 **Kapsam:** Tüm Türkiye")
 
-        # Şirket verisi
         my_df = scope_df[scope_df['Dağıtım Şirketi'] == my_company]
         
         if not my_df.empty:
-            # --- ANALİZ 1: GÜÇLÜ & ZAYIF YÖNLER ---
             top_city = my_df['İl'].value_counts().idxmax()
             top_city_count = my_df['İl'].value_counts().max()
             
             st.markdown(f"""
             <div class="insight-box-success">
                 <b>🏆 En Güçlü Kale:</b> <br>
-                Şirketin bu bölgedeki en yoğun olduğu il <b>{top_city}</b> ({top_city_count} Bayi). Operasyonel verimliliği artırmak için bu il merkez üs olarak kullanılabilir.
+                Şirketin bu bölgedeki en yoğun olduğu il <b>{top_city}</b> ({top_city_count} Bayi).
             </div>
             """, unsafe_allow_html=True)
 
-            # --- ANALİZ 2: FIRSATLAR (OLMAYAN İLÇELER) ---
-            # Seçili bölgedeki (veya Türkiye'deki) tüm ilçeler vs. Bizim olduğumuz ilçeler
+            # --- EKSİK İLÇELER (DÜZELTİLDİ: TÜMÜNÜ GÖSTER) ---
             all_scope_districts = scope_df['İlçe'].unique()
             my_districts = my_df['İlçe'].unique()
-            missing_districts = list(set(all_scope_districts) - set(my_districts))
+            missing_districts = sorted(list(set(all_scope_districts) - set(my_districts)))
             
             if len(missing_districts) > 0:
-                # İlk 5 ilçeyi yaz
-                missing_text = ", ".join(sorted(missing_districts)[:10])
-                if len(missing_districts) > 10: missing_text += "..."
-                
                 st.markdown(f"""
                 <div class="insight-box-warning">
                     <b>🚀 Büyüme Fırsatları (Boş Noktalar):</b> <br>
-                    Bu bölgede toplam <b>{len(missing_districts)}</b> ilçede hiç bayiniz bulunmuyor. <br>
-                    <i>Öncelikli Hedef Olabilecek İlçeler: {missing_text}</i>
+                    Bu bölgede toplam <b>{len(missing_districts)}</b> ilçede hiç bayiniz bulunmuyor.
                 </div>
                 """, unsafe_allow_html=True)
+                
+                # Expandable Liste
+                with st.expander("📄 Tüm Eksik İlçeleri Listele (Tıklayın)", expanded=False):
+                    st.write(", ".join(missing_districts))
+                    st.info("💡 **Not:** Nüfus verisi veritabanında olmadığı için '+10.000 nüfus' filtresi uygulanamamıştır. Ancak yukarıdaki liste bölgedeki tüm eksik noktaları içerir.")
             else:
                 st.success("Tebrikler! Bu bölgedeki tüm ilçelerde varlık gösteriyorsunuz.")
 
-            # --- ANALİZ 3: SÖZLEŞME RİSKLERİ ---
             if 'Bitis_Yili' in my_df.columns:
                 next_year = datetime.date.today().year + 1
                 expiring_soon = len(my_df[my_df['Bitis_Yili'] == next_year])
-                
                 if expiring_soon > 0:
                     st.markdown(f"""
                     <div class="insight-box-danger">
                         <b>⚠️ Kritik Yenileme Dönemi:</b> <br>
-                        Önümüzdeki yıl ({next_year}) toplam <b>{expiring_soon}</b> adet sözleşmeniz sona erecek. 
-                        Bu bayilerle erkenden görüşülmesi müşteri kaybını (churn) önleyebilir.
+                        Önümüzdeki yıl ({next_year}) toplam <b>{expiring_soon}</b> adet sözleşmeniz sona erecek.
                     </div>
                     """, unsafe_allow_html=True)
             
-            # --- ANALİZ 4: PAZAR PAYI DURUMU ---
             total_market = len(scope_df)
             my_share = len(my_df)
             share_pct = (my_share / total_market) * 100
-            
-            # Bölgedeki en büyük rakip
-            competitors = scope_df[scope_df['Dağıtım Şirketi'] != my_company]['Dağıtım Şirketi'].value_counts()
-            top_competitor = competitors.idxmax() if not competitors.empty else "Yok"
-            top_comp_count = competitors.max() if not competitors.empty else 0
-            
-            info_msg = f"Bölgedeki toplam pazar payınız: <b>%{share_pct:.1f}</b>."
-            if top_competitor != "Yok":
-                diff = top_comp_count - my_share
-                status = "öndesiniz" if diff < 0 else "geridesiniz"
-                info_msg += f"<br>En büyük rakibiniz <b>{top_competitor}</b> ({top_comp_count} Bayi). Onlardan <b>{abs(diff)}</b> bayi {status}."
-
             st.markdown(f"""
             <div class="insight-box-info">
-                <b>📊 Rekabet Durumu:</b> <br>
-                {info_msg}
+                <b>📊 Pazar Payı:</b> <br>
+                Bölgedeki toplam pazar payınız: <b>%{share_pct:.1f}</b>.
             </div>
             """, unsafe_allow_html=True)
 
@@ -451,7 +438,6 @@ def main():
                 k3.info(f"**En Zayıf:** {min_a}")
                 k3.warning(f"**En Zayıf:** {min_b}")
 
-                # En Büyük Fark
                 if not df_a.empty or not df_b.empty:
                     ca = df_a['İl'].value_counts(); cb = df_b['İl'].value_counts()
                     cities = set(ca.index) | set(cb.index)
