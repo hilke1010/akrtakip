@@ -227,7 +227,7 @@ def main():
     df, target_date_col, start_date_col = data_result
 
     with st.sidebar:
-        st.info("🕒 Veriler her gün saat 10:00'da yenilenmektedir. (Dosya yükleme süresi 5 dakika)")
+        st.info("🕒 Veriler her gün saat 10:00'da yenilenmektedir. (Dosya yükleme süresi 5 dakika,Talebinize Göre Anında Dosya Yenilenebilir)")
         st.markdown("---")
         st.title("🔍 Filtre Paneli")
         
@@ -720,3 +720,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
