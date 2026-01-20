@@ -48,6 +48,7 @@ st.markdown("""
         border-radius: 4px;
         font-weight: bold;
     }
+    /* Makine Analizi Kutuları */
     .insight-box-success {
         padding: 15px; border-radius: 8px; background-color: #d4edda; border-left: 5px solid #28a745; color: #155724; margin-bottom: 10px;
     }
@@ -289,7 +290,6 @@ def main():
         st.divider()
         st.subheader("📊 İstatistikler")
         
-        # Çubuk Grafik
         fig_city = px.bar(map_data, x='İl', y='Adet', text='Adet', title="Şehir Sıralaması", color='Adet', color_continuous_scale='Blues')
         st.plotly_chart(fig_city, use_container_width=True, on_select="rerun", key="overview_bar_chart")
         st.caption("ℹ️ *Grafiği sağ üst köşesinden büyütebilir, üzerine gelerek detayları görebilirsiniz.*")
@@ -300,7 +300,6 @@ def main():
         col_pie1, col_pie2 = st.columns(2)
         
         with col_pie1:
-            # Şehir Pastası (İlk 10 + Diğer)
             city_pie_data = df_filtered['İl'].value_counts().reset_index()
             city_pie_data.columns = ['İl', 'Adet']
             if len(city_pie_data) > 10:
@@ -312,7 +311,6 @@ def main():
             st.plotly_chart(fig_city_pie, use_container_width=True)
 
         with col_pie2:
-            # Dağıtıcı Pastası (İlk 5 + Diğer)
             if 'Dağıtım Şirketi' in df_filtered.columns:
                 dist_pie_data = df_filtered['Dağıtım Şirketi'].value_counts().reset_index()
                 dist_pie_data.columns = ['Dağıtım Şirketi', 'Adet']
@@ -334,7 +332,7 @@ def main():
         except: filtered_table = df_filtered
         show_details_table(filtered_table, target_date_col)
 
-    # 2. MAKİNE ANALİZİ (GÜNCELLENDİ: TÜM İLÇELERİ GÖSTER)
+    # 2. MAKİNE ANALİZİ (GÜNCELLENDİ)
     with tab_machine:
         st.subheader("🤖 Makine Analizi (Akıllı Asistan)")
         st.markdown("Veriler taranarak **GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ** için özel stratejik notlar oluşturuldu.")
@@ -364,7 +362,7 @@ def main():
             </div>
             """, unsafe_allow_html=True)
 
-            # --- EKSİK İLÇELER (DÜZELTİLDİ: TÜMÜNÜ GÖSTER) ---
+            # --- EKSİK İLÇELER ---
             all_scope_districts = scope_df['İlçe'].unique()
             my_districts = my_df['İlçe'].unique()
             missing_districts = sorted(list(set(all_scope_districts) - set(my_districts)))
@@ -377,33 +375,63 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Expandable Liste
                 with st.expander("📄 Tüm Eksik İlçeleri Listele (Tıklayın)", expanded=False):
                     st.write(", ".join(missing_districts))
-                    st.info("💡 **Not:** Nüfus verisi veritabanında olmadığı için '+10.000 nüfus' filtresi uygulanamamıştır. Ancak yukarıdaki liste bölgedeki tüm eksik noktaları içerir.")
+                    st.info("💡 **Not:** Nüfus verisi entegre edilirse burası nüfusa göre filtrelenebilir.")
             else:
                 st.success("Tebrikler! Bu bölgedeki tüm ilçelerde varlık gösteriyorsunuz.")
 
+            # --- SÖZLEŞME BİTİŞ YILLARI (DETAYLI DÖNGÜ) ---
             if 'Bitis_Yili' in my_df.columns:
-                next_year = datetime.date.today().year + 1
-                expiring_soon = len(my_df[my_df['Bitis_Yili'] == next_year])
-                if expiring_soon > 0:
+                current_year = datetime.date.today().year
+                # Gelecekteki tüm yılları al (Sıralı)
+                future_expirations = my_df[my_df['Bitis_Yili'] > current_year]['Bitis_Yili'].value_counts().sort_index()
+                
+                if not future_expirations.empty:
+                    msg_list = "<ul>"
+                    total_future = 0
+                    for year, count in future_expirations.items():
+                        msg_list += f"<li><b>{int(year)}:</b> {count} adet sözleşme</li>"
+                        total_future += count
+                    msg_list += "</ul>"
+                    
                     st.markdown(f"""
                     <div class="insight-box-danger">
-                        <b>⚠️ Kritik Yenileme Dönemi:</b> <br>
-                        Önümüzdeki yıl ({next_year}) toplam <b>{expiring_soon}</b> adet sözleşmeniz sona erecek.
+                        <b>⚠️ Kritik Yenileme Dönemleri (Gelecek Yıllar):</b> <br>
+                        Toplamda <b>{total_future}</b> sözleşme önümüzdeki yıllarda sona erecek. Yıllara göre dağılım:
+                        {msg_list}
                     </div>
                     """, unsafe_allow_html=True)
             
+            # --- PAZAR PAYI (METİN + GÖRSEL) ---
             total_market = len(scope_df)
             my_share = len(my_df)
             share_pct = (my_share / total_market) * 100
-            st.markdown(f"""
-            <div class="insight-box-info">
-                <b>📊 Pazar Payı:</b> <br>
-                Bölgedeki toplam pazar payınız: <b>%{share_pct:.1f}</b>.
-            </div>
-            """, unsafe_allow_html=True)
+            
+            col_share_text, col_share_chart = st.columns([1, 1])
+            
+            with col_share_text:
+                st.markdown(f"""
+                <div class="insight-box-info">
+                    <b>📊 Pazar Payı Analizi:</b> <br>
+                    Bu bölgedeki toplam pazar payınız: <b>%{share_pct:.1f}</b>.<br><br>
+                    Toplam İstasyon: <b>{total_market}</b><br>
+                    Sizin İstasyonunuz: <b>{my_share}</b>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col_share_chart:
+                # Özel Pasta Grafik: Biz vs Diğerleri
+                others_share = total_market - my_share
+                fig_my_share = px.pie(
+                    names=['GÜZEL ENERJİ', 'RAKİPLER'],
+                    values=[my_share, others_share],
+                    hole=0.5,
+                    title=f"Bölgesel Hakimiyet Oranı",
+                    color_discrete_sequence=['#2ecc71', '#e74c3c'] # Yeşil ve Kırmızı
+                )
+                fig_my_share.update_layout(margin=dict(t=30, b=0, l=0, r=0))
+                st.plotly_chart(fig_my_share, use_container_width=True)
 
         else:
             st.warning(f"Seçilen bölgede ({analiz_bolge}) GÜZEL ENERJİ verisine rastlanmadı.")
