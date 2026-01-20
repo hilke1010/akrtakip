@@ -31,7 +31,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 4. KOORDİNAT VERİTABANI (İL MERKEZLERİ) ---
-# Excel'de koordinat olmadığı için illeri haritada göstermek adına bu listeyi kullanıyoruz.
 CITY_COORDINATES = {
     "ADANA": [37.0000, 35.3213], "ADIYAMAN": [37.7648, 38.2786], "AFYONKARAHİSAR": [38.7507, 30.5567],
     "AĞRI": [39.7191, 43.0503], "AMASYA": [40.6499, 35.8353], "ANKARA": [39.9334, 32.8597],
@@ -230,8 +229,8 @@ def main():
     if selected_region != "Tümü":
         st.caption(f"📍 Şu anda **{selected_region}** verileri görüntüleniyor.")
 
-    # KPI KISMI (Ortalama Kalan Gün Kaldırıldı)
-    c1, c2, c3 = st.columns(3) # Kolon sayısı 3'e düşürüldü
+    # KPI KISMI
+    c1, c2, c3 = st.columns(3)
     c1.metric("Toplam İstasyon", f"{len(df_filtered):,}")
 
     acil_durum = len(df_filtered[df_filtered['Kalan_Gun'] < 90])
@@ -275,7 +274,7 @@ def main():
             map_data['lat'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[0])
             map_data['lon'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[1])
             
-            # Koordinatı bulunamayanları çıkar (örn: hatalı yazım)
+            # Koordinatı bulunamayanları çıkar
             map_data = map_data.dropna(subset=['lat', 'lon'])
 
             if not map_data.empty:
@@ -287,19 +286,17 @@ def main():
                     color="Adet",
                     hover_name="İl",
                     size_max=35, 
-                    zoom=5 if selected_region == "Tümü" else 6, # Bölge seçiliyse biraz daha yakınlaş
+                    zoom=5 if selected_region == "Tümü" else 6, 
                     mapbox_style="open-street-map",
                     color_continuous_scale=px.colors.sequential.Bluered,
                     title="İl Bazlı Bayi Yoğunluğu"
                 )
                 
-                # Eğer bölge seçiliyse haritayı o bölgenin merkezine odakla
                 if selected_region != "Tümü":
                     center_lat = map_data['lat'].mean()
                     center_lon = map_data['lon'].mean()
                     fig_map.update_layout(mapbox_center={"lat": center_lat, "lon": center_lon})
                 else:
-                    # Türkiye Merkezi
                     fig_map.update_layout(mapbox_center={"lat": 39.0, "lon": 35.0}, mapbox_zoom=4.8)
                 
                 fig_map.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
@@ -311,6 +308,10 @@ def main():
             
             # --- Grafik ve Liste ---
             st.subheader("📊 Şehir Bazlı İstatistikler")
+            
+            # --- EKLENEN AÇIKLAMA NOTU ---
+            st.info("👇 **İpucu:** Grafikteki şehir çubuklarının üzerine tıklayarak, o şehirdeki bayilerin detaylı listesini sayfanın en altında görebilirsiniz.")
+            # -----------------------------
             
             col_chart, col_pie = st.columns([2, 1])
             
