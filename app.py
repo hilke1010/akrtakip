@@ -4,6 +4,7 @@ import plotly.express as px
 import datetime
 import numpy as np
 import os
+import io
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -256,14 +257,14 @@ def main():
 
     st.divider()
 
-    # --- SEKMELER (YENİLER EKLENDİ) ---
+    # --- SEKMELER ---
     tab_overview, tab_compare, tab_sim, tab_calendar, tab_ilce, tab_crm, tab_data = st.tabs([
         "📊 Bölgesel & Durum",
-        "⚔️ Karşılaştırma (Vs.)", # YENİ
-        "🔮 Simülasyon",         # YENİ
+        "⚔️ Karşılaştırma (Vs.)", 
+        "🔮 Simülasyon",         
         "📅 Takvim", 
         "📍 Penetrasyon",
-        "📝 CRM Lite",           # YENİ
+        "📝 CRM Lite",           
         "📋 Ham Veri"
     ])
 
@@ -297,7 +298,6 @@ def main():
             st.subheader("📊 İstatistikler")
             st.info("👇 **İpucu:** Grafikteki çubuklara tıklayarak detaylı listeyi görebilirsiniz.")
 
-            # LAYOUT GÜNCELLEMESİ: 2 Sütun yerine 3 Sütun (Bar, Şehir Pastası, Risk Pastası)
             c_bar, c_pie1, c_pie2 = st.columns([2, 1, 1])
             
             with c_bar:
@@ -306,7 +306,6 @@ def main():
                 st.plotly_chart(fig_city, use_container_width=True, on_select="rerun", key="overview_bar_chart")
             
             with c_pie1:
-                # --- YENİ: ŞEHİR PASTASI (İLK 10 + DİĞER) ---
                 city_pie_data = df_filtered['İl'].value_counts().reset_index()
                 city_pie_data.columns = ['İl', 'Adet']
                 if len(city_pie_data) > 10:
@@ -336,7 +335,7 @@ def main():
                 filtered_table = df_filtered
             show_details_table(filtered_table, target_date_col)
 
-    # 2. KARŞILAŞTIRMA (VS.) MODU (YENİ)
+    # 2. KARŞILAŞTIRMA (VS.) MODU (GÜNCELLENDİ)
     with tab_compare:
         st.subheader("⚔️ Head-to-Head Rakip Analizi")
         st.markdown("İki farklı dağıtım şirketini seçerek seçilen bölgedeki (veya tüm Türkiye'deki) güçlerini kıyaslayın.")
@@ -347,13 +346,10 @@ def main():
         with col_sel1:
             comp_a = st.selectbox("1. Şirket (Taraf A)", comp_list, index=0)
         with col_sel2:
-            # 2. şirket olarak listedeki 2. sıradakini varsayılan yap (hata vermesin)
             def_idx = 1 if len(comp_list) > 1 else 0
             comp_b = st.selectbox("2. Şirket (Taraf B)", comp_list, index=def_idx)
 
         # Verileri Filtrele
-        # Not: Karşılaştırma genel veri (df) üzerinden yapılır, soldaki filtrelerden bağımsız olması daha sağlıklıdır.
-        # Ancak Bölge filtresine saygı duyalım.
         if selected_region != "Tümü":
             base_df = df[df['İl'].isin(BOLGE_TANIMLARI[selected_region])]
         else:
@@ -370,50 +366,76 @@ def main():
         c_k1.metric(f"{comp_a}", len(df_a))
         c_k1.metric(f"{comp_b}", len(df_b), delta=len(df_b)-len(df_a), delta_color="off")
 
-        # 2. Metrik: En Güçlü Olduğu İl
+        # 2. Metrik: En Güçlü ve En Zayıf Şehir (GÜNCELLENDİ)
+        # En Güçlü
         top_city_a = df_a['İl'].value_counts().idxmax() if not df_a.empty else "-"
         top_city_b = df_b['İl'].value_counts().idxmax() if not df_b.empty else "-"
-        c_k2.markdown(f"### 🏰 En Güçlü Şehir")
+        # En Zayıf (Var olup en az olduğu yer)
+        min_city_a = df_a['İl'].value_counts().idxmin() if not df_a.empty else "-"
+        min_city_b = df_b['İl'].value_counts().idxmin() if not df_b.empty else "-"
+
+        c_k2.markdown(f"### 🏰 En Güçlü İl")
         c_k2.info(f"**{comp_a}:** {top_city_a}")
         c_k2.warning(f"**{comp_b}:** {top_city_b}")
 
-        # 3. Metrik: Ortalama Kalan Gün (Sözleşme Sağlığı)
-        avg_day_a = df_a['Kalan_Gun'].mean() if not df_a.empty else 0
-        avg_day_b = df_b['Kalan_Gun'].mean() if not df_b.empty else 0
-        c_k3.markdown("### ⏳ Ort. Sözleşme Süresi")
-        c_k3.metric(f"{comp_a}", f"{avg_day_a:.0f} Gün")
-        c_k3.metric(f"{comp_b}", f"{avg_day_b:.0f} Gün", delta=f"{(avg_day_b - avg_day_a):.0f}", delta_color="normal")
+        c_k3.markdown("### 🏚️ En Zayıf İl")
+        c_k3.info(f"**{comp_a}:** {min_city_a}")
+        c_k3.warning(f"**{comp_b}:** {min_city_b}")
+
 
         st.divider()
         
-        # Yan Yana Karşılaştırmalı Grafik
-        st.subheader("📊 Şehirlere Göre Kıyaslama")
-        # İki dataframe'i birleştirip sadece bu iki şirketi alalım
+        # Yan Yana Karşılaştırmalı Grafik (GÜNCELLENDİ - TÜM ŞEHİRLER)
+        st.subheader("📊 Şehirlere Göre Kıyaslama (Tümü)")
         df_vs = base_df[base_df['Dağıtım Şirketi'].isin([comp_a, comp_b])]
         
         if not df_vs.empty:
-            # Şehir bazlı kırılım
             city_vs = df_vs.groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
-            # Sadece en çok bayisi olan ilk 15 şehri gösterelim ki grafik boğulmasın
-            top_cities = df_vs['İl'].value_counts().head(15).index
-            city_vs_filtered = city_vs[city_vs['İl'].isin(top_cities)]
-
-            fig_vs = px.bar(city_vs_filtered, x='İl', y='Adet', color='Dağıtım Şirketi', barmode='group',
-                            title="İlk 15 Şehirde Karşılaştırma", text='Adet')
+            
+            # İlk 15 sınırı kaldırıldı, hepsi gösteriliyor
+            fig_vs = px.bar(city_vs, x='İl', y='Adet', color='Dağıtım Şirketi', barmode='group',
+                            title="Tüm Şehirlerde Karşılaştırma", text='Adet')
+            
             st.plotly_chart(fig_vs, use_container_width=True)
+            st.info("💡 **Bilgi:** Şehir sayısı fazla olduğunda grafiği yakınlaştırarak (zoom) veya kaydırarak detayları inceleyebilirsiniz.")
         else:
             st.warning("Seçilen şirketlerin bu bölgede verisi yok.")
 
 
-    # 3. SİMÜLASYON (SENARYO) (YENİ)
+    # 3. SİMÜLASYON (SENARYO) (GÜNCELLENDİ - FİLTRE EKLENDİ)
     with tab_sim:
         st.subheader("🔮 'What-If' Senaryo Analizi")
         st.markdown("Bir rakibi hedef alıp, onun bayilerinin belirli bir yüzdesini kazandığımızda pazar payımızın nasıl değişeceğini simüle edin.")
 
+        # --- Simülasyon Özel Filtreleri (YENİ) ---
+        with st.expander("⚙️ Simülasyon Kapsamını Daralt (İsteğe Bağlı)", expanded=True):
+            col_sim_filter1, col_sim_filter2 = st.columns(2)
+            with col_sim_filter1:
+                # Bölge seçimi (Sidebar'dan bağımsız veya ona bağlı olabilir, burada bağımsız yapalım)
+                sim_regions = ["Tümü"] + list(BOLGE_TANIMLARI.keys())
+                selected_sim_region = st.selectbox("Simülasyon Bölgesi", sim_regions)
+            
+            with col_sim_filter2:
+                # İl seçimi (Seçilen bölgeye göre dolsun)
+                if selected_sim_region != "Tümü":
+                    sim_cities = sorted(BOLGE_TANIMLARI[selected_sim_region])
+                else:
+                    sim_cities = sorted(df['İl'].unique().tolist())
+                
+                selected_sim_city = st.selectbox("Simülasyon İli (Opsiyonel)", ["Tümü"] + sim_cities)
+        
+        # Simülasyon Veri Setini Hazırla
+        sim_df = df.copy()
+        if selected_sim_region != "Tümü":
+            sim_df = sim_df[sim_df['İl'].isin(BOLGE_TANIMLARI[selected_sim_region])]
+        if selected_sim_city != "Tümü":
+            sim_df = sim_df[sim_df['İl'] == selected_sim_city]
+
+        # --- Şirket Seçimleri ---
+        st.markdown("---")
         if selected_companies:
-            my_company = selected_companies[0] # Filtrede seçilen ilk şirketi "Bizim Şirket" varsay
+            my_company = selected_companies[0]
         else:
-            # Seçili yoksa en büyüğü varsay
             if not df.empty:
                 my_company = df['Dağıtım Şirketi'].value_counts().idxmax()
             else:
@@ -421,7 +443,6 @@ def main():
         
         st.info(f"🎯 **Odak Şirket (Biz):** {my_company}")
 
-        # Rakip Seçimi
         comp_list_sim = sorted(df['Dağıtım Şirketi'].dropna().unique().tolist())
         if my_company in comp_list_sim: comp_list_sim.remove(my_company)
         
@@ -431,32 +452,21 @@ def main():
         with col_sim2:
             conversion_rate = st.slider("Dönüşüm Oranı (Rakibin % kaçını alacağız?)", 0, 100, 10, format="%%%d")
 
-        # Hesaplamalar
-        # Bölge filtresi aktifse onu kullan
-        if selected_region != "Tümü":
-            sim_df = df[df['İl'].isin(BOLGE_TANIMLARI[selected_region])]
-        else:
-            sim_df = df.copy()
-
+        # Hesaplamalar (Filtrelenmiş sim_df üzerinden)
         current_my_count = len(sim_df[sim_df['Dağıtım Şirketi'] == my_company])
         current_target_count = len(sim_df[sim_df['Dağıtım Şirketi'] == target_competitor])
         
         gained_stations = int(current_target_count * (conversion_rate / 100))
         new_my_count = current_my_count + gained_stations
         
-        # Sonuç Gösterimi
         st.divider()
         col_res1, col_res2, col_res3 = st.columns(3)
-        
-        col_res1.metric("Mevcut Bayi Sayımız", current_my_count)
-        col_res2.metric("Kazanılacak Bayi", f"+{gained_stations}", help=f"{target_competitor} şirketinin %{conversion_rate}'u")
-        col_res3.metric("Hedeflenen Yeni Sayı", new_my_count, delta=f"%{((new_my_count-current_my_count)/current_my_count*100):.1f} Büyüme")
+        col_res1.metric(f"Mevcut Bayi ({selected_sim_city if selected_sim_city!='Tümü' else selected_sim_region})", current_my_count)
+        col_res2.metric("Kazanılacak Bayi", f"+{gained_stations}")
+        growth_pct = ((new_my_count-current_my_count)/current_my_count*100) if current_my_count > 0 else 100
+        col_res3.metric("Hedeflenen Yeni Sayı", new_my_count, delta=f"%{growth_pct:.1f} Büyüme")
 
-        # Görsel Simülasyon (Basit Pasta)
-        sim_data = pd.DataFrame({
-            'Durum': ['Mevcut', 'Kazanılan'],
-            'Adet': [current_my_count, gained_stations]
-        })
+        sim_data = pd.DataFrame({'Durum': ['Mevcut', 'Kazanılan'], 'Adet': [current_my_count, gained_stations]})
         fig_sim = px.pie(sim_data, values='Adet', names='Durum', title=f"Simülasyon Sonrası {my_company} Yapısı", hole=0.6,
                          color_discrete_sequence=['#2980b9', '#2ecc71'])
         fig_sim.add_annotation(text=f"TOPLAM\n{new_my_count}", showarrow=False, font_size=20)
@@ -503,7 +513,6 @@ def main():
                     df_ilce_table = df_filtered
                 show_details_table(df_ilce_table, target_date_col)
             
-            # GAP ANALİZİ
             st.divider()
             tum_ilceler_ref = df[df['İl'].isin(selected_cities)]['İlçe'].unique()
             mevcut_ilceler = df_filtered['İlçe'].unique()
@@ -513,12 +522,11 @@ def main():
                 cols = st.columns(4)
                 for i, ilce in enumerate(bos_ilceler): cols[i % 4].warning(f"📍 {ilce}")
 
-    # 6. CRM LITE (YENİ)
+    # 6. CRM LITE (GÜNCELLENDİ - EXCEL İNDİRME EKLENDİ)
     with tab_crm:
         st.subheader("📝 CRM Lite - Bayi Notları")
         st.markdown("Bayilerle ilgili saha notlarını buradan ekleyip takip edebilirsiniz. _(Not: Sayfa yenilenince veriler sıfırlanır)_")
         
-        # Filtrelenmiş listedeki bayilerden seçim yapma
         if not df_filtered.empty:
             bayi_listesi = sorted(df_filtered['Unvan'].unique().tolist())
             
@@ -531,19 +539,38 @@ def main():
                 
                 if st.button("💾 Notu Kaydet", type="primary"):
                     if note_input:
-                        # Zaman damgasıyla kaydet
                         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
                         if selected_bayi in st.session_state.crm_notes:
                             st.session_state.crm_notes[selected_bayi].append(f"[{timestamp}] {note_input}")
                         else:
                             st.session_state.crm_notes[selected_bayi] = [f"[{timestamp}] {note_input}"]
                         st.success("Not kaydedildi!")
-                    else:
-                        st.error("Lütfen bir not yazın.")
             
             with c_crm2:
-                st.markdown("### 📋 Kayıtlı Notlar")
+                # Başlık ve İndirme Butonu Yan Yana
+                c_head, c_btn = st.columns([2,1])
+                c_head.markdown("### 📋 Kayıtlı Notlar")
+                
                 if st.session_state.crm_notes:
+                    # Notları DataFrame'e çevir
+                    crm_data = []
+                    for bayi, notlar in st.session_state.crm_notes.items():
+                        for tek_not in notlar:
+                            crm_data.append({"Bayi Unvanı": bayi, "Not": tek_not})
+                    df_crm_export = pd.DataFrame(crm_data)
+                    
+                    # Excel İndirme Butonu
+                    buffer = io.BytesIO()
+                    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                        df_crm_export.to_excel(writer, index=False, sheet_name='CRM Notlari')
+                    
+                    c_btn.download_button(
+                        label="📥 Excel Olarak İndir",
+                        data=buffer.getvalue(),
+                        file_name="CRM_Notlari.xlsx",
+                        mime="application/vnd.ms-excel"
+                    )
+
                     for bayi, notlar in st.session_state.crm_notes.items():
                         with st.expander(f"🏢 {bayi} ({len(notlar)} Not)", expanded=True):
                             for not_metni in notlar:
@@ -551,7 +578,7 @@ def main():
                 else:
                     st.info("Henüz eklenmiş bir not yok.")
         else:
-            st.warning("Not eklenecek bayi bulunamadı. Lütfen filtreleri kontrol edin.")
+            st.warning("Not eklenecek bayi bulunamadı.")
 
     # 7. HAM VERİ
     with tab_data:
