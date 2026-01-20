@@ -14,10 +14,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- PERFORMANS AYARLARI ---
-MAX_ROW_DISPLAY = 5000
-MAX_MAP_POINTS = 50000
-PREVIEW_ROW_LIMIT = 100
+# --- PERFORMANS AYARLARI (GÜNCELLENDİ: 1000) ---
+MAX_ROW_DISPLAY = 1000  # Tablo limiti isteğin üzerine 1.000 yapıldı
+MAX_MAP_POINTS = 50000  # Harita limiti (Tüm noktaları kapsar)
+PREVIEW_ROW_LIMIT = 100 # Önizleme limiti
 
 # --- 2. DOSYA İSİMLERİ ---
 SABIT_DOSYA_ADI = "asatis.xlsx"
@@ -48,32 +48,25 @@ st.markdown("""
         border-radius: 4px;
         font-weight: bold;
     }
-    .insight-box-success {
-        padding: 15px; border-radius: 8px; background-color: #d4edda; border-left: 5px solid #28a745; color: #155724; margin-bottom: 10px;
+    /* İl Karnesi Yıl Kutuları */
+    .year-box {
+        background-color: #e8f4f8;
+        padding: 10px;
+        border-radius: 5px;
+        text-align: center;
+        border: 1px solid #b3e5fc;
+        margin-bottom: 5px;
     }
-    .insight-box-warning {
-        padding: 15px; border-radius: 8px; background-color: #fff3cd; border-left: 5px solid #ffc107; color: #856404; margin-bottom: 10px;
-    }
-    .insight-box-danger {
-        padding: 15px; border-radius: 8px; background-color: #f8d7da; border-left: 5px solid #dc3545; color: #721c24; margin-bottom: 10px;
-    }
-    .insight-box-info {
-        padding: 15px; border-radius: 8px; background-color: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460; margin-bottom: 10px;
-    }
-    .district-chip {
-        display: inline-block;
-        background-color: #f1f3f5;
-        padding: 5px 10px;
-        margin: 3px;
-        border-radius: 15px;
-        font-size: 0.9em;
-        border: 1px solid #ddd;
-        cursor: help;
-    }
-    .district-chip:hover {
-        background-color: #e2e6ea;
-        border-color: #adb5bd;
-    }
+    .year-title { font-weight: bold; color: #0277bd; font-size: 1.1em; }
+    .year-count { font-size: 1.5em; font-weight: bold; color: #01579b; }
+    
+    /* Diğer Stiller */
+    .insight-box-success { padding: 15px; border-radius: 8px; background-color: #d4edda; border-left: 5px solid #28a745; color: #155724; margin-bottom: 10px; }
+    .insight-box-warning { padding: 15px; border-radius: 8px; background-color: #fff3cd; border-left: 5px solid #ffc107; color: #856404; margin-bottom: 10px; }
+    .insight-box-danger { padding: 15px; border-radius: 8px; background-color: #f8d7da; border-left: 5px solid #dc3545; color: #721c24; margin-bottom: 10px; }
+    .insight-box-info { padding: 15px; border-radius: 8px; background-color: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460; margin-bottom: 10px; }
+    .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
+    .district-chip:hover { background-color: #e2e6ea; border-color: #adb5bd; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -172,13 +165,26 @@ def show_details_table(dataframe, target_date_col):
     if dataframe is None or dataframe.empty:
         st.info("Seçilen kriterlere uygun kayıt bulunamadı.")
         return
+    
     record_count = len(dataframe)
+    
+    # PERFORMANS İÇİN EKRANDA GÖSTERİMİ SINIRLA (1.000 Kayıt)
     if record_count > MAX_ROW_DISPLAY:
-        st.markdown(f"<div class='warning-box'>⚠️ Performans: {record_count:,} kayıt var. Filtreleyerek {MAX_ROW_DISPLAY} altına düşürün.</div>", unsafe_allow_html=True)
-        return
+        st.markdown(f"""
+        <div class="warning-box">
+            ⚠️ <b>Performans Uyarısı:</b> Listede toplam <b>{record_count:,}</b> kayıt var.<br>
+            Sistemin yavaşlamaması için aşağıda sadece ilk <b>{MAX_ROW_DISPLAY:,}</b> tanesi gösterilmektedir.<br>
+            Tüm listeyi görmek için lütfen aşağıdaki <b>Excel İndir</b> butonunu kullanın.
+        </div>
+        """, unsafe_allow_html=True)
+        display_df_limit = dataframe.head(MAX_ROW_DISPLAY)
+    else:
+        display_df_limit = dataframe
+
     cols = ['Unvan', 'İl', 'İlçe', 'Dağıtım Şirketi', target_date_col, 'Kalan_Gun', 'Risk_Durumu']
-    final_cols = [c for c in cols if c in dataframe.columns]
-    display_df = dataframe[final_cols].copy()
+    final_cols = [c for c in cols if c in display_df_limit.columns]
+    display_df = display_df_limit[final_cols].copy()
+    
     if target_date_col in display_df.columns:
         try: display_df[target_date_col] = pd.to_datetime(display_df[target_date_col]).dt.strftime('%d.%m.%Y')
         except: pass
@@ -192,6 +198,16 @@ def show_details_table(dataframe, target_date_col):
         return ''
     
     st.markdown(f"**📋 Listelenen Bayi Sayısı:** {len(display_df)}")
+    
+    # EXCEL İNDİRME BUTONU
+    if record_count > 0:
+        buffer = io.BytesIO()
+        try:
+            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                dataframe.to_excel(writer, index=False, sheet_name='Bayi Listesi')
+            st.download_button(label=f"📥 Tüm Listeyi Excel İndir ({record_count} Kayıt)", data=buffer.getvalue(), file_name="Bayi_Listesi.xlsx", mime="application/vnd.ms-excel")
+        except: pass
+
     if 'Kalan_Gun' in display_df.columns:
         st.dataframe(display_df.style.map(highlight_risk, subset=['Kalan_Gun']), use_container_width=True, hide_index=True)
     else:
@@ -206,9 +222,7 @@ def main():
     df, target_date_col = data_result
 
     with st.sidebar:
-        # GÜNCEL BİLGİ NOTU
         st.info("🕒 Veriler her gün saat 10:00'da yenilenmektedir. (Dosya yükleme süresi 5 dakika)")
-        
         st.markdown("---")
         st.title("🔍 Filtre Paneli")
         
@@ -261,7 +275,7 @@ def main():
     c3.metric("Aktif Dağıtıcı", aktif_dagitici)
     st.divider()
 
-    # --- SEKMELER (YENİ SEKME EKLENDİ) ---
+    # --- SEKMELER ---
     tab_overview, tab_machine, tab_compare, tab_sim, tab_calendar, tab_ilce, tab_report, tab_crm, tab_data = st.tabs([
         "📊 Bölgesel & Durum",
         "🤖 Makine Analizi",     
@@ -269,7 +283,7 @@ def main():
         "🔮 Simülasyon",         
         "📅 Takvim", 
         "📍 İlçe Penetrasyonu",
-        "📄 İl Karnesi", # YENİ SEKME
+        "📄 İl Karnesi", 
         "📝 CRM Lite",           
         "📋 Ham Veri"
     ])
@@ -278,9 +292,8 @@ def main():
     with tab_overview:
         st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
         
-        if len(df_filtered) > MAX_MAP_POINTS:
-            st.warning(f"⚠️ Haritada {len(df_filtered):,} nokta var. Performans için filtreleyin.")
-        elif not df_filtered.empty:
+        # Harita Performansı İçin Sadece Şehir Bazlı Agrege Veriyi Çizdiriyoruz (Çok Hızlı)
+        if not df_filtered.empty:
             map_data = df_filtered['İl'].value_counts().reset_index()
             map_data.columns = ['İl', 'Adet']
             map_data['lat'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[0])
@@ -302,16 +315,12 @@ def main():
                 fig_map.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
                 st.plotly_chart(fig_map, use_container_width=True)
                 
-                st.info("""
-                ℹ️ **Harita Lejandı:**
-                *   🔴 **Koyu Renkler:** Yoğunluğun yüksek olduğu bölgeler.
-                *   🔵 **Açık Renkler:** Yoğunluğun düşük olduğu bölgeler.
-                *   ⚪ **Daire Büyüklüğü:** Toplam istasyon sayısı ile orantılıdır.
-                """)
+                st.info("ℹ️ **Lejand:** 🔴 Koyu = Yüksek Yoğunluk, 🔵 Açık = Düşük Yoğunluk, ⚪ Büyüklük = İstasyon Sayısı")
 
         st.divider()
         st.subheader("📊 İstatistikler")
         
+        # Şehir Sıralaması
         city_stats = df_filtered['İl'].value_counts().reset_index()
         city_stats.columns = ['İl', 'Total']
         
@@ -359,7 +368,6 @@ def main():
             if 'Dağıtım Şirketi' in df_filtered.columns:
                 dist_pie_data = df_filtered['Dağıtım Şirketi'].value_counts().reset_index()
                 dist_pie_data.columns = ['Dağıtım Şirketi', 'Adet']
-                # Tümü
                 fig_dist_pie = px.pie(dist_pie_data, values='Adet', names='Dağıtım Şirketi', hole=0.4, title="Pazar Payı (Dağıtıcı)")
                 st.plotly_chart(fig_dist_pie, use_container_width=True)
 
@@ -395,13 +403,7 @@ def main():
         if not my_df.empty:
             top_city = my_df['İl'].value_counts().idxmax()
             top_city_count = my_df['İl'].value_counts().max()
-            
-            st.markdown(f"""
-            <div class="insight-box-success">
-                <b>🏆 En Güçlü Kale:</b> <br>
-                Şirketin bu bölgedeki en yoğun olduğu il <b>{top_city}</b> ({top_city_count} Bayi).
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"<div class='insight-box-success'><b>🏆 En Güçlü Kale:</b><br>Şirketin bu bölgedeki en yoğun olduğu il <b>{top_city}</b> ({top_city_count} Bayi).</div>", unsafe_allow_html=True)
 
             all_scope_districts = scope_df['İlçe'].unique()
             my_districts = my_df['İlçe'].unique()
@@ -409,13 +411,7 @@ def main():
             district_market_size = scope_df['İlçe'].value_counts()
 
             if len(missing_districts) > 0:
-                st.markdown(f"""
-                <div class="insight-box-warning">
-                    <b>🚀 Büyüme Fırsatları (Boş Noktalar):</b> <br>
-                    Bu bölgede toplam <b>{len(missing_districts)}</b> ilçede hiç bayiniz bulunmuyor.
-                </div>
-                """, unsafe_allow_html=True)
-                
+                st.markdown(f"<div class='insight-box-warning'><b>🚀 Büyüme Fırsatları (Boş Noktalar):</b><br>Bu bölgede toplam <b>{len(missing_districts)}</b> ilçede hiç bayiniz bulunmuyor.</div>", unsafe_allow_html=True)
                 with st.expander("📄 Tüm Eksik İlçeleri Listele (Üzerine Gelip Pazar Büyüklüğünü Görün)", expanded=False):
                     html_chips = ""
                     for dist in missing_districts:
@@ -423,14 +419,11 @@ def main():
                         tooltip_text = f"{dist}: Bizde 0, Toplam Pazar: {total_stations} Bayi"
                         html_chips += f'<span class="district-chip" title="{tooltip_text}">{dist}</span>'
                     st.markdown(html_chips, unsafe_allow_html=True)
-                    st.info("💡 **İpucu:** İlçelerin üzerine gelerek (mouse ile), o ilçedeki toplam rakip istasyon sayısını görebilirsiniz.")
-            else:
-                st.success("Tebrikler! Bu bölgedeki tüm ilçelerde varlık gösteriyorsunuz.")
-
+                    st.info("💡 **İpucu:** İlçelerin üzerine gelerek toplam rakip istasyon sayısını görebilirsiniz.")
+            
             if 'Bitis_Yili' in my_df.columns:
                 current_year = datetime.date.today().year
                 future_expirations = my_df[my_df['Bitis_Yili'] >= current_year]['Bitis_Yili'].value_counts().sort_index()
-                
                 if not future_expirations.empty:
                     msg_list = "<ul>"
                     total_future = 0
@@ -439,14 +432,7 @@ def main():
                         msg_list += f"<li><b>{yr_text}:</b> {count} adet sözleşme</li>"
                         total_future += count
                     msg_list += "</ul>"
-                    
-                    st.markdown(f"""
-                    <div class="insight-box-danger">
-                        <b>⚠️ Kritik Yenileme Dönemleri (Gelecek Yıllar):</b> <br>
-                        Toplamda <b>{total_future}</b> sözleşme önümüzdeki süreçte sona erecek. Yıllara göre dağılım:
-                        {msg_list}
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"<div class='insight-box-danger'><b>⚠️ Kritik Yenileme Dönemleri:</b><br>Toplamda <b>{total_future}</b> sözleşme sona erecek.<br>{msg_list}</div>", unsafe_allow_html=True)
             
             total_market = len(scope_df)
             my_share = len(my_df)
@@ -454,14 +440,7 @@ def main():
             
             col_share_text, col_share_chart = st.columns([1, 1])
             with col_share_text:
-                st.markdown(f"""
-                <div class="insight-box-info">
-                    <b>📊 Pazar Payı Analizi:</b> <br>
-                    Bu bölgedeki toplam pazar payınız: <b>%{share_pct:.1f}</b>.<br><br>
-                    Toplam İstasyon: <b>{total_market}</b><br>
-                    Sizin İstasyonunuz: <b>{my_share}</b>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"<div class='insight-box-info'><b>📊 Pazar Payı:</b><br>Bölgedeki payınız: <b>%{share_pct:.1f}</b>.<br>Toplam İstasyon: <b>{total_market}</b><br>Sizin İstasyonunuz: <b>{my_share}</b></div>", unsafe_allow_html=True)
             with col_share_chart:
                 others_share = total_market - my_share
                 fig_my_share = px.pie(names=['GÜZEL ENERJİ', 'RAKİPLER'], values=[my_share, others_share], hole=0.5, title=f"Bölgesel Hakimiyet Oranı", color_discrete_sequence=['#2ecc71', '#e74c3c'])
@@ -518,7 +497,6 @@ def main():
                     city_vs = df_vs.groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
                     fig_vs = px.bar(city_vs, x='İl', y='Adet', color='Dağıtım Şirketi', barmode='group', title="Tüm Şehirlerde Karşılaştırma")
                     st.plotly_chart(fig_vs, use_container_width=True)
-                    st.caption("ℹ️ *Grafiği büyütebilir veya kaydırabilirsiniz.*")
             else: st.warning("Yeterli veri yok.")
 
     # 4. SİMÜLASYON
@@ -605,13 +583,11 @@ def main():
                     cols = st.columns(4)
                     for i, d in enumerate(miss): cols[i%4].warning(f"📍 {d}")
 
-    # 7. İL KARNESİ (YENİ EKLEME)
+    # 7. İL KARNESİ (YENİLENMİŞ - YILLIK DETAY)
     with tab_report:
         st.subheader("📄 Tek Tuşla İl Karnesi")
-        st.markdown("Seçilen ilin tüm kritik verilerini tek sayfada özetler. Yazdırmak için tarayıcınızın 'Yazdır' (Ctrl+P) özelliğini kullanabilirsiniz.")
+        st.markdown("Seçilen ilin tüm kritik verilerini tek sayfada özetler.")
         
-        # İl Seçimi (Sol panelden bağımsız olabilir veya oraya bağlanabilir)
-        # Kullanıcı kolaylığı için sol paneldeki seçimi varsayılan yapalım
         all_provinces = sorted(df['İl'].unique().tolist())
         default_province_idx = 0
         if selected_cities and selected_cities[0] in all_provinces:
@@ -620,51 +596,64 @@ def main():
         report_city = st.selectbox("Karne Çıkarılacak İli Seçin:", all_provinces, index=default_province_idx)
         
         if report_city:
-            # Rapor Verisi Hazırla
             city_df = df[df['İl'] == report_city]
             total_stations_city = len(city_df)
             
-            # Pazar Lideri
             competitors_city = city_df['Dağıtım Şirketi'].value_counts()
             market_leader = competitors_city.idxmax() if not competitors_city.empty else "Veri Yok"
             leader_count = competitors_city.max() if not competitors_city.empty else 0
             
-            # Bizim Durum
-            my_city_count = len(city_df[city_df['Dağıtım Şirketi'] == "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"])
+            # BİZİM DURUMUMUZ (GÜZEL ENERJİ)
+            my_city_df = city_df[city_df['Dağıtım Şirketi'] == "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"]
+            my_city_count = len(my_city_df)
             
-            # Riskli Sözleşmeler (Gelecek yıl bitenler)
-            next_year = datetime.date.today().year + 1
-            risk_count_city = len(city_df[(city_df['Bitis_Yili'] == next_year) & (city_df['Dağıtım Şirketi'] == "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ")])
-
             st.markdown("---")
-            
-            # Başlık Alanı
             st.markdown(f"<h1 style='text-align: center; color: #2980b9;'>{report_city} İLİ PAZAR KARNESİ</h1>", unsafe_allow_html=True)
             st.markdown(f"<p style='text-align: center;'>Rapor Tarihi: {datetime.date.today().strftime('%d.%m.%Y')}</p>", unsafe_allow_html=True)
             
-            # KPI Satırı
-            rk1, rk2, rk3, rk4 = st.columns(4)
+            # KPI
+            rk1, rk2, rk3 = st.columns(3)
             rk1.metric("Toplam İstasyon", total_stations_city)
-            rk1.caption("İl Geneli")
-            
-            rk2.metric("Pazar Lideri", f"{leader_count} Bayi")
-            rk2.caption(market_leader[:20] + "..." if len(market_leader)>20 else market_leader)
-            
+            rk2.metric("Pazar Lideri", f"{leader_count} Bayi", help=market_leader)
             rk3.metric("Güzel Enerji", my_city_count)
-            rk3.caption("Bayi Sayımız")
-            
-            rk4.metric("Riskli Sözleşme", risk_count_city)
-            rk4.caption(f"{next_year} Yılında Biten")
             
             st.divider()
             
-            # Grafikler Satırı
-            rc1, rc2 = st.columns(2)
+            # YILLIK SÖZLEŞME BİTİŞ TAKVİMİ (KUTULAR HALİNDE)
+            st.subheader(f"📅 Güzel Enerji Sözleşme Bitiş Projeksiyonu ({report_city})")
             
+            if not my_city_df.empty and 'Bitis_Yili' in my_city_df.columns:
+                current_year = datetime.date.today().year
+                future_expirations = my_city_df[my_city_df['Bitis_Yili'] >= current_year]['Bitis_Yili'].value_counts().sort_index()
+                
+                if not future_expirations.empty:
+                    # Kutuları yan yana dizmek için columns kullan
+                    cols = st.columns(len(future_expirations))
+                    for idx, (year, count) in enumerate(future_expirations.items()):
+                        with cols[idx]:
+                            st.markdown(f"""
+                            <div class="year-box">
+                                <div class="year-title">{int(year)}</div>
+                                <div class="year-count">{count}</div>
+                                <div style="font-size:0.8em; color:#666;">Sözleşme</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                    st.divider()
+                    st.markdown("### 📋 Detaylı Bitiş Listesi")
+                    st.dataframe(my_city_df[['Unvan', 'İlçe', 'Bitis_Ayi', 'Bitis_Yili', 'Kalan_Gun']].sort_values('Kalan_Gun'), use_container_width=True, hide_index=True)
+                else:
+                    st.success("Bu ilde yakın zamanda bitecek sözleşmeniz bulunmamaktadır.")
+            else:
+                st.warning("Bu ilde Güzel Enerji bayisi bulunmamaktadır.")
+
+            st.divider()
+            
+            # Grafikler
+            rc1, rc2 = st.columns(2)
             with rc1:
                 st.subheader("Dağıtıcı Pazar Payı")
                 if not competitors_city.empty:
-                    # İlk 7'yi göster
                     top_comp = competitors_city.head(7).reset_index()
                     top_comp.columns = ['Şirket', 'Adet']
                     fig_rep_pie = px.pie(top_comp, values='Adet', names='Şirket', hole=0.4)
@@ -676,15 +665,6 @@ def main():
                 dist_dist.columns = ['İlçe', 'Adet']
                 fig_rep_bar = px.bar(dist_dist.head(10), x='Adet', y='İlçe', orientation='h', text='Adet')
                 st.plotly_chart(fig_rep_bar, use_container_width=True)
-            
-            # Kritik Liste (Sadece Bizim Bitecekler)
-            st.subheader(f"⚠️ {next_year} Yılında Bitecek Sözleşmelerimiz")
-            expiring_list = city_df[(city_df['Bitis_Yili'] == next_year) & (city_df['Dağıtım Şirketi'] == "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ")]
-            
-            if not expiring_list.empty:
-                st.dataframe(expiring_list[['Unvan', 'İlçe', 'Bitis_Ayi', 'Kalan_Gun']], use_container_width=True, hide_index=True)
-            else:
-                st.success(f"{next_year} yılında bu ilde sona erecek sözleşmemiz bulunmamaktadır.")
 
     # 8. CRM LITE
     with tab_crm:
