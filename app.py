@@ -14,10 +14,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- PERFORMANS AYARLARI (GÜNCELLENDİ: 1000) ---
-MAX_ROW_DISPLAY = 1000  # Tablo limiti isteğin üzerine 1.000 yapıldı
-MAX_MAP_POINTS = 50000  # Harita limiti (Tüm noktaları kapsar)
-PREVIEW_ROW_LIMIT = 100 # Önizleme limiti
+# --- PERFORMANS AYARLARI ---
+MAX_ROW_DISPLAY = 1000  
+MAX_MAP_POINTS = 50000 
+PREVIEW_ROW_LIMIT = 100
 
 # --- 2. DOSYA İSİMLERİ ---
 SABIT_DOSYA_ADI = "asatis.xlsx"
@@ -48,7 +48,6 @@ st.markdown("""
         border-radius: 4px;
         font-weight: bold;
     }
-    /* İl Karnesi Yıl Kutuları */
     .year-box {
         background-color: #e8f4f8;
         padding: 10px;
@@ -60,7 +59,6 @@ st.markdown("""
     .year-title { font-weight: bold; color: #0277bd; font-size: 1.1em; }
     .year-count { font-size: 1.5em; font-weight: bold; color: #01579b; }
     
-    /* Diğer Stiller */
     .insight-box-success { padding: 15px; border-radius: 8px; background-color: #d4edda; border-left: 5px solid #28a745; color: #155724; margin-bottom: 10px; }
     .insight-box-warning { padding: 15px; border-radius: 8px; background-color: #fff3cd; border-left: 5px solid #ffc107; color: #856404; margin-bottom: 10px; }
     .insight-box-danger { padding: 15px; border-radius: 8px; background-color: #f8d7da; border-left: 5px solid #dc3545; color: #721c24; margin-bottom: 10px; }
@@ -133,6 +131,10 @@ def load_data(file_path):
 
         target_col = 'Dağıtıcı ile Yapılan Sözleşme Bitiş Tarihi'
         if target_col not in df.columns: target_col = 'Lisans Bitiş Tarihi'
+        
+        # RADAR İÇİN BAŞLANGIÇ SÜTUNU (Eğer varsa)
+        start_col = 'Dağıtıcı ile Yapılan Sözleşme Başlangıç Tarihi'
+        if start_col not in df.columns: start_col = 'Lisans Başlangıç Tarihi'
 
         today = pd.to_datetime(datetime.date.today())
         if target_col in df.columns:
@@ -146,6 +148,12 @@ def load_data(file_path):
             df['Bitis_Yili'] = np.nan
             df['Bitis_Ayi'] = np.nan
             df['Bitis_Ayi_No'] = np.nan
+
+        # Sözleşme Süresi Hesaplama (Radar İçin)
+        if start_col in df.columns and target_col in df.columns:
+            df['Sozlesme_Suresi_Gun'] = (df[target_col] - df[start_col]).dt.days
+        else:
+            df['Sozlesme_Suresi_Gun'] = np.nan
 
         def get_risk(days):
             if pd.isna(days): return "Bilinmiyor"
@@ -165,23 +173,14 @@ def show_details_table(dataframe, target_date_col):
     if dataframe is None or dataframe.empty:
         st.info("Seçilen kriterlere uygun kayıt bulunamadı.")
         return
-    
     record_count = len(dataframe)
-    
-    # PERFORMANS İÇİN EKRANDA GÖSTERİMİ SINIRLA (1.000 Kayıt)
     if record_count > MAX_ROW_DISPLAY:
-        st.markdown(f"""
-        <div class="warning-box">
-            ⚠️ <b>Performans Uyarısı:</b> Listede toplam <b>{record_count:,}</b> kayıt var.<br>
-            Sistemin yavaşlamaması için aşağıda sadece ilk <b>{MAX_ROW_DISPLAY:,}</b> tanesi gösterilmektedir.<br>
-            Tüm listeyi görmek için lütfen aşağıdaki <b>Excel İndir</b> butonunu kullanın.
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"<div class='warning-box'>⚠️ Performans: {record_count:,} kayıt var. Filtreleyerek {MAX_ROW_DISPLAY:,} altına düşürün.</div>", unsafe_allow_html=True)
         display_df_limit = dataframe.head(MAX_ROW_DISPLAY)
     else:
         display_df_limit = dataframe
 
-    cols = ['Unvan', 'İl', 'İlçe', 'Dağıtım Şirketi', target_date_col, 'Kalan_Gun', 'Risk_Durumu']
+    cols = ['Unvan', 'İl', 'İlçe', 'Dağıtım Şirketi', target_date_col, 'Kalan_Gun', 'Sozlesme_Suresi_Gun', 'Risk_Durumu']
     final_cols = [c for c in cols if c in display_df_limit.columns]
     display_df = display_df_limit[final_cols].copy()
     
@@ -199,7 +198,6 @@ def show_details_table(dataframe, target_date_col):
     
     st.markdown(f"**📋 Listelenen Bayi Sayısı:** {len(display_df)}")
     
-    # EXCEL İNDİRME BUTONU
     if record_count > 0:
         buffer = io.BytesIO()
         try:
@@ -276,12 +274,13 @@ def main():
     st.divider()
 
     # --- SEKMELER ---
-    tab_overview, tab_machine, tab_compare, tab_sim, tab_calendar, tab_ilce, tab_report, tab_crm, tab_data = st.tabs([
+    tab_overview, tab_machine, tab_compare, tab_sim, tab_calendar, tab_radar, tab_ilce, tab_report, tab_crm, tab_data = st.tabs([
         "📊 Bölgesel & Durum",
         "🤖 Makine Analizi",     
         "⚔️ Karşılaştırma (Vs.)", 
         "🔮 Simülasyon",         
-        "📅 Takvim", 
+        "📅 Takvim",
+        "📡 Sözleşme Radar", # YENİ SEKME
         "📍 İlçe Penetrasyonu",
         "📄 İl Karnesi", 
         "📝 CRM Lite",           
@@ -292,7 +291,6 @@ def main():
     with tab_overview:
         st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
         
-        # Harita Performansı İçin Sadece Şehir Bazlı Agrege Veriyi Çizdiriyoruz (Çok Hızlı)
         if not df_filtered.empty:
             map_data = df_filtered['İl'].value_counts().reset_index()
             map_data.columns = ['İl', 'Adet']
@@ -314,21 +312,17 @@ def main():
                     fig_map.update_layout(mapbox_center={"lat": 39.0, "lon": 35.0}, mapbox_zoom=4.8)
                 fig_map.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
                 st.plotly_chart(fig_map, use_container_width=True)
-                
                 st.info("ℹ️ **Lejand:** 🔴 Koyu = Yüksek Yoğunluk, 🔵 Açık = Düşük Yoğunluk, ⚪ Büyüklük = İstasyon Sayısı")
 
         st.divider()
         st.subheader("📊 İstatistikler")
         
-        # Şehir Sıralaması
         city_stats = df_filtered['İl'].value_counts().reset_index()
         city_stats.columns = ['İl', 'Total']
-        
         ge_comp_name = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
         ge_df = df_filtered[df_filtered['Dağıtım Şirketi'] == ge_comp_name]
         ge_counts = ge_df['İl'].value_counts().reset_index()
         ge_counts.columns = ['İl', 'GE_Count']
-        
         merged_stats = pd.merge(city_stats, ge_counts, on='İl', how='left').fillna(0)
         
         def get_bar_label(row):
@@ -338,21 +332,15 @@ def main():
             return f"<b>{total}</b><br><span style='font-size:11px; color:#555'>GE: {ge_c} (%{share:.1f})</span>"
         
         merged_stats['Label'] = merged_stats.apply(get_bar_label, axis=1)
-        
-        fig_city = px.bar(merged_stats, x='İl', y='Total', text='Label', 
-                          title="Şehir Sıralaması (Toplam & Güzel Enerji Payı)", 
-                          color='Total', color_continuous_scale='Blues')
-        
+        fig_city = px.bar(merged_stats, x='İl', y='Total', text='Label', title="Şehir Sıralaması (Toplam & Güzel Enerji Payı)", color='Total', color_continuous_scale='Blues')
         fig_city.update_traces(textposition='outside', cliponaxis=False)
         fig_city.update_layout(yaxis=dict(title='Toplam Bayi Sayısı'), margin=dict(t=50, b=100))
-        
         st.plotly_chart(fig_city, use_container_width=True, on_select="rerun", key="overview_bar_chart")
-        st.caption("ℹ️ *Grafiği sağ üst köşesinden büyütebilir, üzerine gelerek detayları görebilirsiniz.*")
+        st.caption("ℹ️ *👇 Grafiğin çubuklarına tıklayarak aşağıdaki listeyi filtreleyebilirsiniz.*")
 
         st.markdown("---")
         
         col_pie1, col_pie2 = st.columns(2)
-        
         with col_pie1:
             city_pie_data = df_filtered['İl'].value_counts().reset_index()
             city_pie_data.columns = ['İl', 'Adet']
@@ -360,7 +348,6 @@ def main():
                 top_10 = city_pie_data.iloc[:10]
                 others = pd.DataFrame({'İl': ['DİĞER'], 'Adet': [city_pie_data.iloc[10:]['Adet'].sum()]})
                 city_pie_data = pd.concat([top_10, others])
-            
             fig_city_pie = px.pie(city_pie_data, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı (%)")
             st.plotly_chart(fig_city_pie, use_container_width=True)
 
@@ -497,6 +484,7 @@ def main():
                     city_vs = df_vs.groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
                     fig_vs = px.bar(city_vs, x='İl', y='Adet', color='Dağıtım Şirketi', barmode='group', title="Tüm Şehirlerde Karşılaştırma")
                     st.plotly_chart(fig_vs, use_container_width=True)
+                    st.caption("ℹ️ *Grafiği büyütebilir veya kaydırabilirsiniz.*")
             else: st.warning("Yeterli veri yok.")
 
     # 4. SİMÜLASYON
@@ -533,10 +521,6 @@ def main():
             sc1.metric("Mevcut", curr)
             sc2.metric("Kazanılacak", f"+{gain}")
             sc3.metric("Yeni Toplam", new, delta=f"%{((new-curr)/curr*100) if curr else 100:.1f}")
-            
-            fig_sim = px.pie(values=[curr, gain], names=['Mevcut', 'Kazanılan'], title="Simülasyon Sonucu", hole=0.6, color_discrete_sequence=['#2980b9', '#2ecc71'])
-            fig_sim.add_annotation(text=f"{new}", showarrow=False, font_size=20)
-            st.plotly_chart(fig_sim, use_container_width=True)
 
     # 5. TAKVİM
     with tab_calendar:
@@ -558,7 +542,24 @@ def main():
                         show_details_table(df_yr[df_yr['Bitis_Ayi']==mn], target_date_col)
                     else: show_details_table(df_yr, target_date_col)
 
-    # 6. İLÇE PENETRASYONU
+    # 6. SÖZLEŞME RADAR (YENİ)
+    with tab_radar:
+        st.subheader("📡 Sözleşme Radar (Kısa Süreli Anlaşmalar)")
+        st.markdown("Başlangıç ve bitiş tarihi arasında **90 günden (3 Ay) az** süre olan sözleşmeleri tespit eder. Bu durum genellikle geçici lisansları veya hatalı verileri gösterir.")
+        
+        if 'Sozlesme_Suresi_Gun' in df_filtered.columns:
+            # 90 günden az ve pozitif (hatalı eksi günleri eledik)
+            radar_df = df_filtered[(df_filtered['Sozlesme_Suresi_Gun'] < 90) & (df_filtered['Sozlesme_Suresi_Gun'] >= 0)].copy()
+            
+            if not radar_df.empty:
+                st.error(f"⚠️ Toplam **{len(radar_df)}** adet 3 aydan kısa süreli sözleşme tespit edildi.")
+                show_details_table(radar_df, target_date_col)
+            else:
+                st.success("✅ Seçilen kriterlerde 3 aydan kısa süreli (şüpheli) sözleşme bulunmamaktadır.")
+        else:
+            st.warning("Veri setinde Sözleşme Başlangıç Tarihi bulunamadığı için hesaplanamıyor.")
+
+    # 7. İLÇE PENETRASYONU
     with tab_ilce:
         st.subheader("📍 İlçe Bazlı Derinlik")
         if not selected_cities: st.warning("Lütfen sol menüden Şehir seçin.")
@@ -583,7 +584,7 @@ def main():
                     cols = st.columns(4)
                     for i, d in enumerate(miss): cols[i%4].warning(f"📍 {d}")
 
-    # 7. İL KARNESİ (YENİLENMİŞ - YILLIK DETAY)
+    # 8. İL KARNESİ (YENİLENMİŞ - YILLIK DETAY)
     with tab_report:
         st.subheader("📄 Tek Tuşla İl Karnesi")
         st.markdown("Seçilen ilin tüm kritik verilerini tek sayfada özetler.")
@@ -666,7 +667,7 @@ def main():
                 fig_rep_bar = px.bar(dist_dist.head(10), x='Adet', y='İlçe', orientation='h', text='Adet')
                 st.plotly_chart(fig_rep_bar, use_container_width=True)
 
-    # 8. CRM LITE
+    # 9. CRM LITE
     with tab_crm:
         st.subheader("📝 CRM Lite")
         if not df_filtered.empty:
@@ -695,7 +696,7 @@ def main():
                             for n in ns: st.markdown(f"- {n}")
                 else: st.info("Not yok.")
 
-    # 9. HAM VERİ
+    # 10. HAM VERİ
     with tab_data:
         st.subheader("📋 Ham Veri")
         buf = io.BytesIO()
