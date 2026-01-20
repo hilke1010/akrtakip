@@ -48,7 +48,6 @@ st.markdown("""
         border-radius: 4px;
         font-weight: bold;
     }
-    /* Makine Analizi Kutuları */
     .insight-box-success {
         padding: 15px; border-radius: 8px; background-color: #d4edda; border-left: 5px solid #28a745; color: #155724; margin-bottom: 10px;
     }
@@ -290,7 +289,38 @@ def main():
         st.divider()
         st.subheader("📊 İstatistikler")
         
-        fig_city = px.bar(map_data, x='İl', y='Adet', text='Adet', title="Şehir Sıralaması", color='Adet', color_continuous_scale='Blues')
+        # --- ŞEHİR SIRALAMASI ÇUBUK GRAFİĞİ (GÜNCELLENDİ) ---
+        # 1. Toplam Veriyi Hazırla
+        city_stats = df_filtered['İl'].value_counts().reset_index()
+        city_stats.columns = ['İl', 'Total']
+        
+        # 2. Güzel Enerji Verisini Hazırla
+        ge_comp_name = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
+        ge_df = df_filtered[df_filtered['Dağıtım Şirketi'] == ge_comp_name]
+        ge_counts = ge_df['İl'].value_counts().reset_index()
+        ge_counts.columns = ['İl', 'GE_Count']
+        
+        # 3. Birleştir
+        merged_stats = pd.merge(city_stats, ge_counts, on='İl', how='left').fillna(0)
+        
+        # 4. Etiket Fonksiyonu
+        def get_bar_label(row):
+            total = int(row['Total'])
+            ge_c = int(row['GE_Count'])
+            share = (ge_c / total * 100) if total > 0 else 0
+            # HTML formatlı etiket: Üstte Toplam, altta GE bilgisi
+            return f"<b>{total}</b><br><span style='font-size:11px; color:#555'>GE: {ge_c} (%{share:.1f})</span>"
+        
+        merged_stats['Label'] = merged_stats.apply(get_bar_label, axis=1)
+        
+        # 5. Grafik Çizimi
+        fig_city = px.bar(merged_stats, x='İl', y='Total', text='Label', 
+                          title="Şehir Sıralaması (Toplam & Güzel Enerji Payı)", 
+                          color='Total', color_continuous_scale='Blues')
+        
+        fig_city.update_traces(textposition='outside', cliponaxis=False) # Etiketleri dışarı al
+        fig_city.update_layout(yaxis=dict(title='Toplam Bayi Sayısı'), margin=dict(t=50, b=100)) # Margin ayarla ki yazılar kesilmesin
+        
         st.plotly_chart(fig_city, use_container_width=True, on_select="rerun", key="overview_bar_chart")
         st.caption("ℹ️ *Grafiği sağ üst köşesinden büyütebilir, üzerine gelerek detayları görebilirsiniz.*")
 
