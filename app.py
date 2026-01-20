@@ -14,10 +14,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- PERFORMANS AYARLARI ---
-MAX_ROW_DISPLAY = 500   # Tablolarda gösterilecek maksimum satır (Çökmeyi önler)
-MAX_MAP_POINTS = 3000   # Haritada gösterilecek maksimum nokta
-PREVIEW_ROW_LIMIT = 100 # Ham veri önizleme limiti
+# --- PERFORMANS AYARLARI (GÜNCELLENDİ) ---
+MAX_ROW_DISPLAY = 5000   # Tablo limiti 500'den 5.000'e çıkarıldı
+MAX_MAP_POINTS = 50000   # Harita limiti 50.000 (Tüm istasyonları kapsar, harita hep açık kalır)
+PREVIEW_ROW_LIMIT = 100  # Ham veri önizleme limiti
 
 # --- 2. DOSYA İSİMLERİ ---
 SABIT_DOSYA_ADI = "asatis.xlsx"
@@ -103,8 +103,6 @@ def load_data(file_path):
     if not os.path.exists(file_path):
         return None, None
     try:
-        # Performans için sadece gerekli sütunları okumayı deneyebiliriz ama
-        # dinamik olduğu için tümünü okuyoruz.
         df = pd.read_excel(file_path)
         df.columns = [str(c).strip() for c in df.columns]
 
@@ -157,7 +155,7 @@ def load_data(file_path):
         return None, str(e)
 
 
-# --- YARDIMCI FONKSİYON: DETAY TABLOSU (ÇÖKME KORUMALI) ---
+# --- YARDIMCI FONKSİYON: DETAY TABLOSU ---
 def show_details_table(dataframe, target_date_col):
     if dataframe is None or dataframe.empty:
         st.info("Seçilen kriterlere uygun kayıt bulunamadı.")
@@ -171,7 +169,7 @@ def show_details_table(dataframe, target_date_col):
             ⚠️ Performans Uyarısı<br>
             Şu an listede <b>{record_count:,}</b> adet bayi var.<br>
             Tarayıcınızın donmaması için tüm liste gösterilmiyor.<br>
-            Lütfen sol menüden filtreleri (İl, İlçe, Şirket) kullanarak sayıyı <b>{MAX_ROW_DISPLAY}</b> altına düşürün.
+            Lütfen sol menüden filtreleri kullanarak sayıyı <b>{MAX_ROW_DISPLAY:,}</b> altına düşürün veya "Ham Veri" sekmesinden Excel olarak indirin.
         </div>
         """, unsafe_allow_html=True)
         return
@@ -265,10 +263,7 @@ def main():
     if selected_cities: df_filtered = df_filtered[df_filtered['İl'].isin(selected_cities)]
     if selected_districts: df_filtered = df_filtered[df_filtered['İlçe'].isin(selected_districts)]
     
-    # Karşılaştırma sekmesi için şirketsiz kopya (Şirket filtresi karşılaştırmayı bozmasın diye)
     df_filtered_geo_only = df_filtered.copy()
-    
-    # Ana görünüm için şirket filtresini uygula
     if selected_companies: df_filtered = df_filtered[df_filtered['Dağıtım Şirketi'].isin(selected_companies)]
 
     # --- BAŞLIK VE KPI ---
@@ -301,9 +296,9 @@ def main():
     with tab_overview:
         st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
         
-        # Harita Performans Kontrolü
+        # HARİTA PERFORMANS KONTROLÜ (GÜNCELLENDİ: 50.000)
         if len(df_filtered) > MAX_MAP_POINTS:
-            st.warning(f"⚠️ Haritada {len(df_filtered):,} nokta gösterilmeye çalışılıyor. Performans için lütfen filtreleyerek sayıyı {MAX_MAP_POINTS} altına düşürün.")
+            st.warning(f"⚠️ Haritada {len(df_filtered):,} nokta gösterilmeye çalışılıyor. Performans için lütfen filtreleyerek sayıyı {MAX_MAP_POINTS:,} altına düşürün.")
         elif not df_filtered.empty:
             map_data = df_filtered['İl'].value_counts().reset_index()
             map_data.columns = ['İl', 'Adet']
@@ -338,7 +333,6 @@ def main():
                 st.plotly_chart(fig_city, use_container_width=True, on_select="rerun", key="overview_bar_chart")
             
             with c_pie1:
-                # Dağıtıcı Dağılımı
                 if 'Dağıtım Şirketi' in df_filtered.columns:
                     dist_pie_data = df_filtered['Dağıtım Şirketi'].value_counts().reset_index()
                     dist_pie_data.columns = ['Dağıtım Şirketi', 'Adet']
@@ -358,7 +352,6 @@ def main():
                                                      "YAKLAŞIYOR (<6 Ay) ⏳": "#FFD700", "GÜVENLİ ✅": "green"})
                 st.plotly_chart(fig_risk_pie, use_container_width=True)
 
-            # Etkileşimli Tablo
             selected_chart_city = None
             try:
                 if st.session_state.get("overview_bar_chart") and st.session_state["overview_bar_chart"]['selection']['points']:
@@ -387,34 +380,28 @@ def main():
                     def_idx = 1 if len(comp_list) > 1 else 0
                     comp_b = st.selectbox("2. Şirket (Taraf B)", comp_list, index=def_idx)
 
-                # Şirket filtresi hariç coğrafi filtreli veriyi kullan
                 base_df = df_filtered_geo_only
-
                 df_a = base_df[base_df['Dağıtım Şirketi'] == comp_a]
                 df_b = base_df[base_df['Dağıtım Şirketi'] == comp_b]
 
                 c_k1, c_k2, c_k3, c_k4 = st.columns(4)
                 
-                # 1. Metrik
                 c_k1.markdown(f"### ⛽ Toplam İstasyon")
                 c_k1.metric(f"{comp_a}", len(df_a))
                 c_k1.metric(f"{comp_b}", len(df_b), delta=len(df_b)-len(df_a), delta_color="off")
 
-                # 2. Metrik En Güçlü
                 top_city_a = df_a['İl'].value_counts().idxmax() if not df_a.empty else "-"
                 top_city_b = df_b['İl'].value_counts().idxmax() if not df_b.empty else "-"
                 c_k2.markdown(f"### 🏰 En Güçlü İl")
                 c_k2.info(f"**{comp_a}:** {top_city_a}")
                 c_k2.warning(f"**{comp_b}:** {top_city_b}")
 
-                # 3. Metrik En Zayıf
                 min_city_a = df_a['İl'].value_counts().idxmin() if not df_a.empty else "-"
                 min_city_b = df_b['İl'].value_counts().idxmin() if not df_b.empty else "-"
                 c_k3.markdown("### 🏚️ En Zayıf İl")
                 c_k3.info(f"**{comp_a}:** {min_city_a}")
                 c_k3.warning(f"**{comp_b}:** {min_city_b}")
 
-                # 4. Metrik: EN BÜYÜK FARK
                 c_k4.markdown("### 🏔️ En Büyük Uçurum")
                 if not df_a.empty or not df_b.empty:
                     count_a = df_a['İl'].value_counts()
@@ -456,7 +443,6 @@ def main():
     # 3. SİMÜLASYON (SENARYO)
     with tab_sim:
         st.subheader("🔮 'What-If' Senaryo Analizi")
-        # Simülasyon filtreleri (Sol menü varsayılan ama değiştirilebilir)
         with st.expander("⚙️ Simülasyon Kapsamını Daralt", expanded=True):
             col_sim_filter1, col_sim_filter2 = st.columns(2)
             with col_sim_filter1:
@@ -486,7 +472,6 @@ def main():
 
         st.markdown("---")
         
-        # BİZİM ŞİRKET AYARI (GÜZEL ENERJİ)
         target_my_company = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
         all_companies_sim = sorted(df['Dağıtım Şirketi'].dropna().astype(str).unique().tolist())
         
@@ -651,10 +636,7 @@ def main():
         except:
              st.warning("Excel indirme butonu oluşturulamadı (kütüphane hatası).")
 
-        # Tablo Gösterimi (Limitli)
         st.markdown(f"_Performans için sadece ilk **{PREVIEW_ROW_LIMIT}** satır gösteriliyor. Tamamı için Excel indiriniz._")
-        
-        # Streamlit dataframe yeni versiyonda filtreleme destekler
         st.dataframe(df_filtered.head(PREVIEW_ROW_LIMIT), use_container_width=True)
 
 if __name__ == "__main__":
