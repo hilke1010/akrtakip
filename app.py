@@ -70,8 +70,16 @@ def load_data(file_path):
 
         if target_col in df.columns:
             df['Kalan_Gun'] = (df[target_col] - today).dt.days
+            # Yıl ve Ay bilgisini çıkar (Takvim analizi için)
+            df['Bitis_Yili'] = df[target_col].dt.year
+            df['Bitis_Ayi'] = df[target_col].dt.month_name(locale='Turkish' if 'Turkish' in datetime.date.today().strftime('%B') else None)
+            # Türkçe Ay sıralaması için sayısal değer
+            df['Bitis_Ayi_No'] = df[target_col].dt.month
         else:
             df['Kalan_Gun'] = np.nan
+            df['Bitis_Yili'] = np.nan
+            df['Bitis_Ayi'] = np.nan
+            df['Bitis_Ayi_No'] = np.nan
 
         def get_risk(days):
             if pd.isna(days): return "Bilinmiyor"
@@ -91,6 +99,44 @@ def load_data(file_path):
     except Exception as e:
         st.error(f"Excel okuma hatası: {e}")
         return None, None
+
+
+# --- YARDIMCI FONKSİYON: DETAY TABLOSU ---
+def show_details_table(dataframe, target_date_col):
+    """Seçilen filtrelere göre detaylı bayi listesini gösterir."""
+    if dataframe.empty:
+        st.info("Seçilen kriterlere uygun kayıt bulunamadı.")
+        return
+
+    # Gösterilecek Sütunlar
+    cols = ['Unvan', 'İl', 'İlçe', 'Dağıtım Şirketi', target_date_col, 'Kalan_Gun', 'Risk_Durumu']
+    # Sadece mevcut olanları seç
+    final_cols = [c for c in cols if c in dataframe.columns]
+    
+    # Tarih formatı düzeltme
+    display_df = dataframe[final_cols].copy()
+    if target_date_col in display_df.columns:
+        display_df[target_date_col] = display_df[target_date_col].dt.strftime('%d.%m.%Y')
+
+    # Sıralama: Kalan güne göre (en kritik en üstte)
+    display_df = display_df.sort_values('Kalan_Gun')
+
+    # Renklendirme (Pandas Styler)
+    def highlight_risk(val):
+        if val < 0: color = '#ffcccc' # Kırmızımsı
+        elif val < 90: color = '#ffe5cc' # Turuncumsu
+        elif val < 180: color = '#ffffcc' # Sarımsı
+        else: color = '' 
+        return f'background-color: {color}'
+
+    st.markdown(f"**📋 Listelenen Bayi Sayısı:** {len(display_df)}")
+    
+    # Kalan gün sütununu renklendirerek göster
+    st.dataframe(
+        display_df.style.map(highlight_risk, subset=['Kalan_Gun']),
+        use_container_width=True,
+        hide_index=True
+    )
 
 
 def main():
@@ -143,16 +189,7 @@ def main():
             selected_companies = []
             st.warning("Excel'de 'Dağıtım Şirketi' sütunu bulunamadı.")
 
-        # Risk Filtresi
-        all_risks = sorted(df['Risk_Durumu'].unique().tolist())
-        selected_risks = st.multiselect("⚠️ Risk Durumu", all_risks)
-
-        st.info(f"Excel Kayıt: {len(df)}")
-
         st.markdown("---")
-        st.header("🔗 Diğer Raporlar")
-        st.markdown("🔥 [LPG Lisans Raporu](https://lpgtakip.streamlit.app/)")
-        st.markdown("📊 [EPDK Sektör Raporu](https://pazarpayi.streamlit.app/)")
         st.header("📧 İletişim")
         st.info("kerim.aksu@milangaz.com.tr")
 
@@ -166,7 +203,6 @@ def main():
     if selected_cities: df_filtered = df_filtered[df_filtered['İl'].isin(selected_cities)]
     if selected_districts: df_filtered = df_filtered[df_filtered['İlçe'].isin(selected_districts)]
     if selected_companies: df_filtered = df_filtered[df_filtered['Dağıtım Şirketi'].isin(selected_companies)]
-    if selected_risks: df_filtered = df_filtered[df_filtered['Risk_Durumu'].isin(selected_risks)]
 
     # --- BAŞLIK VE KPI ---
     st.title("🚀 Akaryakıt Pazar & Risk Analizi")
@@ -193,12 +229,12 @@ def main():
 
     st.divider()
 
-    # --- SEKMELER (ZAMAN KALDIRILDI, İLÇE EKLENDİ) ---
-    tab_risk, tab_detay, tab_market, tab_ilce, tab_data = st.tabs([
+    # --- SEKMELER ---
+    tab_risk, tab_calendar, tab_ilce, tab_market, tab_data = st.tabs([
         "⚡ Sözleşme & Risk",
-        "🔢 Detaylı Bayi",
+        "📅 Sözleşme Takvimi", # YENİ (ZAMAN ANALİZİ YERİNE)
+        "📍 İlçe Penetrasyonu",
         "🏢 Pazar & Rekabet",
-        "📍 İlçe Penetrasyonu",  # YENİ
         "📋 Ham Veri"
     ])
 
@@ -206,74 +242,116 @@ def main():
     with tab_risk:
         st.subheader("🚨 Kritik Sözleşmeler (İlk 6 Ay)")
         critical_df = df_filtered[df_filtered['Kalan_Gun'] < 180].sort_values('Kalan_Gun')
-        critical_df.index = np.arange(1, len(critical_df) + 1)
+        show_details_table(critical_df, target_date_col)
 
-        display_cols = ['İl', 'İlçe', 'Dağıtım Şirketi', 'Kalan_Gun', 'Risk_Durumu']
-        if 'Unvan' in df.columns: display_cols.insert(0, 'Unvan')
-        if target_date_col in df.columns:
-            critical_df['Bitis_Tarihi'] = critical_df[target_date_col].dt.strftime('%Y-%m-%d')
-            display_cols.insert(3, 'Bitis_Tarihi')
+    # 2. SÖZLEŞME TAKVİMİ (İNTERAKTİF)
+    with tab_calendar:
+        st.subheader("📅 Aylık Sözleşme Bitiş Takvimi")
+        st.info("👇 Grafikteki ayların üzerine tıklayarak o aydaki bayilerin listesini aşağıda görebilirsiniz.")
 
-        cols_to_show = [c for c in display_cols if c in critical_df.columns]
+        # Yıl Seçimi
+        all_years = sorted(df_filtered['Bitis_Yili'].dropna().unique().astype(int).tolist())
+        # Mevcut yıl varsayılan olsun
+        current_year = datetime.date.today().year
+        default_ix = all_years.index(current_year) if current_year in all_years else 0
+        
+        selected_year = st.selectbox("Yıl Seçiniz:", all_years, index=default_ix)
 
-        if not critical_df.empty:
-            st.dataframe(critical_df[cols_to_show], use_container_width=True)
-        else:
-            st.success("Seçilen kriterlerde riskli (süresi dolan veya 6 aydan az kalan) sözleşme yok.")
-
-        col_r1, col_r2 = st.columns(2)
-        with col_r1:
-            if target_date_col in df_filtered.columns and not df_filtered.empty:
-                df_filtered['Yil'] = df_filtered[target_date_col].dt.year
-                y_cnt = df_filtered['Yil'].value_counts().sort_index().reset_index()
-                y_cnt.columns = ['Yıl', 'Adet']
-                curr_year = datetime.date.today().year
-                y_cnt = y_cnt[(y_cnt['Yıl'] >= curr_year) & (y_cnt['Yıl'] <= curr_year + 10)]
-                st.plotly_chart(px.bar(y_cnt, x='Yıl', y='Adet', text='Adet', title="Yıllara Göre Bitecek Sözleşmeler",
-                                       color='Adet', color_continuous_scale='Blues'), use_container_width=True)
-
-        with col_r2:
-            if not df_filtered.empty:
-                risk_counts = df_filtered['Risk_Durumu'].value_counts().reset_index()
-                risk_counts.columns = ['Durum', 'Adet']
-                st.plotly_chart(
-                    px.pie(risk_counts, values='Adet', names='Durum', hole=0.4, title="Risk Dağılımı",
-                           color_discrete_map={"SÜRESİ DOLDU 🚨": "red", "KRİTİK (<3 Ay) ⚠️": "orange",
-                                               "YAKLAŞIYOR (<6 Ay) ⏳": "#FFD700", "GÜVENLİ ✅": "green"}),
-                    use_container_width=True
-                )
-
-    # 2. DETAYLI BAYİ
-    with tab_detay:
-        if 'Dağıtım Şirketi' in df_filtered.columns and not df_filtered.empty:
-            if not selected_companies:
-                comp_stats = df_filtered['Dağıtım Şirketi'].value_counts().reset_index()
-                comp_stats.columns = ['Şirket', 'Toplam Bayi']
-                comp_stats.index = np.arange(1, len(comp_stats) + 1)
-
-                c_d1, c_d2 = st.columns(2)
-                with c_d1:
-                    st.dataframe(comp_stats, use_container_width=True, height=600)
-                with c_d2:
-                    fig_comp = px.bar(comp_stats.head(30), x='Toplam Bayi', y='Şirket', orientation='h', height=600,
-                                      text='Toplam Bayi', title="En Büyük Dağıtım Şirketleri (İlk 30)")
-                    fig_comp.update_layout(yaxis={'categoryorder': 'total ascending'})
-                    st.plotly_chart(fig_comp, use_container_width=True)
+        # Seçilen yıla göre filtrele
+        df_year = df_filtered[df_filtered['Bitis_Yili'] == selected_year]
+        
+        if not df_year.empty:
+            # Aylık gruplama
+            # Ayları sayısal sıraya göre dizmek için
+            monthly_counts = df_year.groupby(['Bitis_Ayi_No']).agg(
+                Adet=('Unvan', 'count'),
+                Ay_Ismi=('Bitis_Ayi', 'first') # Grubun ilk ay ismini al
+            ).reset_index().sort_values('Bitis_Ayi_No')
+            
+            # Grafik
+            fig_cal = px.bar(monthly_counts, x='Ay_Ismi', y='Adet', text='Adet',
+                             title=f"{selected_year} Yılı Aylık Dağılım",
+                             hover_data=['Ay_Ismi'])
+            fig_cal.update_traces(marker_color='#2980b9')
+            fig_cal.update_layout(xaxis_title="Ay", yaxis_title="Bitecek Sözleşme Sayısı")
+            
+            # --- INTERAKTİF SEÇİM ---
+            selection = st.plotly_chart(fig_cal, use_container_width=True, on_select="rerun")
+            
+            # Seçim Mantığı
+            selected_month_name = None
+            if selection and selection['selection']['points']:
+                # Seçilen barın x değerini (Ay İsmi) al
+                selected_month_name = selection['selection']['points'][0]['x']
+                st.success(f"🗓️ **{selected_month_name} {selected_year}** için detaylar listeleniyor:")
+                
+                # Tabloyu filtrele
+                df_table = df_year[df_year['Bitis_Ayi'] == selected_month_name]
             else:
-                city_stats = df_filtered['İl'].value_counts().reset_index()
-                city_stats.columns = ['Şehir', 'Bayi Sayısı']
-                city_stats.index = np.arange(1, len(city_stats) + 1)
+                st.markdown("**Tüm Yıl Listesi:** (Filtrelemek için grafiğe tıklayın)")
+                df_table = df_year
 
-                c_d1, c_d2 = st.columns(2)
-                with c_d1:
-                    st.dataframe(city_stats, use_container_width=True, height=600)
-                with c_d2:
-                    fig_city = px.bar(city_stats, x='Bayi Sayısı', y='Şehir', orientation='h', height=600,
-                                      text='Bayi Sayısı', title="Seçilen Şirketlerin İllere Göre Dağılımı")
-                    fig_city.update_layout(yaxis={'categoryorder': 'total ascending'})
-                    st.plotly_chart(fig_city, use_container_width=True)
+            # Tabloyu Göster
+            show_details_table(df_table, target_date_col)
+            
+        else:
+            st.warning("Bu yıl için veri bulunamadı.")
 
-    # 3. PAZAR ANALİZİ
+    # 3. İLÇE PENETRASYONU (İNTERAKTİF)
+    with tab_ilce:
+        st.subheader("📍 İlçe Bazlı Derinlik Analizi")
+        st.info("👇 Grafikteki ilçelerin üzerine tıklayarak o ilçedeki bayilerin listesini aşağıda görebilirsiniz.")
+        
+        if not selected_cities:
+            st.warning("Lütfen sol menüden bir **Şehir** seçiniz.")
+        else:
+            # --- Grafik ---
+            district_breakdown = df_filtered.groupby(['İlçe']).size().reset_index(name='Adet').sort_values('Adet', ascending=True)
+            
+            if not district_breakdown.empty:
+                fig_ilce = px.bar(district_breakdown, x='Adet', y='İlçe', 
+                                  orientation='h', title="İlçelere Göre Dağılım",
+                                  text='Adet', height=600)
+                fig_ilce.update_traces(marker_color='#0066cc')
+                fig_ilce.update_layout(yaxis={'categoryorder': 'total ascending'})
+                
+                # --- INTERAKTİF SEÇİM ---
+                selection_ilce = st.plotly_chart(fig_ilce, use_container_width=True, on_select="rerun")
+                
+                # Seçim Mantığı
+                selected_district = None
+                if selection_ilce and selection_ilce['selection']['points']:
+                    # Seçilen barın y değerini (İlçe) al (Yatay bar olduğu için y ekseni kategori)
+                    selected_district = selection_ilce['selection']['points'][0]['y']
+                    st.success(f"📍 **{selected_district}** ilçesi detayları listeleniyor:")
+                    
+                    df_ilce_table = df_filtered[df_filtered['İlçe'] == selected_district]
+                else:
+                    st.markdown("**Seçilen Şehirlerin Tümü:** (Özel bir ilçe görmek için grafiğe tıklayın)")
+                    df_ilce_table = df_filtered
+
+                # Tabloyu Göster
+                show_details_table(df_ilce_table, target_date_col)
+
+            else:
+                st.warning("Veri bulunamadı.")
+
+            st.divider()
+            # GAP ANALİZİ
+            st.markdown("#### ⚠️ Hiç Bayi Olmayan İlçeler (Fırsatlar)")
+            tum_ilceler_ref = df[df['İl'].isin(selected_cities)]['İlçe'].unique()
+            mevcut_ilceler = df_filtered['İlçe'].unique()
+            bos_ilceler = set(tum_ilceler_ref) - set(mevcut_ilceler)
+            
+            if bos_ilceler:
+                bos_ilceler_list = sorted(list(bos_ilceler))
+                cols = st.columns(4)
+                for i, ilce in enumerate(bos_ilceler_list):
+                    cols[i % 4].warning(f"📍 {ilce}")
+            else:
+                st.success("Tebrikler! Seçilen şehirlerin tüm ilçelerinde varlık gösteriliyor.")
+
+    # 4. PAZAR ANALİZİ
     with tab_market:
         if 'Dağıtım Şirketi' in df_filtered.columns and 'İl' in df_filtered.columns and not df_filtered.empty:
             c_m1, c_m2 = st.columns(2)
@@ -293,66 +371,6 @@ def main():
                 fig = px.pie(cc, values='Adet', names='Şirket', hole=0.5)
                 fig.add_annotation(text=f"{tot}", x=0.5, y=0.5, font_size=20, showarrow=False)
                 st.plotly_chart(fig, use_container_width=True)
-
-    # 4. İLÇE PENETRASYONU (YENİ EKLENEN KISIM)
-    with tab_ilce:
-        st.subheader("📍 İlçe Bazlı Derinlik Analizi")
-        
-        if not selected_cities:
-            st.info("💡 İlçe bazlı detaylı penetrasyon analizi için sol menüden en az bir **Şehir** seçmelisiniz.")
-            # Şehir seçili değilse genel olarak en yoğun ilçeleri gösterelim
-            if not df_filtered.empty:
-                st.markdown("##### Türkiye Geneli En Yoğun İlçeler")
-                top_districts = df_filtered.groupby(['İl','İlçe']).size().reset_index(name='Bayi Sayısı')
-                top_districts['Etiket'] = top_districts['İl'] + " - " + top_districts['İlçe']
-                top_districts = top_districts.sort_values('Bayi Sayısı', ascending=False).head(20)
-                
-                fig_top = px.bar(top_districts, x='Bayi Sayısı', y='Etiket', orientation='h', text='Bayi Sayısı',
-                                 title="Türkiye Geneli Top 20 İlçe (Filtrelere Göre)")
-                fig_top.update_layout(yaxis={'categoryorder': 'total ascending'})
-                st.plotly_chart(fig_top, use_container_width=True)
-        else:
-            # Şehir Seçildiyse Analizi Başlat
-            st.markdown(f"**Seçilen Şehirler:** {', '.join(selected_cities)}")
-            
-            # --- Grafik 1: Seçilen Kriterlere Göre İlçe Dağılımı ---
-            district_breakdown = df_filtered.groupby(['İlçe', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
-            
-            # Daha güzel görünüm için pivot yapalım (sütun: şirket, satır: ilçe)
-            if not district_breakdown.empty:
-                fig_ilce = px.bar(district_breakdown, x='Adet', y='İlçe', color='Dağıtım Şirketi', 
-                                  orientation='h', title="İlçelere Göre Dağılım (Seçili Kriterler)",
-                                  text='Adet', height=700)
-                fig_ilce.update_layout(yaxis={'categoryorder': 'total ascending'})
-                st.plotly_chart(fig_ilce, use_container_width=True)
-            else:
-                st.warning("Seçilen kriterlere uygun veri bulunamadı.")
-
-            st.divider()
-            
-            # --- GAP ANALİZİ (BOŞ OLAN İLÇELER) ---
-            st.subheader("⚠️ Varlık Gösterilmeyen İlçeler (Fırsatlar)")
-            st.markdown("Seçtiğiniz şehirlerde bulunan ancak **seçili şirketlerin hiç bayisinin olmadığı** ilçeler aşağıdadır.")
-            
-            # 1. Seçilen şehirlerin TÜM ilçelerini bul (Ana Dataframe'den)
-            tum_ilceler_ref = df[df['İl'].isin(selected_cities)]['İlçe'].unique()
-            
-            # 2. Şu an filtrelenen (gösterilen) ilçeleri bul
-            mevcut_ilceler = df_filtered['İlçe'].unique()
-            
-            # 3. Farkı al (Set işlemi)
-            bos_ilceler = set(tum_ilceler_ref) - set(mevcut_ilceler)
-            
-            if bos_ilceler:
-                bos_ilceler_list = sorted(list(bos_ilceler))
-                st.error(f"Toplam **{len(bos_ilceler_list)}** ilçede hiç bayi yok!")
-                
-                # Güzel bir kutu içinde gösterelim
-                cols = st.columns(4)
-                for i, ilce in enumerate(bos_ilceler_list):
-                    cols[i % 4].warning(f"📍 {ilce}")
-            else:
-                st.success("Tebrikler! Seçilen şehirlerin **TÜM** ilçelerinde varlık gösteriliyor.")
 
     # 5. HAM VERİ
     with tab_data:
