@@ -114,6 +114,7 @@ def show_details_table(dataframe, target_date_col):
     if target_date_col in display_df.columns:
         display_df[target_date_col] = display_df[target_date_col].dt.strftime('%d.%m.%Y')
 
+    # Kalan güne göre sırala (azdan çoğa)
     display_df = display_df.sort_values('Kalan_Gun')
 
     def highlight_risk(val):
@@ -223,69 +224,64 @@ def main():
     st.divider()
 
     # --- SEKMELER ---
-    tab_risk, tab_calendar, tab_ilce, tab_market, tab_data = st.tabs([
-        "⚡ Sözleşme & Risk",
+    tab_overview, tab_calendar, tab_ilce, tab_market, tab_data = st.tabs([
+        "📊 Bölgesel Durum & Risk", # İSİM GÜNCELLENDİ
         "📅 Sözleşme Takvimi", 
         "📍 İlçe Penetrasyonu",
         "🏢 Pazar & Rekabet",
         "📋 Ham Veri"
     ])
 
-    # 1. RİSK ANALİZİ (GÜNCELLENEN KISIM)
-    with tab_risk:
-        st.subheader("🚨 Risk Analizi (İlk 6 Ay)")
+    # 1. BÖLGESEL DURUM & RİSK (REVİZE EDİLDİ)
+    with tab_overview:
+        st.subheader("📊 Şehir Bazlı Dağılım ve Risk Durumu")
         
-        # Sadece riskli (180 günden az kalan) bayileri al
-        critical_df = df_filtered[df_filtered['Kalan_Gun'] < 180].sort_values('Kalan_Gun')
-        
-        if not critical_df.empty:
-            # --- GRAFİKLER ---
+        if not df_filtered.empty:
+            # 1. Grafik Verisi Hazırla: Filtreye giren TÜM bayilerin şehir dağılımı
+            city_counts = df_filtered['İl'].value_counts().reset_index()
+            city_counts.columns = ['İl', 'Adet']
             
-            # Grafik 1: Şehirlere Göre Risk Dağılımı (Çubuk)
-            city_risk_counts = critical_df['İl'].value_counts().reset_index()
-            city_risk_counts.columns = ['İl', 'Adet']
-            
-            fig_risk_city = px.bar(city_risk_counts, x='İl', y='Adet', text='Adet', 
-                                   title="Şehirlere Göre Riskli Bayi Sayısı",
-                                   color='Adet', color_continuous_scale='Reds')
-            fig_risk_city.update_layout(xaxis_title="Şehir", yaxis_title="Bayi Sayısı")
+            # Grafik 1: Şehir Çubuk Grafiği (Tüm Bayiler)
+            fig_city = px.bar(city_counts, x='İl', y='Adet', text='Adet', 
+                              title="Şehirlerdeki Toplam Bayi Sayısı",
+                              color='Adet', color_continuous_scale='Blues')
+            fig_city.update_layout(xaxis_title="Şehir", yaxis_title="Toplam Bayi Sayısı")
 
-            # Grafik 2: Risk Durumu (Pasta)
-            risk_status_counts = critical_df['Risk_Durumu'].value_counts().reset_index()
+            # Grafik 2: Pasta Grafiği (Genel Risk Dağılımı)
+            risk_status_counts = df_filtered['Risk_Durumu'].value_counts().reset_index()
             risk_status_counts.columns = ['Risk_Durumu', 'Adet']
             
-            fig_risk_pie = px.pie(risk_status_counts, values='Adet', names='Risk_Durumu', hole=0.4,
-                                  title="Risk Aciliyet Durumu",
-                                  color_discrete_map={"SÜRESİ DOLDU 🚨": "red", "KRİTİK (<3 Ay) ⚠️": "orange",
-                                                      "YAKLAŞIYOR (<6 Ay) ⏳": "#FFD700"})
+            fig_pie = px.pie(risk_status_counts, values='Adet', names='Risk_Durumu', hole=0.4,
+                             title="Genel Risk Dağılımı (Tüm Liste)",
+                             color_discrete_map={"SÜRESİ DOLDU 🚨": "red", "KRİTİK (<3 Ay) ⚠️": "orange",
+                                                 "YAKLAŞIYOR (<6 Ay) ⏳": "#FFD700", "GÜVENLİ ✅": "green"})
 
-            # Layout Yerleşimi
-            # Önce büyük çubuk grafik, altına pasta grafik
-            st.plotly_chart(fig_risk_city, use_container_width=True, on_select="rerun", key="risk_bar_chart")
+            # Yerleşim
+            st.plotly_chart(fig_city, use_container_width=True, on_select="rerun", key="overview_bar_chart")
             
             col_pie1, col_pie2 = st.columns([1, 2])
             with col_pie1:
-                st.plotly_chart(fig_risk_pie, use_container_width=True)
+                st.plotly_chart(fig_pie, use_container_width=True)
             with col_pie2:
-                st.info("💡 **İpucu:** Yukarıdaki çubuk grafikte bir şehre tıklarsanız, aşağıdaki liste o şehre göre filtrelenir.")
-            
+                st.info("💡 **Bilgi:** Üstteki grafik, seçili filtrelerdeki **toplam** bayi sayısını gösterir. Bir şehre tıkladığınızda o şehirdeki tüm bayiler (Riskli veya Güvenli fark etmeksizin) aşağıda listelenir.")
+
             st.divider()
             
             # --- ETKİLEŞİMLİ LİSTE ---
-            # Seçilen şehri yakala (Çubuk grafikten)
-            selected_risk_city = None
-            if st.session_state.get("risk_bar_chart") and st.session_state["risk_bar_chart"]['selection']['points']:
-                selected_risk_city = st.session_state["risk_bar_chart"]['selection']['points'][0]['x']
-                st.success(f"📌 **{selected_risk_city}** şehrindeki riskli bayiler listeleniyor:")
-                filtered_table = critical_df[critical_df['İl'] == selected_risk_city]
+            # Seçilen şehri yakala
+            selected_chart_city = None
+            if st.session_state.get("overview_bar_chart") and st.session_state["overview_bar_chart"]['selection']['points']:
+                selected_chart_city = st.session_state["overview_bar_chart"]['selection']['points'][0]['x']
+                st.success(f"📌 **{selected_chart_city}** şehrindeki TÜM bayiler listeleniyor:")
+                filtered_table = df_filtered[df_filtered['İl'] == selected_chart_city]
             else:
-                st.markdown("### 📋 Tüm Riskli Bayi Listesi")
-                filtered_table = critical_df
+                st.markdown("### 📋 Tüm Bayi Listesi")
+                filtered_table = df_filtered
                 
             show_details_table(filtered_table, target_date_col)
             
         else:
-            st.success("Harika! Önümüzdeki 6 ay içinde sözleşmesi bitecek veya riskli durumda olan bayi bulunmamaktadır.")
+            st.warning("Seçilen kriterlere uygun veri bulunamadı.")
 
     # 2. SÖZLEŞME TAKVİMİ
     with tab_calendar:
