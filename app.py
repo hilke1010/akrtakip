@@ -48,6 +48,7 @@ st.markdown("""
         border-radius: 4px;
         font-weight: bold;
     }
+    /* Makine Analizi Kutuları */
     .insight-box-success {
         padding: 15px; border-radius: 8px; background-color: #d4edda; border-left: 5px solid #28a745; color: #155724; margin-bottom: 10px;
     }
@@ -59,6 +60,21 @@ st.markdown("""
     }
     .insight-box-info {
         padding: 15px; border-radius: 8px; background-color: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460; margin-bottom: 10px;
+    }
+    /* İlçe Etiketleri (Chip Style) */
+    .district-chip {
+        display: inline-block;
+        background-color: #f1f3f5;
+        padding: 5px 10px;
+        margin: 3px;
+        border-radius: 15px;
+        font-size: 0.9em;
+        border: 1px solid #ddd;
+        cursor: help; /* Üzerine gelince soru işareti çıksın */
+    }
+    .district-chip:hover {
+        background-color: #e2e6ea;
+        border-color: #adb5bd;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -289,37 +305,31 @@ def main():
         st.divider()
         st.subheader("📊 İstatistikler")
         
-        # --- ŞEHİR SIRALAMASI ÇUBUK GRAFİĞİ (GÜNCELLENDİ) ---
-        # 1. Toplam Veriyi Hazırla
+        # --- ŞEHİR SIRALAMASI ÇUBUK GRAFİĞİ (ETİKETLİ) ---
         city_stats = df_filtered['İl'].value_counts().reset_index()
         city_stats.columns = ['İl', 'Total']
         
-        # 2. Güzel Enerji Verisini Hazırla
         ge_comp_name = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
         ge_df = df_filtered[df_filtered['Dağıtım Şirketi'] == ge_comp_name]
         ge_counts = ge_df['İl'].value_counts().reset_index()
         ge_counts.columns = ['İl', 'GE_Count']
         
-        # 3. Birleştir
         merged_stats = pd.merge(city_stats, ge_counts, on='İl', how='left').fillna(0)
         
-        # 4. Etiket Fonksiyonu
         def get_bar_label(row):
             total = int(row['Total'])
             ge_c = int(row['GE_Count'])
             share = (ge_c / total * 100) if total > 0 else 0
-            # HTML formatlı etiket: Üstte Toplam, altta GE bilgisi
             return f"<b>{total}</b><br><span style='font-size:11px; color:#555'>GE: {ge_c} (%{share:.1f})</span>"
         
         merged_stats['Label'] = merged_stats.apply(get_bar_label, axis=1)
         
-        # 5. Grafik Çizimi
         fig_city = px.bar(merged_stats, x='İl', y='Total', text='Label', 
                           title="Şehir Sıralaması (Toplam & Güzel Enerji Payı)", 
                           color='Total', color_continuous_scale='Blues')
         
-        fig_city.update_traces(textposition='outside', cliponaxis=False) # Etiketleri dışarı al
-        fig_city.update_layout(yaxis=dict(title='Toplam Bayi Sayısı'), margin=dict(t=50, b=100)) # Margin ayarla ki yazılar kesilmesin
+        fig_city.update_traces(textposition='outside', cliponaxis=False)
+        fig_city.update_layout(yaxis=dict(title='Toplam Bayi Sayısı'), margin=dict(t=50, b=100))
         
         st.plotly_chart(fig_city, use_container_width=True, on_select="rerun", key="overview_bar_chart")
         st.caption("ℹ️ *Grafiği sağ üst köşesinden büyütebilir, üzerine gelerek detayları görebilirsiniz.*")
@@ -392,11 +402,14 @@ def main():
             </div>
             """, unsafe_allow_html=True)
 
-            # --- EKSİK İLÇELER ---
+            # --- EKSİK İLÇELER (TOOLTIP EKLENDİ) ---
             all_scope_districts = scope_df['İlçe'].unique()
             my_districts = my_df['İlçe'].unique()
             missing_districts = sorted(list(set(all_scope_districts) - set(my_districts)))
             
+            # İlçe bazlı toplam pazar büyüklüğünü hesapla (Tooltip için)
+            district_market_size = scope_df['İlçe'].value_counts()
+
             if len(missing_districts) > 0:
                 st.markdown(f"""
                 <div class="insight-box-warning">
@@ -405,30 +418,39 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
                 
-                with st.expander("📄 Tüm Eksik İlçeleri Listele (Tıklayın)", expanded=False):
-                    st.write(", ".join(missing_districts))
-                    st.info("💡 **Not:** Nüfus verisi entegre edilirse burası nüfusa göre filtrelenebilir.")
+                with st.expander("📄 Tüm Eksik İlçeleri Listele (Üzerine Gelip Pazar Büyüklüğünü Görün)", expanded=False):
+                    # HTML ile Chip tasarımı oluşturuyoruz
+                    html_chips = ""
+                    for dist in missing_districts:
+                        # O ilçedeki toplam istasyon sayısı
+                        total_stations = district_market_size.get(dist, 0)
+                        tooltip_text = f"{dist}: Bizde 0, Toplam Pazar: {total_stations} Bayi"
+                        html_chips += f'<span class="district-chip" title="{tooltip_text}">{dist}</span>'
+                    
+                    st.markdown(html_chips, unsafe_allow_html=True)
+                    st.info("💡 **İpucu:** İlçelerin üzerine gelerek (mouse ile), o ilçedeki toplam rakip istasyon sayısını görebilirsiniz.")
             else:
                 st.success("Tebrikler! Bu bölgedeki tüm ilçelerde varlık gösteriyorsunuz.")
 
-            # --- SÖZLEŞME BİTİŞ YILLARI (DETAYLI DÖNGÜ) ---
+            # --- SÖZLEŞME BİTİŞ YILLARI (2026 DAHİL) ---
             if 'Bitis_Yili' in my_df.columns:
-                current_year = datetime.date.today().year
-                # Gelecekteki tüm yılları al (Sıralı)
-                future_expirations = my_df[my_df['Bitis_Yili'] > current_year]['Bitis_Yili'].value_counts().sort_index()
+                current_year = datetime.date.today().year # 2026
+                # Şu anki yıl ve sonrası
+                future_expirations = my_df[my_df['Bitis_Yili'] >= current_year]['Bitis_Yili'].value_counts().sort_index()
                 
                 if not future_expirations.empty:
                     msg_list = "<ul>"
                     total_future = 0
                     for year, count in future_expirations.items():
-                        msg_list += f"<li><b>{int(year)}:</b> {count} adet sözleşme</li>"
+                        yr_text = f"{int(year)} (Bu Yıl)" if year == current_year else f"{int(year)}"
+                        msg_list += f"<li><b>{yr_text}:</b> {count} adet sözleşme</li>"
                         total_future += count
                     msg_list += "</ul>"
                     
                     st.markdown(f"""
                     <div class="insight-box-danger">
                         <b>⚠️ Kritik Yenileme Dönemleri (Gelecek Yıllar):</b> <br>
-                        Toplamda <b>{total_future}</b> sözleşme önümüzdeki yıllarda sona erecek. Yıllara göre dağılım:
+                        Toplamda <b>{total_future}</b> sözleşme önümüzdeki süreçte sona erecek. Yıllara göre dağılım:
                         {msg_list}
                     </div>
                     """, unsafe_allow_html=True)
@@ -451,14 +473,13 @@ def main():
                 """, unsafe_allow_html=True)
                 
             with col_share_chart:
-                # Özel Pasta Grafik: Biz vs Diğerleri
                 others_share = total_market - my_share
                 fig_my_share = px.pie(
                     names=['GÜZEL ENERJİ', 'RAKİPLER'],
                     values=[my_share, others_share],
                     hole=0.5,
                     title=f"Bölgesel Hakimiyet Oranı",
-                    color_discrete_sequence=['#2ecc71', '#e74c3c'] # Yeşil ve Kırmızı
+                    color_discrete_sequence=['#2ecc71', '#e74c3c'] 
                 )
                 fig_my_share.update_layout(margin=dict(t=30, b=0, l=0, r=0))
                 st.plotly_chart(fig_my_share, use_container_width=True)
