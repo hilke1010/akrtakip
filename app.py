@@ -30,8 +30,39 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- 4. KOORDİNAT VERİTABANI (İL MERKEZLERİ) ---
+# Excel'de koordinat olmadığı için illeri haritada göstermek adına bu listeyi kullanıyoruz.
+CITY_COORDINATES = {
+    "ADANA": [37.0000, 35.3213], "ADIYAMAN": [37.7648, 38.2786], "AFYONKARAHİSAR": [38.7507, 30.5567],
+    "AĞRI": [39.7191, 43.0503], "AMASYA": [40.6499, 35.8353], "ANKARA": [39.9334, 32.8597],
+    "ANTALYA": [36.8969, 30.7133], "ARTVİN": [41.1828, 41.8183], "AYDIN": [37.8560, 27.8416],
+    "BALIKESİR": [39.6484, 27.8826], "BİLECİK": [40.1451, 29.9799], "BİNGÖL": [38.8854, 40.4983],
+    "BİTLİS": [38.3938, 42.1232], "BOLU": [40.7350, 31.6061], "BURDUR": [37.4613, 30.0665],
+    "BURSA": [40.1885, 29.0610], "ÇANAKKALE": [40.1553, 26.4142], "ÇANKIRI": [40.6013, 33.6134],
+    "ÇORUM": [40.5506, 34.9556], "DENİZLİ": [37.7765, 29.0864], "DİYARBAKIR": [37.9144, 40.2306],
+    "EDİRNE": [41.6768, 26.5603], "ELAZIĞ": [38.6810, 39.2264], "ERZİNCAN": [39.7500, 39.5000],
+    "ERZURUM": [39.9043, 41.2679], "ESKİŞEHİR": [39.7767, 30.5206], "GAZİANTEP": [37.0662, 37.3833],
+    "GİRESUN": [40.9128, 38.3895], "GÜMÜŞHANE": [40.4600, 39.4700], "HAKKARİ": [37.5833, 43.7333],
+    "HATAY": [36.4018, 36.3498], "ISPARTA": [37.7648, 30.5566], "MERSİN": [36.8000, 34.6333],
+    "İSTANBUL": [41.0082, 28.9784], "İZMİR": [38.4189, 27.1287], "KARS": [40.6172, 43.0974],
+    "KASTAMONU": [41.3887, 33.7827], "KAYSERİ": [38.7312, 35.4787], "KIRKLARELİ": [41.7333, 27.2167],
+    "KIRŞEHİR": [39.1425, 34.1709], "KOCAELİ": [40.8533, 29.8815], "KONYA": [37.8667, 32.4833],
+    "KÜTAHYA": [39.4167, 29.9833], "MALATYA": [38.3552, 38.3095], "MANİSA": [38.6191, 27.4289],
+    "KAHRAMANMARAŞ": [37.5858, 36.9371], "MARDİN": [37.3212, 40.7245], "MUĞLA": [37.2153, 28.3636],
+    "MUŞ": [38.9462, 41.7539], "NEVŞEHİR": [38.6244, 34.7144], "NİĞDE": [37.9667, 34.6833],
+    "ORDU": [40.9839, 37.8764], "RİZE": [41.0201, 40.5234], "SAKARYA": [40.7569, 30.3783],
+    "SAMSUN": [41.2928, 36.3313], "SİİRT": [37.9333, 41.9500], "SİNOP": [42.0231, 35.1531],
+    "SİVAS": [39.7477, 37.0179], "TEKİRDAĞ": [40.9833, 27.5167], "TOKAT": [40.3167, 36.5500],
+    "TRABZON": [41.0015, 39.7178], "TUNCELİ": [39.1079, 39.5401], "ŞANLIURFA": [37.1591, 38.7969],
+    "UŞAK": [38.6823, 29.4082], "VAN": [38.4891, 43.4089], "YOZGAT": [39.8181, 34.8147],
+    "ZONGULDAK": [41.4564, 31.7987], "AKSARAY": [38.3687, 34.0370], "BAYBURT": [40.2552, 40.2249],
+    "KARAMAN": [37.1759, 33.2287], "KIRIKKALE": [39.8468, 33.5153], "BATMAN": [37.8812, 41.1291],
+    "ŞIRNAK": [37.4187, 42.4918], "BARTIN": [41.6344, 32.3375], "ARDAHAN": [41.1105, 42.7022],
+    "IĞDIR": [39.9196, 44.0459], "YALOVA": [40.6500, 29.2667], "KARABÜK": [41.2061, 32.6204],
+    "KİLİS": [36.7184, 37.1212], "OSMANİYE": [37.0742, 36.2467], "DÜZCE": [40.8438, 31.1565]
+}
 
-# --- 4. BÖLGE TANIMLARI ---
+# --- 5. BÖLGE TANIMLARI ---
 BOLGE_TANIMLARI = {
     "Orta Anadolu": [
         "DÜZCE", "KARABÜK", "KONYA", "BOLU", "AFYONKARAHİSAR",
@@ -41,8 +72,7 @@ BOLGE_TANIMLARI = {
     ]
 }
 
-
-# --- 5. EXCEL VERİ YÜKLEME ---
+# --- 6. EXCEL VERİ YÜKLEME ---
 @st.cache_data
 def load_data(file_path):
     if not os.path.exists(file_path):
@@ -70,7 +100,6 @@ def load_data(file_path):
 
         if target_col in df.columns:
             df['Kalan_Gun'] = (df[target_col] - today).dt.days
-            # Yıl ve Ay bilgisini çıkar
             df['Bitis_Yili'] = df[target_col].dt.year
             df['Bitis_Ayi'] = df[target_col].dt.month_name(locale='Turkish' if 'Turkish' in datetime.date.today().strftime('%B') else None)
             df['Bitis_Ayi_No'] = df[target_col].dt.month
@@ -102,7 +131,6 @@ def load_data(file_path):
 
 # --- YARDIMCI FONKSİYON: DETAY TABLOSU ---
 def show_details_table(dataframe, target_date_col):
-    """Seçilen filtrelere göre detaylı bayi listesini gösterir."""
     if dataframe.empty:
         st.info("Seçilen kriterlere uygun kayıt bulunamadı.")
         return
@@ -114,7 +142,6 @@ def show_details_table(dataframe, target_date_col):
     if target_date_col in display_df.columns:
         display_df[target_date_col] = display_df[target_date_col].dt.strftime('%d.%m.%Y')
 
-    # Kalan güne göre sırala (azdan çoğa)
     display_df = display_df.sort_values('Kalan_Gun')
 
     def highlight_risk(val):
@@ -203,7 +230,8 @@ def main():
     if selected_region != "Tümü":
         st.caption(f"📍 Şu anda **{selected_region}** verileri görüntüleniyor.")
 
-    c1, c2, c3, c4 = st.columns(4)
+    # KPI KISMI (Ortalama Kalan Gün Kaldırıldı)
+    c1, c2, c3 = st.columns(3) # Kolon sayısı 3'e düşürüldü
     c1.metric("Toplam İstasyon", f"{len(df_filtered):,}")
 
     acil_durum = len(df_filtered[df_filtered['Kalan_Gun'] < 90])
@@ -215,67 +243,100 @@ def main():
         aktif_dagitici = 0
     c3.metric("Aktif Dağıtıcı", aktif_dagitici)
 
-    if not df_filtered.empty:
-        ort_gun = df_filtered['Kalan_Gun'].mean()
-        c4.metric("Ort. Kalan Gün", f"{ort_gun:.0f}")
-    else:
-        c4.metric("Ort. Kalan Gün", "0")
-
     st.divider()
 
     # --- SEKMELER ---
     tab_overview, tab_calendar, tab_ilce, tab_market, tab_data = st.tabs([
-        "📊 Bölgesel Durum & Risk", # İSİM GÜNCELLENDİ
+        "📊 Bölgesel Harita & Durum", 
         "📅 Sözleşme Takvimi", 
         "📍 İlçe Penetrasyonu",
         "🏢 Pazar & Rekabet",
         "📋 Ham Veri"
     ])
 
-    # 1. BÖLGESEL DURUM & RİSK (REVİZE EDİLDİ)
+    # 1. BÖLGESEL HARİTA & DURUM
     with tab_overview:
-        st.subheader("📊 Şehir Bazlı Dağılım ve Risk Durumu")
+        st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
         
+        # HARİTA AÇIKLAMASI
+        st.info("""
+        ℹ️ **Harita Nasıl Okunur?**
+        - **Noktaların Büyüklüğü:** O ildeki toplam bayi sayısını temsil eder. Büyük nokta = Çok Bayi.
+        - **Renk Tonu:** Koyu renkli iller yoğunluğun en fazla olduğu bölgelerdir.
+        - Harita üzerinde yakınlaştırma (zoom) yapabilir, noktaların üzerine gelerek sayıları görebilirsiniz.
+        """)
+
         if not df_filtered.empty:
-            # 1. Grafik Verisi Hazırla: Filtreye giren TÜM bayilerin şehir dağılımı
-            city_counts = df_filtered['İl'].value_counts().reset_index()
-            city_counts.columns = ['İl', 'Adet']
+            # 1. Harita Verisini Hazırla (İllere Göre Grupla)
+            map_data = df_filtered['İl'].value_counts().reset_index()
+            map_data.columns = ['İl', 'Adet']
             
-            # Grafik 1: Şehir Çubuk Grafiği (Tüm Bayiler)
-            fig_city = px.bar(city_counts, x='İl', y='Adet', text='Adet', 
-                              title="Şehirlerdeki Toplam Bayi Sayısı",
-                              color='Adet', color_continuous_scale='Blues')
-            fig_city.update_layout(xaxis_title="Şehir", yaxis_title="Toplam Bayi Sayısı")
+            # Koordinatları Eşle
+            map_data['lat'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[0])
+            map_data['lon'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[1])
+            
+            # Koordinatı bulunamayanları çıkar (örn: hatalı yazım)
+            map_data = map_data.dropna(subset=['lat', 'lon'])
 
-            # Grafik 2: Pasta Grafiği (Genel Risk Dağılımı)
-            risk_status_counts = df_filtered['Risk_Durumu'].value_counts().reset_index()
-            risk_status_counts.columns = ['Risk_Durumu', 'Adet']
-            
-            fig_pie = px.pie(risk_status_counts, values='Adet', names='Risk_Durumu', hole=0.4,
-                             title="Genel Risk Dağılımı (Tüm Liste)",
-                             color_discrete_map={"SÜRESİ DOLDU 🚨": "red", "KRİTİK (<3 Ay) ⚠️": "orange",
-                                                 "YAKLAŞIYOR (<6 Ay) ⏳": "#FFD700", "GÜVENLİ ✅": "green"})
-
-            # Yerleşim
-            st.plotly_chart(fig_city, use_container_width=True, on_select="rerun", key="overview_bar_chart")
-            
-            col_pie1, col_pie2 = st.columns([1, 2])
-            with col_pie1:
-                st.plotly_chart(fig_pie, use_container_width=True)
-            with col_pie2:
-                st.info("💡 **Bilgi:** Üstteki grafik, seçili filtrelerdeki **toplam** bayi sayısını gösterir. Bir şehre tıkladığınızda o şehirdeki tüm bayiler (Riskli veya Güvenli fark etmeksizin) aşağıda listelenir.")
+            if not map_data.empty:
+                # Harita Çizimi
+                fig_map = px.scatter_mapbox(
+                    map_data, 
+                    lat="lat", lon="lon", 
+                    size="Adet", 
+                    color="Adet",
+                    hover_name="İl",
+                    size_max=35, 
+                    zoom=5 if selected_region == "Tümü" else 6, # Bölge seçiliyse biraz daha yakınlaş
+                    mapbox_style="open-street-map",
+                    color_continuous_scale=px.colors.sequential.Bluered,
+                    title="İl Bazlı Bayi Yoğunluğu"
+                )
+                
+                # Eğer bölge seçiliyse haritayı o bölgenin merkezine odakla
+                if selected_region != "Tümü":
+                    center_lat = map_data['lat'].mean()
+                    center_lon = map_data['lon'].mean()
+                    fig_map.update_layout(mapbox_center={"lat": center_lat, "lon": center_lon})
+                else:
+                    # Türkiye Merkezi
+                    fig_map.update_layout(mapbox_center={"lat": 39.0, "lon": 35.0}, mapbox_zoom=4.8)
+                
+                fig_map.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
+                st.plotly_chart(fig_map, use_container_width=True)
+            else:
+                st.warning("Harita için uygun koordinat verisi eşleştirilemedi.")
 
             st.divider()
             
+            # --- Grafik ve Liste ---
+            st.subheader("📊 Şehir Bazlı İstatistikler")
+            
+            col_chart, col_pie = st.columns([2, 1])
+            
+            with col_chart:
+                fig_city = px.bar(map_data, x='İl', y='Adet', text='Adet', 
+                                  title="Şehir Bayi Sıralaması",
+                                  color='Adet', color_continuous_scale='Blues')
+                st.plotly_chart(fig_city, use_container_width=True, on_select="rerun", key="overview_bar_chart")
+            
+            with col_pie:
+                risk_status_counts = df_filtered['Risk_Durumu'].value_counts().reset_index()
+                risk_status_counts.columns = ['Risk_Durumu', 'Adet']
+                fig_pie = px.pie(risk_status_counts, values='Adet', names='Risk_Durumu', hole=0.4,
+                                 title="Genel Risk Dağılımı",
+                                 color_discrete_map={"SÜRESİ DOLDU 🚨": "red", "KRİTİK (<3 Ay) ⚠️": "orange",
+                                                     "YAKLAŞIYOR (<6 Ay) ⏳": "#FFD700", "GÜVENLİ ✅": "green"})
+                st.plotly_chart(fig_pie, use_container_width=True)
+
             # --- ETKİLEŞİMLİ LİSTE ---
-            # Seçilen şehri yakala
             selected_chart_city = None
             if st.session_state.get("overview_bar_chart") and st.session_state["overview_bar_chart"]['selection']['points']:
                 selected_chart_city = st.session_state["overview_bar_chart"]['selection']['points'][0]['x']
-                st.success(f"📌 **{selected_chart_city}** şehrindeki TÜM bayiler listeleniyor:")
+                st.success(f"📌 **{selected_chart_city}** detayları listeleniyor:")
                 filtered_table = df_filtered[df_filtered['İl'] == selected_chart_city]
             else:
-                st.markdown("### 📋 Tüm Bayi Listesi")
+                st.markdown("### 📋 Detaylı Liste")
                 filtered_table = df_filtered
                 
             show_details_table(filtered_table, target_date_col)
@@ -352,7 +413,6 @@ def main():
                 st.warning("Veri bulunamadı.")
             
             st.divider()
-            # GAP ANALİZİ
             st.markdown("#### ⚠️ Hiç Bayi Olmayan İlçeler (Fırsatlar)")
             tum_ilceler_ref = df[df['İl'].isin(selected_cities)]['İlçe'].unique()
             mevcut_ilceler = df_filtered['İlçe'].unique()
