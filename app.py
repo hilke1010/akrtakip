@@ -5,6 +5,7 @@ import datetime
 import numpy as np
 import os
 import io
+import time
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -1004,3 +1005,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
