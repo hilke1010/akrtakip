@@ -1,5 +1,4 @@
-kanka şimdi sende bazı şeyler istiyorum
-Kodlarımı atıyorum sana buranın girişinde bir animasyon var ben daha böyle cafcaflı istiyorum animasyonlar felan olsun diğer kodlarıma karışma bir de requiements ne ekliceksem onu söyle 
+
 
 import streamlit as st
 import pandas as pd
@@ -828,3 +827,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
