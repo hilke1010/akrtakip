@@ -223,15 +223,21 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 # --- NLP / CHATBOT MANTIĞI ---
+# --- GELİŞMİŞ NLP / CHATBOT MANTIĞI ---
 def analyze_query(query, df):
-    query = query.upper().replace('İ', 'I').replace('ı', 'I')
-    response = ""
+    query = query.upper().replace('İ', 'I').replace('ı', 'I').replace('Ş', 'S').replace('Ğ', 'G').replace('Ü', 'U').replace('Ç', 'C')
     
+    # Kelime bazlı arama için yardımcılar
+    is_asking_risk = any(x in query for x in ["RISK", "BITEN", "SOZLESME", "KRITIK", "YENILEME", "SURESI"])
+    is_asking_competitor = any(x in query for x in ["RAKIP", "LIDER", "EN BUYUK", "KIM", "REKABET"])
+    is_asking_detail = any(x in query for x in ["DETAY", "LISTE", "GOSTER", "KIMLER"])
+
     # 1. Şehir Yakalama
     found_city = None
     all_cities = df['İl'].unique()
     for city in all_cities:
-        if city in query:
+        clean_city = str(city).upper().replace('İ', 'I').replace('ı', 'I')
+        if clean_city in query:
             found_city = city
             break
             
@@ -240,49 +246,71 @@ def analyze_query(query, df):
     if 'Dağıtım Şirketi' in df.columns:
         all_companies = df['Dağıtım Şirketi'].dropna().unique()
         for comp in all_companies:
-            # Şirket isminin bir kısmı geçiyorsa yakala (Örn: "OPET" in "OPET PETROLCÜLÜK")
-            # Basit eşleşme: Kullanıcı "OPET" yazarsa yakala
-            if str(comp).split()[0] in query or str(comp) in query:
+            clean_comp = str(comp).upper().replace('İ', 'I').replace('ı', 'I')
+            # Şirketin ilk kelimesini veya tamamını kontrol et (örn: "OPET" veya "OPET PETROLCULUK")
+            short_comp = clean_comp.split()[0]
+            if len(short_comp) > 3 and short_comp in query:
+                found_company = comp
+                break
+            elif clean_comp in query:
                 found_company = comp
                 break
     
-    # Veriyi Filtrele
-    filtered_df = df.copy()
+    # Filtreleme
+    f_df = df.copy()
     if found_city:
-        filtered_df = filtered_df[filtered_df['İl'] == found_city]
+        f_df = f_df[f_df['İl'] == found_city]
     if found_company:
-        filtered_df = filtered_df[filtered_df['Dağıtım Şirketi'] == found_company]
+        f_df = f_df[f_df['Dağıtım Şirketi'] == found_company]
         
-    count = len(filtered_df)
+    count = len(f_df)
     
-    # --- SENARYOLAR ---
+    # CEVAP OLUŞTURMA
+    res = ""
     
-    # Soru: "Ankara'da durum ne?" veya "Ankara kaç bayi?"
     if found_city and not found_company:
-        # En büyük şirketi bul
-        if not filtered_df.empty:
-            top_comp = filtered_df['Dağıtım Şirketi'].value_counts().idxmax()
-            top_count = filtered_df['Dağıtım Şirketi'].value_counts().max()
-            response = f"📍 **{found_city}** ilinde toplam **{count}** istasyon var.\n\n🏆 Pazar Lideri: **{top_comp}** ({top_count} Bayi)."
-        else:
-            response = f"{found_city} ilinde kayıt bulunamadı."
-
-    # Soru: "Güzel Enerji kaç bayi?"
-    elif found_company and not found_city:
-        response = f"⛽ **{found_company}** şirketinin toplam **{count}** bayisi bulunuyor."
-        if count > 0:
-            top_city = filtered_df['İl'].value_counts().idxmax()
-            response += f"\n\nEn güçlü olduğu il: **{top_city}**"
-
-    # Soru: "Ankara Güzel Enerji"
-    elif found_city and found_company:
-        response = f"📍 **{found_city}** ilinde **{found_company}** şirketine ait **{count}** istasyon bulunuyor."
-
-    # Genel Durum
-    else:
-        response = f"Toplam **{len(df)}** istasyon verisi mevcut. Lütfen bir **Şehir** (Örn: Ankara) veya **Şirket** (Örn: Opet) ismi yazın."
+        res = f"📍 **{found_city}** genel pazar analizi:\n\n"
+        res += f"- Toplam istasyon sayısı: **{count}**\n"
         
-    return response
+        # Rakip Analizi
+        top_comps = f_df['Dağıtım Şirketi'].value_counts().head(3)
+        res += f"- **Pazar Liderleri:** {', '.join([f'{k} ({v})' for k,v in top_comps.items()])}\n"
+        
+        # Risk Analizi
+        if is_asking_risk:
+            risk_count = len(f_df[f_df['Kalan_Gun'] < 180])
+            res += f"- **⚠️ Kritik Durum:** Önümüzdeki 6 ay içinde sözleşmesi bitecek **{risk_count}** bayi var.\n"
+            
+    elif found_company and not found_city:
+        res = f"⛽ **{found_company}** genel durumu:\n\n"
+        res += f"- Türkiye genelinde toplam **{count}** bayisi bulunuyor.\n"
+        top_city = f_df['İl'].value_counts().idxmax()
+        res += f"- En güçlü olduğu il: **{top_city}** ({f_df['İl'].value_counts().max()} bayi)\n"
+        
+        if is_asking_risk:
+            expired = len(f_df[f_df['Kalan_Gun'] < 0])
+            res += f"- **🚨 Süresi Dolan:** Mevcutta sözleşmesi bitmiş görünen **{expired}** istasyon var.\n"
+
+    elif found_city and found_company:
+        res = f"🔎 **{found_city}** ilindeki **{found_company}** analizi:\n\n"
+        res += f"- Toplam bayi sayısı: **{count}**\n"
+        
+        if count > 0:
+            avg_days = int(f_df['Kalan_Gun'].mean())
+            res += f"- Ortalama kalan sözleşme süresi: **{avg_days} gün**\n"
+            
+            if is_asking_risk:
+                imminent = f_df[f_df['Kalan_Gun'] < 180]
+                if not imminent.empty:
+                    res += f"- **⚠️ Dikkat:** Yakın zamanda bitecek {len(imminent)} bayi var.\n"
+                else:
+                    res += "- ✅ Yakın zamanda (6 ay) bitecek sözleşme görünmüyor.\n"
+    
+    else:
+        res = "Anlayamadım kanka. 😅 Lütfen şuna benzer bir şey sor:\n- *Ankara'da en büyük rakipler kim?*\n- *Güzel Enerji'nin sözleşmesi bitecek bayileri hangileri?*\n- *İstanbul Opet durumu ne?*"
+
+    # Eğer detay isteniyorsa tablo verisini de döndürelim (Chat içinde göstermek için)
+    return res, f_df.head(10) if is_asking_detail else None
 
 # --- ANA UYGULAMA ---
 def main():
@@ -755,31 +783,35 @@ def main():
                 fig_rep_bar = px.bar(dist_dist.head(10), x='Adet', y='İlçe', orientation='h', text='Adet')
                 st.plotly_chart(fig_rep_bar, use_container_width=True)
 
-    # 9. VERİ ASİSTANI (YENİ SEKME)
+   # 9. VERİ ASİSTANI (YENİ SEKME)
     with tab_chat:
-        st.subheader("💬 Veri Asistanı (Soru-Cevap)")
-        st.markdown("Aşağıdaki kutuya şehir veya şirket ismi yazarak hızlıca bilgi alabilirsiniz.")
+        st.subheader("💬 Veri Asistanı (Gelişmiş Analiz)")
+        st.info("💡 Örnek: 'Ankara'da rakip durumu ne?' veya 'Ankara Güzel Enerji biten sözleşmeler' veya 'İstanbul bayi listesi'")
         
-        # Sohbet Geçmişini Göster
         for message in st.session_state.chat_history:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
+                if "data" in message: # Eğer mesajda tablo verisi varsa göster
+                    st.dataframe(message["data"], use_container_width=True)
 
-        # Kullanıcı Girdisi
-        if prompt := st.chat_input("Bir soru sorun (Örn: Ankara kaç bayi? Opet durumu ne?)..."):
-            # Kullanıcı mesajını ekle
+        if prompt := st.chat_input("Sorunuzu buraya yazın..."):
             st.session_state.chat_history.append({"role": "user", "content": prompt})
             with st.chat_message("user"):
                 st.markdown(prompt)
 
-            # Cevap Üret
-            response = analyze_query(prompt, df)
+            # Cevap ve Tabloyu Al
+            response_text, response_data = analyze_query(prompt, df)
             
-            # Asistan mesajını ekle
-            st.session_state.chat_history.append({"role": "assistant", "content": response})
-            with st.chat_message("assistant"):
-                st.markdown(response)
+            message_to_add = {"role": "assistant", "content": response_text}
+            if response_data is not None and not response_data.empty:
+                message_to_add["data"] = response_data[['Unvan', 'İlçe', 'Dağıtım Şirketi', 'Risk_Durumu']]
 
+            st.session_state.chat_history.append(message_to_add)
+            
+            with st.chat_message("assistant"):
+                st.markdown(response_text)
+                if response_data is not None and not response_data.empty:
+                    st.dataframe(message_to_add["data"], use_container_width=True)
     # 10. CRM LITE
     with tab_crm:
         st.subheader("📝 CRM Lite")
@@ -822,5 +854,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
