@@ -374,8 +374,7 @@ def main():
         "📝 CRM Lite",           
         "📋 Ham Veri"
     ])
-    ])
-
+    
     # 1. BÖLGESEL & DURUM
     with tab_overview:
         st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
@@ -823,4 +822,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
