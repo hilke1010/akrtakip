@@ -16,167 +16,91 @@ st.set_page_config(
 
 import time
 
-# --- GİRİŞ EKRANI (SPLASH SCREEN v2) ---
+# --- GİRİŞ EKRANI (SPLASH SCREEN) ---
 if 'splash_shown' not in st.session_state:
     st.session_state['splash_shown'] = False
 
 if not st.session_state['splash_shown']:
+    # Giriş Ekranı CSS
     st.markdown("""
-<style>
-/* --- CYBERPUNK GRID BACKGROUND --- */
-.splash-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: #000;
-    background-image: 
-        linear-gradient(rgba(0, 255, 255, 0.2) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 255, 255, 0.2) 1px, transparent 1px);
-    background-size: 50px 50px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 999999;
-    perspective: 500px;
-    overflow: hidden;
-}
-
-/* Hareketli Arka Plan Efekti */
-.splash-container::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(circle at center, transparent 0%, #000 90%);
-    z-index: 1;
-}
-
-/* --- ANA METİN --- */
-.splash-title-box {
-    z-index: 10;
-    text-align: center;
-    animation: textGlitch 3s infinite;
-}
-.splash-title {
-    font-family: 'Outfit', sans-serif;
-    font-size: 5rem;
-    font-weight: 900;
-    color: #fff;
-    text-shadow: 0 0 20px #00FFFF, 0 0 40px #0044FF;
-    letter-spacing: 5px;
-    margin-bottom: 0px;
-}
-.splash-subtitle {
-    font-family: 'Courier New', monospace;
-    font-size: 1.2rem;
-    color: #00FFFF;
-    margin-top: 10px;
-    border-right: 2px solid #00FFFF;
-    white-space: nowrap;
-    overflow: hidden;
-    width: 100%;
-    animation: typing 2s steps(30), blink .5s step-end infinite alternate;
-}
-
-/* --- GRAFİK ANİMASYONLARI (SOL & SAĞ) --- */
-.graph-box {
-    position: absolute;
-    width: 200px;
-    height: 150px;
-    border: 1px solid rgba(0, 255, 255, 0.5);
-    background: rgba(0, 10, 30, 0.9);
-    z-index: 5;
-    padding: 10px;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-around;
-    box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
-}
-.graph-left { left: 10%; bottom: 20%; transform: rotateY(20deg); }
-.graph-right { right: 10%; top: 20%; transform: rotateY(-20deg); }
-
-.bar {
-    width: 15px;
-    background: linear-gradient(to top, #0044FF, #00FFFF);
-    box-shadow: 0 0 10px #00FFFF;
-    animation: barAnim 1s infinite alternate ease-in-out;
-}
-.bar:nth-child(1) { height: 30%; animation-delay: 0.1s; }
-.bar:nth-child(2) { height: 50%; animation-delay: 0.3s; }
-.bar:nth-child(3) { height: 70%; animation-delay: 0.5s; }
-.bar:nth-child(4) { height: 40%; animation-delay: 0.2s; }
-.bar:nth-child(5) { height: 90%; animation-delay: 0.4s; }
-
-/* --- LOADING RADAR --- */
-.radar-spinner {
-    width: 80px;
-    height: 80px;
-    border: 2px solid rgba(0, 255, 255, 0.5);
-    border-radius: 50%;
-    margin-top: 40px;
-    position: relative;
-    z-index: 10;
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
-}
-.radar-spinner::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 50%;
-    height: 50%;
-    background: conic-gradient(from 0deg, transparent 0deg, #00FFFF 360deg);
-    border-radius: 100% 0 0 0;
-    transform-origin: top left;
-    animation: radarSpin 1.5s linear infinite;
-}
-
-/* --- KEYFRAMES --- */
-@keyframes typing { from { width: 0 } to { width: 100% } }
-@keyframes blink { 50% { border-color: transparent } }
-@keyframes radarSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-@keyframes barAnim { 0% { height: 20%; opacity: 0.5; } 100% { height: 90%; opacity: 1; } }
-@keyframes textGlitch {
-    0% { text-shadow: 2px 0 #FF00FF, -2px 0 #00FFFF; }
-    95% { text-shadow: 2px 0 #FF00FF, -2px 0 #00FFFF; }
-    96% { text-shadow: -2px 0 #FF00FF, 2px 0 #00FFFF; opacity: 0.8; }
-    100% { text-shadow: 2px 0 #FF00FF, -2px 0 #00FFFF; opacity: 1; }
-}
-
-/* GİZLEME */
-[data-testid="stSidebar"], [data-testid="stToolbar"], .main { display: none !important; }
-</style>
-
-<div class="splash-container">
-    <!-- SOL GRAFİK -->
-    <div class="graph-box graph-left">
-        <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
-    </div>
+    <style>
+        .splash-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at 50% 50%, #0f172a, #000000);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999;
+        }
+        .splash-title {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 5rem;
+            font-weight: 900;
+            background: linear-gradient(to right, #00C6FF, #0072ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: fadeInScale 2.5s ease-out;
+            text-shadow: 0 0 50px rgba(0, 198, 255, 0.4);
+        }
+        .splash-subtitle {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            color: #94a3b8;
+            margin-top: 20px;
+            letter-spacing: 5px;
+            animation: fadeIn 3s ease-in;
+        }
+        .loader-bar {
+            width: 300px;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            margin-top: 50px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .loader-fill {
+            height: 100%;
+            background: #00C6FF;
+            width: 0%;
+            animation: load 3s ease-in-out forwards;
+            box-shadow: 0 0 20px #00C6FF;
+        }
+        @keyframes fadeInScale {
+            0% { opacity: 0; transform: scale(0.8); filter: blur(10px); }
+            100% { opacity: 1; transform: scale(1); filter: blur(0px); }
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        @keyframes load {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+        /* Sidebar ve diğer elementleri gizle */
+        [data-testid="stSidebar"], [data-testid="stToolbar"], .main {
+            display: none !important;
+        }
+    </style>
     
-    <!-- SAĞ GRAFİK -->
-    <div class="graph-box graph-right">
-        <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
-    </div>
-
-    <!-- ORTA YAZI -->
-    <div class="splash-title-box">
+    <div class="splash-container">
         <div class="splash-title">EPDK</div>
-        <div class="splash-subtitle">> SYSTEM_ANALYSIS_INITIATED...</div>
+        <div class="splash-subtitle">STRATEJİK PAZAR ANALİZİ</div>
+        <div class="loader-bar">
+            <div class="loader-fill"></div>
+        </div>
     </div>
-
-    <!-- RADAR LOADER -->
-    <div class="radar-spinner"></div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
     
-    time.sleep(4.0)
+    time.sleep(3.5)  # 3.5 saniye bekle
     st.session_state['splash_shown'] = True
-    st.rerun()
+    st.rerun()  # Sayfayı yenile ve ana ekrana geç
 
 # --- PERFORMANS AYARLARI ---
 MAX_ROW_DISPLAY = 1000  
