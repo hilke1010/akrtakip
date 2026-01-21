@@ -1,7 +1,9 @@
 streamlit
 pandas
 plotly
-numpy
-google-generativeai
 openpyxl
-xlsxwriter
+thefuzz
+python-docx
+yfinance
+matplotlib
+requests
