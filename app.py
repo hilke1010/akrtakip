@@ -203,7 +203,7 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
         elif val < 180: return 'background-color: #ffffcc'
         return ''
     
-    st.markdown(f"*📋 Listelenen Bayi Sayısı:* {len(display_df)}")
+    st.markdown(f"**📋 Listelenen Bayi Sayısı:** {len(display_df)}")
     
     if record_count > 0:
         buffer = io.BytesIO()
@@ -271,7 +271,7 @@ def main():
 
     # --- KPI ---
     st.title("🚀 Akaryakıt Pazar & Risk Analizi")
-    if selected_region != "Tümü": st.caption(f"📍 Şu anda *{selected_region}* verileri görüntüleniyor.")
+    if selected_region != "Tümü": st.caption(f"📍 Şu anda **{selected_region}** verileri görüntüleniyor.")
     c1, c2, c3 = st.columns(3)
     c1.metric("Toplam İstasyon", f"{len(df_filtered):,}")
     acil_durum = len(df_filtered[df_filtered['Kalan_Gun'] < 90]) if 'Kalan_Gun' in df_filtered.columns else 0
@@ -287,9 +287,9 @@ def main():
     if selected_companies: active_filters.append(f"⛽ Şirket: {', '.join(selected_companies)}")
 
     if active_filters:
-        st.info("🔍 *Aktif Filtreler:* " + "  |  ".join(active_filters))
+        st.info("🔍 **Aktif Filtreler:** " + "  |  ".join(active_filters))
     else:
-        st.info("🔍 *Aktif Filtreler:* Tüm Türkiye Verisi")
+        st.info("🔍 **Aktif Filtreler:** Tüm Türkiye Verisi")
     # --------------------------------------------------
 
     st.divider()
@@ -335,7 +335,7 @@ def main():
                     fig_map.update_layout(mapbox_center={"lat": 39.0, "lon": 35.0}, mapbox_zoom=4.8)
                 fig_map.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
                 st.plotly_chart(fig_map, use_container_width=True)
-                st.info("ℹ️ *Lejand:* 🔴 Koyu = Yüksek Yoğunluk, 🔵 Açık = Düşük Yoğunluk, ⚪ Büyüklük = İstasyon Sayısı")
+                st.info("ℹ️ **Lejand:** 🔴 Koyu = Yüksek Yoğunluk, 🔵 Açık = Düşük Yoğunluk, ⚪ Büyüklük = İstasyon Sayısı")
 
         st.divider()
         st.subheader("📊 İstatistikler")
@@ -359,7 +359,7 @@ def main():
         fig_city.update_traces(textposition='outside', cliponaxis=False)
         fig_city.update_layout(yaxis=dict(title='Toplam Bayi Sayısı'), margin=dict(t=50, b=100))
         st.plotly_chart(fig_city, use_container_width=True, on_select="rerun", key="overview_bar_chart")
-        st.caption("ℹ️ 👇 Grafiğin çubuklarına tıklayarak aşağıdaki listeyi filtreleyebilirsiniz.")
+        st.caption("ℹ️ *👇 Grafiğin çubuklarına tıklayarak aşağıdaki listeyi filtreleyebilirsiniz.*")
 
         st.markdown("---")
         
@@ -385,7 +385,7 @@ def main():
         try:
             if st.session_state.get("overview_bar_chart") and st.session_state["overview_bar_chart"]['selection']['points']:
                 selected_chart_city = st.session_state["overview_bar_chart"]['selection']['points'][0]['x']
-                st.success(f"📌 *{selected_chart_city}* detayları listeleniyor:")
+                st.success(f"📌 **{selected_chart_city}** detayları listeleniyor:")
                 filtered_table = df_filtered[df_filtered['İl'] == selected_chart_city]
             else: filtered_table = df_filtered
         except: filtered_table = df_filtered
@@ -394,7 +394,7 @@ def main():
     # 2. MAKİNE ANALİZİ
     with tab_machine:
         st.subheader("🤖 Makine Analizi (Akıllı Asistan)")
-        st.markdown("Veriler taranarak *GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ* için özel stratejik notlar oluşturuldu.")
+        st.markdown("Veriler taranarak **GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ** için özel stratejik notlar oluşturuldu.")
         
         col_ma1, col_ma2 = st.columns([1,3])
         with col_ma1:
@@ -403,10 +403,10 @@ def main():
         my_company = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
         if analiz_bolge != "Tümü":
             scope_df = df[df['İl'].isin(BOLGE_TANIMLARI[analiz_bolge])]
-            st.caption(f"📍 *Kapsam:* {analiz_bolge} Bölgesi")
+            st.caption(f"📍 **Kapsam:** {analiz_bolge} Bölgesi")
         else:
             scope_df = df.copy()
-            st.caption("📍 *Kapsam:* Tüm Türkiye")
+            st.caption("📍 **Kapsam:** Tüm Türkiye")
 
         my_df = scope_df[scope_df['Dağıtım Şirketi'] == my_company]
         
@@ -429,7 +429,7 @@ def main():
                         tooltip_text = f"{dist}: Bizde 0, Toplam Pazar: {total_stations} Bayi"
                         html_chips += f'<span class="district-chip" title="{tooltip_text}">{dist}</span>'
                     st.markdown(html_chips, unsafe_allow_html=True)
-                    st.info("💡 *İpucu:* İlçelerin üzerine gelerek toplam rakip istasyon sayısını görebilirsiniz.")
+                    st.info("💡 **İpucu:** İlçelerin üzerine gelerek toplam rakip istasyon sayısını görebilirsiniz.")
             
             if 'Bitis_Yili' in my_df.columns:
                 current_year = datetime.date.today().year
@@ -462,7 +462,7 @@ def main():
     # 3. KARŞILAŞTIRMA (VS.)
     with tab_compare:
         st.subheader("⚔️ Head-to-Head Rakip Analizi")
-        st.markdown("Soldaki *Bölge/İl/İlçe* filtreleri geçerlidir. *Şirket* filtresi devre dışı bırakılmıştır.")
+        st.markdown("Soldaki **Bölge/İl/İlçe** filtreleri geçerlidir. **Şirket** filtresi devre dışı bırakılmıştır.")
         if 'Dağıtım Şirketi' in df.columns:
             comp_list = sorted(df['Dağıtım Şirketi'].dropna().astype(str).unique().tolist())
             if len(comp_list) >= 2:
@@ -480,13 +480,13 @@ def main():
                 
                 top_a = df_a['İl'].value_counts().idxmax() if not df_a.empty else "-"
                 top_b = df_b['İl'].value_counts().idxmax() if not df_b.empty else "-"
-                k2.info(f"*En Güçlü:* {top_a}")
-                k2.warning(f"*En Güçlü:* {top_b}")
+                k2.info(f"**En Güçlü:** {top_a}")
+                k2.warning(f"**En Güçlü:** {top_b}")
 
                 min_a = df_a['İl'].value_counts().idxmin() if not df_a.empty else "-"
                 min_b = df_b['İl'].value_counts().idxmin() if not df_b.empty else "-"
-                k3.info(f"*En Zayıf:* {min_a}")
-                k3.warning(f"*En Zayıf:* {min_b}")
+                k3.info(f"**En Zayıf:** {min_a}")
+                k3.warning(f"**En Zayıf:** {min_b}")
 
                 if not df_a.empty or not df_b.empty:
                     ca = df_a['İl'].value_counts(); cb = df_b['İl'].value_counts()
@@ -507,7 +507,7 @@ def main():
                     city_vs = df_vs.groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
                     fig_vs = px.bar(city_vs, x='İl', y='Adet', color='Dağıtım Şirketi', barmode='group', title="Tüm Şehirlerde Karşılaştırma")
                     st.plotly_chart(fig_vs, use_container_width=True)
-                    st.caption("ℹ️ Grafiği büyütebilir veya kaydırabilirsiniz.")
+                    st.caption("ℹ️ *Grafiği büyütebilir veya kaydırabilirsiniz.*")
             else: st.warning("Yeterli veri yok.")
 
     # 4. SİMÜLASYON
@@ -525,7 +525,7 @@ def main():
         
         st.markdown("---")
         my_comp = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
-        st.info(f"🎯 *Odak Şirket:* {my_comp}")
+        st.info(f"🎯 **Odak Şirket:** {my_comp}")
         
         all_comp = sorted(df['Dağıtım Şirketi'].dropna().astype(str).unique().tolist())
         target_comps = [c for c in all_comp if c != my_comp]
@@ -568,22 +568,22 @@ def main():
                     m_cnt = df_yr.groupby(['Bitis_Ayi_No']).agg(Adet=('Unvan','count'), Ay=('Bitis_Ayi','first')).reset_index().sort_values('Bitis_Ayi_No')
                     fig_cal = px.bar(m_cnt, x='Ay', y='Adet', text='Adet', title=f"{sel_yr} Dağılımı")
                     sel = st.plotly_chart(fig_cal, use_container_width=True, on_select="rerun", key="cal_sel")
-                    st.caption("ℹ️ 👇 Grafiğin çubuklarına tıklayarak aşağıdaki listeyi filtreleyebilirsiniz.")
+                    st.caption("ℹ️ *👇 Grafiğin çubuklarına tıklayarak aşağıdaki listeyi filtreleyebilirsiniz.*")
                     if sel and sel['selection']['points']:
                         mn = sel['selection']['points'][0]['x']
-                        st.success(f"🗓️ *{mn} {sel_yr}*")
+                        st.success(f"🗓️ **{mn} {sel_yr}**")
                         show_details_table(df_yr[df_yr['Bitis_Ayi']==mn], target_date_col)
                     else: show_details_table(df_yr, target_date_col)
 
     # 6. SÖZLEŞME RADAR
     with tab_radar:
         st.subheader("📡 Sözleşme Radar (Kısa Süreli Anlaşmalar)")
-        st.markdown("Sözleşme Başlangıç ve Bitiş tarihi arasında *3 Aydan (90 gün) az* süre olan kayıtları listeler.")
+        st.markdown("Sözleşme Başlangıç ve Bitiş tarihi arasında **3 Aydan (90 gün) az** süre olan kayıtları listeler.")
         
         if 'Sozlesme_Suresi_Gun' in df_filtered.columns and start_date_col:
             radar_df = df_filtered[(df_filtered['Sozlesme_Suresi_Gun'] < 90) & (df_filtered['Sozlesme_Suresi_Gun'] >= 0)]
             if not radar_df.empty:
-                st.error(f"⚠️ Toplam *{len(radar_df)}* adet 3 aydan kısa süreli sözleşme tespit edildi.")
+                st.error(f"⚠️ Toplam **{len(radar_df)}** adet 3 aydan kısa süreli sözleşme tespit edildi.")
                 extra_cols = ['Dağıtıcı ile Yapılan Sözleşme Başlangıç Tarihi', 'Dağıtıcı ile Yapılan Sözleşme Bitiş Tarihi', 'Sozlesme_Suresi_Gun']
                 if start_date_col not in extra_cols: extra_cols[0] = start_date_col
                 show_details_table(radar_df, target_date_col, extra_cols=extra_cols)
@@ -601,10 +601,10 @@ def main():
                 d_cnt = df_filtered.groupby(['İlçe']).size().reset_index(name='Adet').sort_values('Adet', ascending=True)
                 fig_ilce = px.bar(d_cnt, x='Adet', y='İlçe', orientation='h', text='Adet', height=600)
                 sel_ilce = st.plotly_chart(fig_ilce, use_container_width=True, on_select="rerun", key="ilce_sel")
-                st.caption("ℹ️ 👇 Grafiğin çubuklarına tıklayarak aşağıdaki listeyi filtreleyebilirsiniz.")
+                st.caption("ℹ️ *👇 Grafiğin çubuklarına tıklayarak aşağıdaki listeyi filtreleyebilirsiniz.*")
                 if sel_ilce and sel_ilce['selection']['points']:
                     dst = sel_ilce['selection']['points'][0]['y']
-                    st.success(f"📍 *{dst}*")
+                    st.success(f"📍 **{dst}**")
                     show_details_table(df_filtered[df_filtered['İlçe']==dst], target_date_col)
                 else: show_details_table(df_filtered, target_date_col)
                 
@@ -732,8 +732,8 @@ def main():
             with pd.ExcelWriter(buf, engine='xlsxwriter') as w: df_filtered.to_excel(w, index=False)
             st.download_button("📥 Tümünü İndir", buf.getvalue(), "Data.xlsx", "application/vnd.ms-excel")
         except: pass
-        st.markdown(f"Önizleme ({PREVIEW_ROW_LIMIT} satır)")
+        st.markdown(f"_Önizleme ({PREVIEW_ROW_LIMIT} satır)_")
         st.dataframe(df_filtered.head(PREVIEW_ROW_LIMIT), use_container_width=True)
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     main()
