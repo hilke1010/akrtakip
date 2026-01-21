@@ -109,9 +109,13 @@ BOLGE_TANIMLARI = {
     ]
 }
 
-# --- CRM SESSION ---
+# --- SESSIONS ---
 if 'crm_notes' not in st.session_state:
     st.session_state.crm_notes = {}
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = [
+        {"role": "assistant", "content": "Merhaba! Ben Veri Asistanınız. Bana verilerle ilgili sorular sorabilirsiniz.\n\n*Örnekler:*\n- Ankara'da en büyük rakibim kim?\n- Güzel Enerji kaç bayisi var?\n- Konya'da durum ne?"}
+    ]
 
 # --- 6. EXCEL VERİ YÜKLEME ---
 @st.cache_data
@@ -218,6 +222,68 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
     else:
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
+# --- NLP / CHATBOT MANTIĞI ---
+def analyze_query(query, df):
+    query = query.upper().replace('İ', 'I').replace('ı', 'I')
+    response = ""
+    
+    # 1. Şehir Yakalama
+    found_city = None
+    all_cities = df['İl'].unique()
+    for city in all_cities:
+        if city in query:
+            found_city = city
+            break
+            
+    # 2. Şirket Yakalama
+    found_company = None
+    if 'Dağıtım Şirketi' in df.columns:
+        all_companies = df['Dağıtım Şirketi'].dropna().unique()
+        for comp in all_companies:
+            # Şirket isminin bir kısmı geçiyorsa yakala (Örn: "OPET" in "OPET PETROLCÜLÜK")
+            # Basit eşleşme: Kullanıcı "OPET" yazarsa yakala
+            if str(comp).split()[0] in query or str(comp) in query:
+                found_company = comp
+                break
+    
+    # Veriyi Filtrele
+    filtered_df = df.copy()
+    if found_city:
+        filtered_df = filtered_df[filtered_df['İl'] == found_city]
+    if found_company:
+        filtered_df = filtered_df[filtered_df['Dağıtım Şirketi'] == found_company]
+        
+    count = len(filtered_df)
+    
+    # --- SENARYOLAR ---
+    
+    # Soru: "Ankara'da durum ne?" veya "Ankara kaç bayi?"
+    if found_city and not found_company:
+        # En büyük şirketi bul
+        if not filtered_df.empty:
+            top_comp = filtered_df['Dağıtım Şirketi'].value_counts().idxmax()
+            top_count = filtered_df['Dağıtım Şirketi'].value_counts().max()
+            response = f"📍 **{found_city}** ilinde toplam **{count}** istasyon var.\n\n🏆 Pazar Lideri: **{top_comp}** ({top_count} Bayi)."
+        else:
+            response = f"{found_city} ilinde kayıt bulunamadı."
+
+    # Soru: "Güzel Enerji kaç bayi?"
+    elif found_company and not found_city:
+        response = f"⛽ **{found_company}** şirketinin toplam **{count}** bayisi bulunuyor."
+        if count > 0:
+            top_city = filtered_df['İl'].value_counts().idxmax()
+            response += f"\n\nEn güçlü olduğu il: **{top_city}**"
+
+    # Soru: "Ankara Güzel Enerji"
+    elif found_city and found_company:
+        response = f"📍 **{found_city}** ilinde **{found_company}** şirketine ait **{count}** istasyon bulunuyor."
+
+    # Genel Durum
+    else:
+        response = f"Toplam **{len(df)}** istasyon verisi mevcut. Lütfen bir **Şehir** (Örn: Ankara) veya **Şirket** (Örn: Opet) ismi yazın."
+        
+    return response
+
 # --- ANA UYGULAMA ---
 def main():
     data_result = load_data(SABIT_DOSYA_ADI)
@@ -279,7 +345,7 @@ def main():
     aktif_dagitici = df_filtered['Dağıtım Şirketi'].nunique() if 'Dağıtım Şirketi' in df_filtered.columns else 0
     c3.metric("Aktif Dağıtıcı", aktif_dagitici)
     
-    # --- YENİ EKLENEN KISIM: AKTİF FİLTRE BİLGİSİ ---
+    # --- AKTİF FİLTRE BİLGİSİ ---
     active_filters = []
     if selected_region != "Tümü": active_filters.append(f"🌍 Bölge: {selected_region}")
     if selected_cities: active_filters.append(f"🏙️ İl: {', '.join(selected_cities)}")
@@ -290,12 +356,11 @@ def main():
         st.info("🔍 **Aktif Filtreler:** " + "  |  ".join(active_filters))
     else:
         st.info("🔍 **Aktif Filtreler:** Tüm Türkiye Verisi")
-    # --------------------------------------------------
 
     st.divider()
 
     # --- SEKMELER ---
-    tab_overview, tab_machine, tab_compare, tab_sim, tab_calendar, tab_radar, tab_ilce, tab_report, tab_crm, tab_data = st.tabs([
+    tab_overview, tab_machine, tab_compare, tab_sim, tab_calendar, tab_radar, tab_ilce, tab_report, tab_chat, tab_crm, tab_data = st.tabs([
         "📊 Bölgesel & Durum",
         "🤖 Makine Analizi",     
         "⚔️ Karşılaştırma (Vs.)", 
@@ -304,6 +369,7 @@ def main():
         "📡 Sözleşme Radar", 
         "📍 İlçe Penetrasyonu",
         "📄 İl Karnesi", 
+        "💬 Veri Asistanı", # YENİ
         "📝 CRM Lite",           
         "📋 Ham Veri"
     ])
@@ -311,7 +377,6 @@ def main():
     # 1. BÖLGESEL & DURUM
     with tab_overview:
         st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
-        
         if len(df_filtered) > MAX_MAP_POINTS:
             st.warning(f"⚠️ Haritada {len(df_filtered):,} nokta var. Performans için filtreleyin.")
         elif not df_filtered.empty:
@@ -367,10 +432,6 @@ def main():
         with col_pie1:
             city_pie_data = df_filtered['İl'].value_counts().reset_index()
             city_pie_data.columns = ['İl', 'Adet']
-            if len(city_pie_data) > 10:
-                top_10 = city_pie_data.iloc[:10]
-                others = pd.DataFrame({'İl': ['DİĞER'], 'Adet': [city_pie_data.iloc[10:]['Adet'].sum()]})
-                city_pie_data = pd.concat([top_10, others])
             fig_city_pie = px.pie(city_pie_data, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı (%)")
             st.plotly_chart(fig_city_pie, use_container_width=True)
 
@@ -394,7 +455,6 @@ def main():
     # 2. MAKİNE ANALİZİ
     with tab_machine:
         st.subheader("🤖 Makine Analizi (Akıllı Asistan)")
-        st.markdown("Veriler taranarak **GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ** için özel stratejik notlar oluşturuldu.")
         
         col_ma1, col_ma2 = st.columns([1,3])
         with col_ma1:
@@ -620,7 +680,6 @@ def main():
     # 8. İL KARNESİ
     with tab_report:
         st.subheader("📄 Tek Tuşla İl Karnesi")
-        st.markdown("Seçilen ilin tüm kritik verilerini tek sayfada özetler.")
         
         all_provinces = sorted(df['İl'].unique().tolist())
         default_province_idx = 0
@@ -695,7 +754,32 @@ def main():
                 fig_rep_bar = px.bar(dist_dist.head(10), x='Adet', y='İlçe', orientation='h', text='Adet')
                 st.plotly_chart(fig_rep_bar, use_container_width=True)
 
-    # 9. CRM LITE
+    # 9. VERİ ASİSTANI (YENİ SEKME)
+    with tab_chat:
+        st.subheader("💬 Veri Asistanı (Soru-Cevap)")
+        st.markdown("Aşağıdaki kutuya şehir veya şirket ismi yazarak hızlıca bilgi alabilirsiniz.")
+        
+        # Sohbet Geçmişini Göster
+        for message in st.session_state.chat_history:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        # Kullanıcı Girdisi
+        if prompt := st.chat_input("Bir soru sorun (Örn: Ankara kaç bayi? Opet durumu ne?)..."):
+            # Kullanıcı mesajını ekle
+            st.session_state.chat_history.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            # Cevap Üret
+            response = analyze_query(prompt, df)
+            
+            # Asistan mesajını ekle
+            st.session_state.chat_history.append({"role": "assistant", "content": response})
+            with st.chat_message("assistant"):
+                st.markdown(response)
+
+    # 10. CRM LITE
     with tab_crm:
         st.subheader("📝 CRM Lite")
         if not df_filtered.empty:
@@ -724,7 +808,7 @@ def main():
                             for n in ns: st.markdown(f"- {n}")
                 else: st.info("Not yok.")
 
-    # 10. HAM VERİ
+    # 11. HAM VERİ
     with tab_data:
         st.subheader("📋 Ham Veri")
         buf = io.BytesIO()
