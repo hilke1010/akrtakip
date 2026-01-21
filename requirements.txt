@@ -2,7 +2,6 @@ streamlit
 pandas
 plotly
 numpy
+google-generativeai
 openpyxl
 xlsxwriter
-google-generativeai
-
