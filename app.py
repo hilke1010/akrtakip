@@ -90,7 +90,7 @@ if not st.session_state['splash_shown']:
     </style>
     
     <div class="splash-container">
-        <div class="splash-title">EPDK</div>
+        <div class="splash-title">AKARYAKIT BAYİLERİ</div>
         <div class="splash-subtitle">STRATEJİK PAZAR ANALİZİ</div>
         <div class="loader-bar">
             <div class="loader-fill"></div>
@@ -825,3 +825,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
