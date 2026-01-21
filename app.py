@@ -5,7 +5,7 @@ import datetime
 import numpy as np
 import os
 import io
-import time
+
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-
+import time
 
 if 'splash_shown' not in st.session_state:
     st.session_state['splash_shown'] = False
@@ -850,5 +850,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
