@@ -14,6 +14,94 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+import time
+
+# --- GİRİŞ EKRANI (SPLASH SCREEN) ---
+if 'splash_shown' not in st.session_state:
+    st.session_state['splash_shown'] = False
+
+if not st.session_state['splash_shown']:
+    # Giriş Ekranı CSS
+    st.markdown("""
+    <style>
+        .splash-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at 50% 50%, #0f172a, #000000);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999;
+        }
+        .splash-title {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 5rem;
+            font-weight: 900;
+            background: linear-gradient(to right, #00C6FF, #0072ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: fadeInScale 2.5s ease-out;
+            text-shadow: 0 0 50px rgba(0, 198, 255, 0.4);
+        }
+        .splash-subtitle {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            color: #94a3b8;
+            margin-top: 20px;
+            letter-spacing: 5px;
+            animation: fadeIn 3s ease-in;
+        }
+        .loader-bar {
+            width: 300px;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            margin-top: 50px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .loader-fill {
+            height: 100%;
+            background: #00C6FF;
+            width: 0%;
+            animation: load 3s ease-in-out forwards;
+            box-shadow: 0 0 20px #00C6FF;
+        }
+        @keyframes fadeInScale {
+            0% { opacity: 0; transform: scale(0.8); filter: blur(10px); }
+            100% { opacity: 1; transform: scale(1); filter: blur(0px); }
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        @keyframes load {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+        /* Sidebar ve diğer elementleri gizle */
+        [data-testid="stSidebar"], [data-testid="stToolbar"], .main {
+            display: none !important;
+        }
+    </style>
+    
+    <div class="splash-container">
+        <div class="splash-title">EPDK</div>
+        <div class="splash-subtitle">STRATEJİK PAZAR ANALİZİ</div>
+        <div class="loader-bar">
+            <div class="loader-fill"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    time.sleep(3.5)  # 3.5 saniye bekle
+    st.session_state['splash_shown'] = True
+    st.rerun()  # Sayfayı yenile ve ana ekrana geç
+
 # --- PERFORMANS AYARLARI ---
 MAX_ROW_DISPLAY = 1000  
 MAX_MAP_POINTS = 50000 
