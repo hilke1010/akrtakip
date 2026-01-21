@@ -360,8 +360,10 @@ def main():
     st.divider()
 
     # --- SEKMELER ---
-    tab_overview, tab_machine, tab_compare, tab_sim, tab_calendar, tab_radar, tab_ilce, tab_report, tab_chat, tab_crm, tab_data = st.tabs([
+    # --- SEKMELER (Sıralamayı Değiştirdim: Veri Asistanı 2. Sırada) ---
+    tab_overview, tab_chat, tab_machine, tab_compare, tab_sim, tab_calendar, tab_radar, tab_ilce, tab_report, tab_crm, tab_data = st.tabs([
         "📊 Bölgesel & Durum",
+        "💬 Veri Asistanı",      # <--- BURAYA ALDIM (Hemen görebilmen için)
         "🤖 Makine Analizi",     
         "⚔️ Karşılaştırma (Vs.)", 
         "🔮 Simülasyon",         
@@ -369,9 +371,9 @@ def main():
         "📡 Sözleşme Radar", 
         "📍 İlçe Penetrasyonu",
         "📄 İl Karnesi", 
-        "💬 Veri Asistanı", # YENİ
         "📝 CRM Lite",           
         "📋 Ham Veri"
+    ])
     ])
 
     # 1. BÖLGESEL & DURUM
@@ -821,3 +823,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
