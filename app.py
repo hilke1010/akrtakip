@@ -5,7 +5,7 @@ import datetime
 import numpy as np
 import os
 import io
-import time  # Bu standart kütüphanedir, requirements.txt'ye eklemeyin.
+import time  # Standart kütüphanedir, requirements.txt'ye eklemeyin.
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -15,15 +15,91 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- GİRİŞ ANİMASYONU FONKSİYONU (YENİ VE RENKLİ) ---
+# ==========================================
+# 🔐 GÜVENLİK VE GİRİŞ SİSTEMİ (YENİ EKLENDİ)
+# ==========================================
+def check_login():
+    # Session state'de giriş durumu yoksa False yap
+    if 'authenticated' not in st.session_state:
+        st.session_state['authenticated'] = False
+
+    # Eğer zaten giriş yapılmışsa fonksiyondan çık, ana kod çalışsın
+    if st.session_state['authenticated']:
+        return
+
+    # --- GİRİŞ EKRANI TASARIMI ---
+    st.markdown("""
+    <style>
+        .login-container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 40px;
+            background: linear-gradient(135deg, #ffffff, #f0f2f6);
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .login-header {
+            color: #0277bd;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .stButton>button {
+            width: 100%;
+            background-color: #FF8C00; 
+            color: white;
+            border: none;
+            padding: 10px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .stButton>button:hover {
+            background-color: #e67e00;
+            box-shadow: 0 5px 15px rgba(255, 140, 0, 0.4);
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Ortalamak için kolon kullanımı
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col2:
+        st.markdown("<div style='text-align: center; font-size: 3rem; margin-bottom: 10px;'>🔒</div>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #021B79;'>GÜVENLİ GİRİŞ</h2>", unsafe_allow_html=True)
+        st.info("EPDK Pazar Analiz Sistemine hoş geldiniz. Lütfen yetkili bilgilerinizi giriniz.")
+        
+        with st.form("login_form"):
+            username = st.text_input("Kullanıcı Adı", placeholder="Kullanıcı Adınız")
+            password = st.text_input("Şifre", type="password", placeholder="Şifreniz")
+            submit_button = st.form_submit_button("GİRİŞ YAP")
+
+            if submit_button:
+                if username == "GE2026" and password == "GE2620":
+                    st.session_state['authenticated'] = True
+                    st.success("✅ Giriş Başarılı! Yönlendiriliyorsunuz...")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("❌ Hatalı Kullanıcı Adı veya Şifre!")
+    
+    # Giriş yapılmamışsa kodun geri kalanını çalıştırma
+    st.stop()
+
+# Giriş kontrolünü en başta çalıştır
+check_login()
+# ==========================================
+
+
+# --- GİRİŞ ANİMASYONU FONKSİYONU ---
 def show_intro_animation():
     """
     Mavi ve Turuncu ağırlıklı cafcaflı giriş animasyonu.
     """
+    # Sadece giriş yapıldıktan sonra ve ilk kez dashboard açıldığında çalışsın
     if 'intro_played' not in st.session_state:
         st.session_state['intro_played'] = False
 
-    # Eğer animasyon daha önce oynatıldıysa çık
     if st.session_state['intro_played']:
         return
 
@@ -38,7 +114,6 @@ def show_intro_animation():
                 left: 0;
                 width: 100vw;
                 height: 100vh;
-                /* Mavi ve Turuncu Karışımı Hareketli Gradyan */
                 background: linear-gradient(-45deg, #021B79, #0575E6, #FF8C00, #ff4e00);
                 background-size: 400% 400%;
                 animation: gradientBG 6s ease infinite;
@@ -51,7 +126,6 @@ def show_intro_animation():
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             }
             
-            /* Arka plan renk geçiş animasyonu */
             @keyframes gradientBG {
                 0% {background-position: 0% 50%;}
                 50% {background-position: 100% 50%;}
@@ -80,7 +154,7 @@ def show_intro_animation():
 
             .intro-subtitle {
                 font-size: 1.8rem;
-                color: #FFD700; /* Altın sarısı alt başlık */
+                color: #FFD700;
                 margin-top: 15px;
                 font-weight: 600;
                 text-shadow: 1px 1px 5px rgba(0,0,0,0.5);
@@ -133,8 +207,7 @@ def show_intro_animation():
         </div>
         """, unsafe_allow_html=True)
         
-        # Animasyon süresi
-        time.sleep(4)
+        time.sleep(2.5)
     
     placeholder.empty()
     st.session_state['intro_played'] = True
@@ -867,4 +940,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
