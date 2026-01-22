@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- DOSYA TARİHİ HESAPLAMA ---
+# --- DOSYA TARİHİ HESAPLAMA (TÜRKİYE SAATİ GMT+3) ---
 def get_file_last_modified(file_path):
     try:
         if not os.path.exists(file_path):
@@ -23,14 +23,16 @@ def get_file_last_modified(file_path):
         timestamp = os.path.getmtime(file_path)
         utc_time = datetime.datetime.utcfromtimestamp(timestamp)
         turkey_time = utc_time + datetime.timedelta(hours=3)
-        tr_months = {1: 'OCAK', 2: 'ŞUBAT', 3: 'MART', 4: 'NİSAN', 5: 'MAYIS', 6: 'HAZİRAN',
-                     7: 'TEMMUZ', 8: 'AĞUSTOS', 9: 'EYLÜL', 10: 'EKİM', 11: 'KASIM', 12: 'ARALIK'}
+        tr_months = {
+            1: 'OCAK', 2: 'ŞUBAT', 3: 'MART', 4: 'NİSAN', 5: 'MAYIS', 6: 'HAZİRAN',
+            7: 'TEMMUZ', 8: 'AĞUSTOS', 9: 'EYLÜL', 10: 'EKİM', 11: 'KASIM', 12: 'ARALIK'
+        }
         month_name = tr_months.get(turkey_time.month, "")
         return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
     except:
         return "TARİH ALINAMADI"
 
-# --- CAFCAFLI YÜKLEME ANİMASYONU ---
+# --- 🎬 CAFCAFLI YÜKLEME ANİMASYONU ---
 def show_intro_animation():
     if 'intro_played' not in st.session_state:
         st.session_state['intro_played'] = False
@@ -46,41 +48,53 @@ def show_intro_animation():
                 background-size: 400% 400%; animation: gradientBG 6s ease infinite;
                 z-index: 999999; display: flex; flex-direction: column;
                 justify-content: center; align-items: center; color: white;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             }
             @keyframes gradientBG { 0% {background-position: 0% 50%;} 50% {background-position: 100% 50%;} 100% {background-position: 0% 50%;} }
-            .intro-title { font-size: 5rem; font-weight: 900; text-align: center; }
-            .loading-bar { width: 350px; height: 8px; background: #fff; transform-origin: left; animation: load 2.5s forwards; }
+            .intro-icon { font-size: 8rem; margin-bottom: 20px; animation: bounce 2s infinite; text-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+            .intro-title { font-size: 5rem; font-weight: 900; text-transform: uppercase; color: #ffffff; text-shadow: 4px 4px 0px #021B79, 8px 8px 20px rgba(0,0,0,0.4); animation: fadeInUp 1.2s ease-out; text-align: center; letter-spacing: 4px; margin: 0; padding: 0; }
+            .intro-subtitle { font-size: 1.8rem; color: #FFD700; margin-top: 15px; font-weight: 600; text-shadow: 1px 1px 5px rgba(0,0,0,0.5); animation: fadeInUp 1.6s ease-out; letter-spacing: 2px; }
+            .loading-bar-container { width: 350px; height: 8px; background: rgba(255,255,255,0.3); margin-top: 50px; border-radius: 10px; overflow: hidden; box-shadow: 0 0 15px rgba(255, 140, 0, 0.5); }
+            .loading-bar { width: 100%; height: 100%; background: #fff; transform-origin: left; animation: load 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+            @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 40% {transform: translateY(-30px);} 60% {transform: translateY(-15px);} }
+            @keyframes fadeInUp { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
             @keyframes load { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
         </style>
         <div class="intro-overlay">
-            <div style="font-size:8rem;">⛽</div>
-            <h1 class="intro-title">AKARYAKIT<br>ANALİZ SİSTEMİ</h1>
-            <div class="loading-bar"></div>
+            <div class="intro-icon">⛽</div>
+            <h1 class="intro-title">AKARYAKIT<br>BAYİ ANALİZİ</h1>
+            <div class="intro-subtitle">GÜNCEL PAZAR VERİLERİ YÜKLENİYOR...</div>
+            <div class="loading-bar-container"><div class="loading-bar"></div></div>
         </div>
         """, unsafe_allow_html=True)
         time.sleep(2.5)
     placeholder.empty()
     st.session_state['intro_played'] = True
 
-# --- PERFORMANS VE SABİTLER ---
+# --- PERFORMANS AYARLARI ---
 MAX_ROW_DISPLAY = 1000  
-SABIT_DOSYA_ADI = "asatis.xlsx"
+MAX_MAP_POINTS = 50000 
 PREVIEW_ROW_LIMIT = 100
+SABIT_DOSYA_ADI = "asatis.xlsx"
 
-# --- CSS ---
+# --- 3. CSS ÖZELLEŞTİRME ---
 st.markdown("""
 <style>
-    .stMetric { background-color: #f0f2f6; border-left: 5px solid #2980b9; padding: 15px; border-radius: 5px; }
-    .insight-box-success { padding: 15px; border-radius: 8px; background-color: #d4edda; border-left: 5px solid #28a745; margin-bottom: 10px; }
-    .insight-box-warning { padding: 15px; border-radius: 8px; background-color: #fff3cd; border-left: 5px solid #ffc107; margin-bottom: 10px; }
-    .insight-box-danger { padding: 15px; border-radius: 8px; background-color: #f8d7da; border-left: 5px solid #dc3545; margin-bottom: 10px; }
-    .insight-box-info { padding: 15px; border-radius: 8px; background-color: #d1ecf1; border-left: 5px solid #17a2b8; margin-bottom: 10px; }
-    .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; }
-    .warning-box { padding: 1rem; background-color: #ffeba0; border-left: 6px solid #ffa500; border-radius: 4px; }
+    .stMetric { background-color: #f0f2f6; border-left: 5px solid #2980b9; padding: 15px; border-radius: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
+    .warning-box { padding: 1rem; background-color: #ffeba0; border-left: 6px solid #ffa500; color: #5c3a00; border-radius: 4px; font-weight: bold; }
+    .year-box { background-color: #e8f4f8; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #b3e5fc; margin-bottom: 5px; }
+    .year-title { font-weight: bold; color: #0277bd; font-size: 1.1em; }
+    .year-count { font-size: 1.5em; font-weight: bold; color: #01579b; }
+    .insight-box-success { padding: 15px; border-radius: 8px; background-color: #d4edda; border-left: 5px solid #28a745; color: #155724; margin-bottom: 10px; }
+    .insight-box-warning { padding: 15px; border-radius: 8px; background-color: #fff3cd; border-left: 5px solid #ffc107; color: #856404; margin-bottom: 10px; }
+    .insight-box-danger { padding: 15px; border-radius: 8px; background-color: #f8d7da; border-left: 5px solid #dc3545; color: #721c24; margin-bottom: 10px; }
+    .insight-box-info { padding: 15px; border-radius: 8px; background-color: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460; margin-bottom: 10px; }
+    .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
+    .district-chip:hover { background-color: #e2e6ea; border-color: #adb5bd; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- KOORDİNATLAR ---
+# --- 4. KOORDİNAT VE BÖLGE VERİTABANI ---
 CITY_COORDINATES = {
     "ADANA": [37.0000, 35.3213], "ADIYAMAN": [37.7648, 38.2786], "AFYONKARAHİSAR": [38.7507, 30.5567],
     "AĞRI": [39.7191, 43.0503], "AMASYA": [40.6499, 35.8353], "ANKARA": [39.9334, 32.8597],
@@ -115,7 +129,7 @@ BOLGE_TANIMLARI = {
     "Orta Anadolu": ["DÜZCE", "KARABÜK", "KONYA", "BOLU", "AFYONKARAHİSAR", "AKSARAY", "ESKİŞEHİR", "ANKARA", "KIRIKKALE", "KASTAMONU", "ÇANKIRI", "YOZGAT", "KIRŞEHİR", "KAYSERİ", "NEVŞEHİR", "NİĞDE", "ZONGULDAK", "BARTIN"]
 }
 
-# --- DATA LOADING ---
+# --- 6. EXCEL VERİ YÜKLEME ---
 @st.cache_data
 def load_data(file_path):
     if not os.path.exists(file_path): return None, None, None
@@ -143,191 +157,211 @@ def load_data(file_path):
         return df, target_col, start_col
     except Exception as e: return None, str(e), None
 
-def show_details_table(dataframe, target_date_col):
+def show_details_table(dataframe, target_date_col, extra_cols=None):
     if dataframe is None or dataframe.empty:
-        st.info("Kayıt bulunamadı.")
+        st.info("Seçilen kriterlere uygun kayıt bulunamadı.")
         return
-    st.markdown(f"**📋 Kayıt Sayısı:** {len(dataframe)}")
-    display_df = dataframe.head(MAX_ROW_DISPLAY).copy()
-    date_cols = [c for c in display_df.columns if "Tarihi" in c]
-    for c in date_cols: display_df[c] = pd.to_datetime(display_df[c]).dt.strftime('%d.%m.%Y')
+    record_count = len(dataframe)
+    if record_count > MAX_ROW_DISPLAY:
+        st.markdown(f"<div class='warning-box'>⚠️ <b>Performans Uyarısı:</b> Listede toplam <b>{record_count:,}</b> kayıt var.<br>Sadece ilk <b>{MAX_ROW_DISPLAY:,}</b> tanesi gösterilmektedir.</div>", unsafe_allow_html=True)
+        display_df_limit = dataframe.head(MAX_ROW_DISPLAY)
+    else: display_df_limit = dataframe
+
+    cols = ['Unvan', 'İl', 'İlçe', 'Dağıtım Şirketi', target_date_col, 'Kalan_Gun', 'Sozlesme_Suresi_Gun', 'Risk_Durumu']
+    if extra_cols: cols.extend(extra_cols)
+    final_cols = []
+    seen = set()
+    for c in cols:
+        if c in display_df_limit.columns and c not in seen:
+            final_cols.append(c)
+            seen.add(c)
+    
+    display_df = display_df_limit[final_cols].copy()
+    for c in [col for col in display_df.columns if "Tarihi" in col]:
+        try: display_df[c] = pd.to_datetime(display_df[c]).dt.strftime('%d.%m.%Y')
+        except: pass
+    
+    st.markdown(f"**📋 Listelenen Bayi Sayısı:** {len(dataframe)}")
     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-# --- FİLTRE MOTORU (HER SAYFA İÇİN AYRI) ---
-def local_filters(df_base, key_suffix):
+# --- 🛰️ LOCAL FILTER ENGINE (HER TAB İÇİN) ---
+def local_filter_ui(df_base, suffix):
+    st.markdown("### 🔍 Filtrele")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        reg = st.selectbox("🌍 Bölge", ["Tümü"] + list(BOLGE_TANIMLARI.keys()), key=f"reg_{key_suffix}")
+        reg = st.selectbox("🌍 Bölge", ["Tümü"] + list(BOLGE_TANIMLARI.keys()), key=f"reg_{suffix}")
     
-    temp_df = df_base.copy()
-    if reg != "Tümü": temp_df = temp_df[temp_df['İl'].isin(BOLGE_TANIMLARI[reg])]
+    df_temp = df_base.copy()
+    if reg != "Tümü": df_temp = df_temp[df_temp['İl'].isin(BOLGE_TANIMLARI[reg])]
     
     with c2:
-        cities = sorted(temp_df['İl'].unique().tolist())
-        sel_cities = st.multiselect("🏢 Şehir", cities, key=f"city_{key_suffix}")
-    
-    if sel_cities: temp_df = temp_df[temp_df['İl'].isin(sel_cities)]
+        cities = sorted(df_temp['İl'].unique().tolist())
+        sel_cities = st.multiselect("🏢 Şehir", cities, key=f"city_{suffix}")
+    if sel_cities: df_temp = df_temp[df_temp['İl'].isin(sel_cities)]
     
     with c3:
-        districts = sorted(temp_df['İlçe'].unique().tolist())
-        sel_dist = st.multiselect("📍 İlçe", districts, key=f"dist_{key_suffix}")
-    
-    if sel_dist: temp_df = temp_df[temp_df['İlçe'].isin(sel_dist)]
+        districts = sorted(df_temp['İlçe'].unique().tolist())
+        sel_dist = st.multiselect("📍 İlçe", districts, key=f"dist_{suffix}")
+    if sel_dist: df_temp = df_temp[df_temp['İlçe'].isin(sel_dist)]
     
     with c4:
-        comps = sorted(temp_df['Dağıtım Şirketi'].dropna().unique().tolist())
-        sel_comp = st.multiselect("⛽ Şirket", comps, key=f"comp_{key_suffix}")
+        comps = sorted(df_temp['Dağıtım Şirketi'].dropna().unique().tolist())
+        sel_comp = st.multiselect("⛽ Şirket", comps, key=f"comp_{suffix}")
+    if sel_comp: df_temp = df_temp[df_temp['Dağıtım Şirketi'].isin(sel_comp)]
     
-    if sel_comp: temp_df = temp_df[temp_df['Dağıtım Şirketi'].isin(sel_comp)]
-    
-    return temp_df
+    return df_temp
 
 # --- ANA UYGULAMA ---
 def main():
     show_intro_animation()
     df, target_date_col, start_date_col = load_data(SABIT_DOSYA_ADI)
-    if df is None: st.error("Veri yüklenemedi"); st.stop()
+    if df is None: st.error("Veri yüklenemedi."); st.stop()
     
     file_date_str = get_file_last_modified(SABIT_DOSYA_ADI)
 
     with st.sidebar:
-        st.success(f"🔄 **GÜNCELLEME:**\n\n{file_date_str}")
-        st.info("📧 kerim.aksu@milangaz.com.tr")
+        st.success(f"🔄 **VERİ GÜNCELLEME:**\n\n{file_date_str}")
+        st.info("💡 **Gelişmeye destek olur musunuz?**\n\n📧 kerim.aksu@milangaz.com.tr")
         st.markdown("---")
         st.header("🔗 Diğer Uygulamalar")
-        st.markdown("[📊 EPDK LPG Raporu](https://pazarpayi.streamlit.app/)")
+        st.markdown("[📊 EPDK LPG Sektör Raporu](https://pazarpayi.streamlit.app/)")
         st.markdown("[📰 Haber Aracı](https://newslpg.streamlit.app/)")
         st.markdown("[📱 Mobil Hesaplayıcı](https://lpg2026.streamlit.app/)")
 
-    st.title("🚀 Akaryakıt Pazar Analiz Sistemi")
-    
+    st.title("🚀 Akaryakıt Pazar & Risk Analizi")
+    st.divider()
+
     tab_overview, tab_machine, tab_compare, tab_sim, tab_calendar, tab_radar, tab_ilce, tab_report, tab_crm, tab_data = st.tabs([
-        "📊 Bölgesel", "🤖 Makine Analizi", "⚔️ Karşılaştırma", "🔮 Simülasyon", "📅 Takvim", "📡 Radar", "📍 İlçe", "📄 Karne", "📝 CRM", "📋 Veri"
+        "📊 Bölgesel", "🤖 Makine Analizi", "⚔️ Karşılaştırma", "🔮 Simülasyon", "📅 Takvim", "📡 Radar", "📍 İlçe", "📄 İl Karnesi", "📝 CRM Lite", "📋 Ham Veri"
     ])
 
-    # 1. BÖLGESEL
+    # 1. BÖLGESEL & DURUM
     with tab_overview:
-        df_f = local_filters(df, "ov")
+        df_f = local_filter_ui(df, "ov")
         st.divider()
-        col1, col2, col3 = st.columns(3)
-        col1.metric("İstasyon", len(df_f))
-        col2.metric("Acil (90 Gün)", len(df_f[df_f['Kalan_Gun']<90]))
-        col3.metric("Dağıtıcı", df_f['Dağıtım Şirketi'].nunique())
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Toplam İstasyon", f"{len(df_f):,}")
+        c2.metric("Acil Sözleşme", len(df_f[df_f['Kalan_Gun'] < 90]), delta="Acil Yenileme", delta_color="inverse")
+        c3.metric("Aktif Dağıtıcı", df_f['Dağıtım Şirketi'].nunique())
         
-        map_data = df_f['İl'].value_counts().reset_index()
-        map_data.columns = ['İl', 'Adet']
-        map_data['lat'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[0])
-        map_data['lon'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[1])
-        fig_map = px.scatter_mapbox(map_data.dropna(), lat="lat", lon="lon", size="Adet", color="Adet", hover_name="İl", mapbox_style="open-street-map", zoom=4.5)
-        st.plotly_chart(fig_map, use_container_width=True)
-        show_details_table(df_f, target_date_col)
+        if not df_f.empty:
+            map_data = df_f['İl'].value_counts().reset_index()
+            map_data.columns = ['İl', 'Adet']
+            map_data['lat'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[0])
+            map_data['lon'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[1])
+            fig_map = px.scatter_mapbox(map_data.dropna(), lat="lat", lon="lon", size="Adet", color="Adet", hover_name="İl", mapbox_style="open-street-map", zoom=4.8)
+            st.plotly_chart(fig_map, use_container_width=True)
+            show_details_table(df_f, target_date_col)
 
     # 2. MAKİNE ANALİZİ
     with tab_machine:
-        # Şirket filtresiz hali üzerinden analiz yapacağı için local_filters yerine özel yapı
-        c1, c2, c3 = st.columns(3)
-        with c1: m_reg = st.selectbox("🌍 Bölge", ["Tümü"] + list(BOLGE_TANIMLARI.keys()), key="m_reg")
-        m_df = df.copy()
-        if m_reg != "Tümü": m_df = m_df[m_df['İl'].isin(BOLGE_TANIMLARI[m_reg])]
-        with c2: 
-            m_cities = st.multiselect("🏢 Şehir", sorted(m_df['İl'].unique()), key="m_city")
-            if m_cities: m_df = m_df[m_df['İl'].isin(m_cities)]
-        
+        st.subheader("🤖 Makine Analizi (Akıllı Asistan)")
+        m_df = local_filter_ui(df, "mch") # Şirket filtresi kaldırılabilir ama esneklik için kalsın
+        st.divider()
         my_comp = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
         my_df = m_df[m_df['Dağıtım Şirketi'] == my_comp]
         
-        st.subheader("🤖 Stratejik Çıkarımlar")
         if not m_df.empty:
             if not my_df.empty:
-                st.markdown(f"<div class='insight-box-success'><b>🏆 Hakimiyet:</b> En güçlü olduğunuz il: {my_df['İl'].value_counts().idxmax()}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='insight-box-success'><b>🏆 En Güçlü Kale:</b> {my_df['İl'].value_counts().idxmax()} ({my_df['İl'].value_counts().max()} Bayi)</div>", unsafe_allow_html=True)
             
             missing = sorted(list(set(m_df['İlçe'].unique()) - set(my_df['İlçe'].unique())))
-            st.markdown(f"<div class='insight-box-warning'><b>🚀 Fırsat:</b> Bu seçimde hiç olmadığınız {len(missing)} ilçe var.</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='insight-box-warning'><b>🚀 Boş Noktalar:</b> Seçili alandaki {len(missing)} ilçede hiç bayiniz yok.</div>", unsafe_allow_html=True)
             
             p_val = [len(my_df), len(m_df)-len(my_df)]
-            fig_p = px.pie(names=['GÜZEL ENERJİ', 'DİĞER'], values=p_val, hole=0.5, title="Pazar Payı")
+            fig_p = px.pie(names=['GÜZEL ENERJİ', 'RAKİPLER'], values=p_val, hole=0.5, title="Pazar Hakimiyeti")
             st.plotly_chart(fig_p)
 
-    # 3. KARŞILAŞTIRMA
+    # 3. KARŞILAŞTIRMA (VS.)
     with tab_compare:
-        df_vs_base = local_filters(df, "vs")
+        st.subheader("⚔️ Head-to-Head Rakip Analizi")
+        df_vs = local_filter_ui(df, "vss")
         st.divider()
-        comps = sorted(df_vs_base['Dağıtım Şirketi'].dropna().unique().tolist())
+        comps = sorted(df_vs['Dağıtım Şirketi'].dropna().unique().tolist())
         if len(comps) > 1:
             v1, v2 = st.columns(2)
             c_a = v1.selectbox("Şirket A", comps, index=0)
             c_b = v2.selectbox("Şirket B", comps, index=1)
-            
-            res_a = df_vs_base[df_vs_base['Dağıtım Şirketi']==c_a]
-            res_b = df_vs_base[df_vs_base['Dağıtım Şirketi']==c_b]
-            
+            res_a = df_vs[df_vs['Dağıtım Şirketi']==c_a]
+            res_b = df_vs[df_vs['Dağıtım Şirketi']==c_b]
             k1, k2 = st.columns(2)
             k1.metric(c_a, len(res_a))
             k2.metric(c_b, len(res_b), delta=len(res_b)-len(res_a))
-            
-            vs_data = df_vs_base[df_vs_base['Dağıtım Şirketi'].isin([c_a, c_b])].groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
+            vs_data = df_vs[df_vs['Dağıtım Şirketi'].isin([c_a, c_b])].groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
             st.plotly_chart(px.bar(vs_data, x='İl', y='Adet', color='Dağıtım Şirketi', barmode='group'))
 
     # 4. SİMÜLASYON
     with tab_sim:
-        df_s = local_filters(df, "sim")
+        st.subheader("🔮 Simülasyon Analizi")
+        df_s = local_filter_ui(df, "sim")
         st.divider()
         my_c = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
         target_c = st.selectbox("Hedef Rakip", [c for c in sorted(df_s['Dağıtım Şirketi'].unique()) if c != my_c])
         oran = st.slider("Kazanma Oranı (%)", 0, 100, 10)
-        
         curr = len(df_s[df_s['Dağıtım Şirketi']==my_c])
         gain = int(len(df_s[df_s['Dağıtım Şirketi']==target_c]) * oran / 100)
-        st.metric("Yeni Hedef Bayi Sayısı", curr + gain, delta=f"+{gain}")
+        st.metric("Öngörülen Yeni Bayi Toplamı", curr + gain, delta=f"+{gain}")
 
     # 5. TAKVİM
     with tab_calendar:
-        df_c = local_filters(df, "cal")
+        st.subheader("📅 Aylık Sözleşme Takvimi")
+        df_c = local_filter_ui(df, "cal")
         yrs = sorted(df_c['Bitis_Yili'].dropna().unique().astype(int))
         if yrs:
             sel_y = st.selectbox("Yıl", yrs)
-            cal_data = df_c[df_c['Bitis_Yili']==sel_y]['Bitis_Ayi'].value_counts().reindex(['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']).fillna(0)
-            st.plotly_chart(px.bar(cal_data, title=f"{sel_y} Bitiş Takvimi"))
+            cal_data = df_c[df_c['Bitis_Yili']==sel_y].groupby('Bitis_Ayi').size().reindex(['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']).fillna(0)
+            st.plotly_chart(px.bar(cal_data, title=f"{sel_y} Bitiş Dağılımı"))
+            show_details_table(df_c[df_c['Bitis_Yili']==sel_y], target_date_col)
 
-    # 6. RADAR
+    # 6. SÖZLEŞME RADAR
     with tab_radar:
-        df_r = local_filters(df, "rad")
-        radar = df_r[df_r['Sozlesme_Suresi_Gun']<90]
-        st.subheader("📡 90 Günden Kısa Sözleşmeler")
-        show_details_table(radar, target_date_col)
+        st.subheader("📡 Sözleşme Radar")
+        df_r = local_filter_ui(df, "rad")
+        st.divider()
+        radar_df = df_r[(df_r['Sozlesme_Suresi_Gun'] < 90) & (df_r['Sozlesme_Suresi_Gun'] >= 0)]
+        if not radar_df.empty:
+            st.error(f"⚠️ Kritik Durumda olan {len(radar_df)} sözleşme bulundu.")
+            show_details_table(radar_df, target_date_col)
+        else: st.success("Güvenli bölge.")
 
-    # 7. İLÇE
+    # 7. İLÇE PENETRASYONU
     with tab_ilce:
-        df_i = local_filters(df, "dist_p")
+        st.subheader("📍 İlçe Bazlı Derinlik")
+        df_i = local_filter_ui(df, "ilc")
         if not df_i.empty:
-            st.plotly_chart(px.bar(df_i['İlçe'].value_counts().head(20), orientation='h', title="İlçe Yoğunluğu"))
+            d_cnt = df_i.groupby('İlçe').size().reset_index(name='Adet').sort_values('Adet', ascending=False)
+            st.plotly_chart(px.bar(d_cnt.head(20), x='İlçe', y='Adet', title="En Yoğun 20 İlçe"))
+            show_details_table(df_i, target_date_col)
 
-    # 8. KARNE
+    # 8. İL KARNESİ
     with tab_report:
-        sel_city = st.selectbox("İl Seçin", sorted(df['İl'].unique()), key="karne_city")
-        c_df = df[df['İl']==sel_city]
-        st.header(f"📄 {sel_city} Pazar Karnesi")
+        st.subheader("📄 İl Karnesi")
+        report_city = st.selectbox("İl Seçin", sorted(df['İl'].unique()), key="rep_c")
+        city_df = df[df['İl'] == report_city]
+        st.markdown(f"### {report_city} Pazar Özeti")
         r1, r2, r3 = st.columns(3)
-        r1.metric("Toplam", len(c_df))
-        r2.metric("Güzel Enerji", len(c_df[c_df['Dağıtım Şirketi']=="GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"]))
-        r3.metric("Lider", c_df['Dağıtım Şirketi'].value_counts().idxmax())
-        st.plotly_chart(px.pie(c_df['Dağıtım Şirketi'].value_counts().head(5), names=c_df['Dağıtım Şirketi'].value_counts().head(5).index, title="Pazar Payı"))
+        r1.metric("Toplam İstasyon", len(city_df))
+        r2.metric("Pazar Lideri", city_df['Dağıtım Şirketi'].value_counts().idxmax())
+        r3.metric("Güzel Enerji", len(city_df[city_df['Dağıtım Şirketi']=="GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"]))
+        st.plotly_chart(px.pie(city_df['Dağıtım Şirketi'].value_counts().head(5), names=city_df['Dağıtım Şirketi'].value_counts().head(5).index, title="Pazar Payı"))
 
-    # 9. CRM
+    # 9. CRM LITE
     with tab_crm:
-        df_crm = local_filters(df, "crm")
-        sel_bayi = st.selectbox("Bayi Seç", sorted(df_crm['Unvan'].unique()))
-        not_al = st.text_area("Notunuz")
-        if st.button("Kaydet"): st.success(f"{sel_bayi} için not kaydedildi (Simüle edildi)")
+        st.subheader("📝 CRM Lite")
+        df_crm = local_filter_ui(df, "crm")
+        if not df_crm.empty:
+            sel_b = st.selectbox("Bayi", sorted(df_crm['Unvan'].unique()))
+            note = st.text_area("Not")
+            if st.button("Kaydet"): st.success("Not sisteme eklendi (Simülasyon).")
 
-    # 10. VERİ
+    # 10. HAM VERİ
     with tab_data:
-        df_v = local_filters(df, "raw")
-        st.dataframe(df_v.head(PREVIEW_ROW_LIMIT))
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            df_v.to_excel(writer, index=False)
-        st.download_button("📥 Excel İndir", buffer.getvalue(), "bayi_listesi.xlsx")
+        st.subheader("📋 Ham Veri")
+        df_v = local_filter_ui(df, "raw")
+        st.dataframe(df_v.head(PREVIEW_ROW_LIMIT), use_container_width=True)
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine='xlsxwriter') as w: df_v.to_excel(w, index=False)
+        st.download_button("📥 Excel İndir", buf.getvalue(), "data.xlsx")
 
 if __name__ == "__main__":
     main()
