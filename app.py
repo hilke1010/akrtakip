@@ -61,97 +61,91 @@ def show_intro_animation():
     placeholder = st.empty()
     
     with placeholder.container():
-        st.markdown("""
-        <style>
-            .intro-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100vw;
-                height: 100vh;
-                background: linear-gradient(-45deg, #021B79, #0575E6, #FF8C00, #ff4e00);
-                background-size: 400% 400%;
-                animation: gradientBG 6s ease infinite;
-                z-index: 999999;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                color: white;
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            }
-            @keyframes gradientBG {
-                0% {background-position: 0% 50%;}
-                50% {background-position: 100% 50%;}
-                100% {background-position: 0% 50%;}
-            }
-            .intro-icon {
-                font-size: 8rem;
-                margin-bottom: 20px;
-                animation: bounce 2s infinite;
-                text-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            }
-            .intro-title {
-                font-size: 5rem;
-                font-weight: 900;
-                text-transform: uppercase;
-                color: #ffffff;
-                text-shadow: 4px 4px 0px #021B79, 8px 8px 20px rgba(0,0,0,0.4);
-                animation: fadeInUp 1.2s ease-out;
-                text-align: center;
-                letter-spacing: 4px;
-                margin: 0;
-                padding: 0;
-            }
-            .intro-subtitle {
-                font-size: 1.8rem;
-                color: #FFD700;
-                margin-top: 15px;
-                font-weight: 600;
-                text-shadow: 1px 1px 5px rgba(0,0,0,0.5);
-                animation: fadeInUp 1.6s ease-out;
-                letter-spacing: 2px;
-            }
-            .loading-bar-container {
-                width: 350px;
-                height: 8px;
-                background: rgba(255,255,255,0.3);
-                margin-top: 50px;
-                border-radius: 10px;
-                overflow: hidden;
-                box-shadow: 0 0 15px rgba(255, 140, 0, 0.5);
-            }
-            .loading-bar {
-                width: 100%;
-                height: 100%;
-                background: #fff;
-                transform-origin: left;
-                animation: load 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-            }
-            @keyframes bounce {
-                0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
-                40% {transform: translateY(-30px);}
-                60% {transform: translateY(-15px);}
-            }
-            @keyframes fadeInUp {
-                from { opacity: 0; transform: translateY(50px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            @keyframes load {
-                0% { transform: scaleX(0); }
-                100% { transform: scaleX(1); }
-            }
-        </style>
+       st.markdown("""
+<div class='insight-box-danger'>
+    <div style="font-size:1.1em; font-weight:bold; margin-bottom:10px;">
+        ⚠️ Kritik Yenileme Dönemleri
+    </div>
 
-        <div class="intro-overlay">
-            <div class="intro-icon">⛽</div>
-            <h1 class="intro-title">AKARYAKIT<br>BAYİ ANALİZİ</h1>
-            <div class="intro-subtitle">GÜNCEL PAZAR VERİLERİ YÜKLENİYOR...</div>
-            <div class="loading-bar-container">
-                <div class="loading-bar"></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    <ul style="padding-left:20px; margin:0;">
+
+        <li style="margin-bottom:8px;">
+            <span style="color:#c0392b; font-weight:bold;">2027</span>:
+            Toplam <b>435</b> Bayi
+            <br>
+            <span style="font-size:0.85em; color:#555; background-color:#fff; padding:2px 6px; border-radius:4px;">
+                👉 <b>PETROL OFİSİ AN..:</b> 94 |
+                <b>OPET PETROLCÜLÜ..:</b> 55 |
+                <b>TERMOPET AKARYA..:</b> 48 ve diğerleri...
+            </span>
+        </li>
+
+        <li style="margin-bottom:8px;">
+            <span style="color:#c0392b; font-weight:bold;">2028</span>:
+            Toplam <b>461</b> Bayi
+            <br>
+            <span style="font-size:0.85em; color:#555; background-color:#fff; padding:2px 6px; border-radius:4px;">
+                👉 <b>PETROL OFİSİ AN..:</b> 112 |
+                <b>OPET PETROLCÜLÜ..:</b> 72 |
+                <b>GÜZEL ENERJİ AK..:</b> 39 ve diğerleri...
+            </span>
+        </li>
+
+        <li style="margin-bottom:8px;">
+            <span style="color:#c0392b; font-weight:bold;">2029</span>:
+            Toplam <b>455</b> Bayi
+            <br>
+            <span style="font-size:0.85em; color:#555; background-color:#fff; padding:2px 6px; border-radius:4px;">
+                👉 <b>OPET PETROLCÜLÜ..:</b> 98 |
+                <b>PETROL OFİSİ AN..:</b> 78 |
+                <b>AYTEMİZ AKARYAK..:</b> 33 ve diğerleri...
+            </span>
+        </li>
+
+        <li style="margin-bottom:8px;">
+            <span style="color:#c0392b; font-weight:bold;">2030</span>:
+            Toplam <b>762</b> Bayi
+            <br>
+            <span style="font-size:0.85em; color:#555; background-color:#fff; padding:2px 6px; border-radius:4px;">
+                👉 <b>OPET PETROLCÜLÜ..:</b> 138 |
+                <b>SHELL & TURCAS ..:</b> 110 |
+                <b>PETROL OFİSİ AN..:</b> 108 ve diğerleri...
+            </span>
+        </li>
+
+        <li style="margin-bottom:8px;">
+            <span style="color:#c0392b; font-weight:bold;">2031</span>:
+            Toplam <b>29</b> Bayi
+            <br>
+            <span style="font-size:0.85em; color:#555; background-color:#fff; padding:2px 6px; border-radius:4px;">
+                👉 <b>PETROL OFİSİ AN..:</b> 10 |
+                <b>OPET PETROLCÜLÜ..:</b> 4 |
+                <b>KADOOĞLU PETROL..:</b> 3 ve diğerleri...
+            </span>
+        </li>
+
+        <li style="margin-bottom:8px;">
+            <span style="color:#c0392b; font-weight:bold;">2032</span>:
+            Toplam <b>1</b> Bayi
+            <br>
+            <span style="font-size:0.85em; color:#555; background-color:#fff; padding:2px 6px; border-radius:4px;">
+                👉 <b>OPET PETROLCÜLÜ..:</b> 1
+            </span>
+        </li>
+
+        <li style="margin-bottom:0;">
+            <span style="color:#c0392b; font-weight:bold;">2033</span>:
+            Toplam <b>1</b> Bayi
+            <br>
+            <span style="font-size:0.85em; color:#555; background-color:#fff; padding:2px 6px; border-radius:4px;">
+                👉 <b>OPET PETROLCÜLÜ..:</b> 1
+            </span>
+        </li>
+
+    </ul>
+</div>
+""", unsafe_allow_html=True)
+
         
         time.sleep(2.5)
     
@@ -963,4 +957,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
