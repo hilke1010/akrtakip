@@ -767,11 +767,11 @@ def main():
         
         # 3. ZİNCİR BAYİ PİVOTU
         st.markdown("#### 🔗 3. Zincir Bayi Dedektifi (Otomatik Tespit)")
-        st.info("💡 Veritabanında **3'ten fazla** istasyonu olan unvanlar otomatik olarak taranmış ve aşağıda listelenmiştir.")
+        st.info("💡 Veritabanında **10'dan fazla** istasyonu olan unvanlar otomatik olarak taranmış ve aşağıda listelenmiştir.")
         
         # Unvan sayılarını bul
         unvan_counts = df['Unvan'].value_counts()
-        chains = unvan_counts[unvan_counts > 3].index.tolist()
+        chains = unvan_counts[unvan_counts > 10].index.tolist()
         
         if chains:
             chain_data = df[df['Unvan'].isin(chains)].copy()
@@ -805,3 +805,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
