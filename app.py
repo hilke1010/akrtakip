@@ -18,19 +18,19 @@ st.set_page_config(
 # ==========================================
 # 🔐 1. VİDEOLU & CAM EFEKTLİ GİRİŞ EKRANI
 # ==========================================
+# 🔐 GÜVENLİK VE GİRİŞ SİSTEMİ (DÜZELTİLMİŞ VERSİYON)
+# ==========================================
 def check_login():
-    # Session state tanımları
     if 'authenticated' not in st.session_state:
         st.session_state['authenticated'] = False
-    
-    # Zaten giriş yapıldıysa çık, ana kod aksın
+
     if st.session_state['authenticated']:
         return
 
-    # --- CSS: VİDEO ARKA PLAN VE CAM KUTU ---
+    # --- CSS TASARIMI ---
     st.markdown("""
     <style>
-        /* Video Arka Plan */
+        /* 1. Arka Plan Videosu */
         #myVideo {
             position: fixed;
             right: 0;
@@ -38,64 +38,53 @@ def check_login():
             min-width: 100%; 
             min-height: 100%;
             z-index: -1;
-            filter: brightness(0.6); /* Videoyu biraz karart ki yazılar okunsun */
+            filter: brightness(0.5); /* Arka planı biraz karart */
             object-fit: cover;
         }
 
-        /* Ana Konteyner Gizleme (Streamlit'in varsayılan boşluklarını siler) */
+        /* 2. Sayfa Kenar Boşluklarını Sıfırla */
         .block-container {
-            padding-top: 0 !important;
+            padding-top: 5rem !important;
             padding-bottom: 0 !important;
-            max-width: 100% !important;
         }
         
-        /* Giriş Kutusu (Glassmorphism) */
-        .login-box {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 400px;
-            padding: 40px;
-            background: rgba(255, 255, 255, 0.1); /* Yarı saydam beyaz */
-            backdrop-filter: blur(15px); /* Buzlu cam efekti */
-            -webkit-backdrop-filter: blur(15px);
+        /* 3. Streamlit Formunu Cam Kutuya Çevir (Glassmorphism) */
+        [data-testid="stForm"] {
+            background-color: rgba(255, 255, 255, 0.85); /* Hafif şeffaf beyaz */
+            backdrop-filter: blur(10px);
             border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 30px;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.5);
             text-align: center;
-            color: white;
-            z-index: 100;
         }
 
-        /* Başlıklar */
-        .login-title {
+        /* 4. Başlık ve İkon Stilleri */
+        .login-header-icon {
+            font-size: 4rem;
+            margin-bottom: 10px;
+            display: block;
+            text-align: center;
+        }
+        .login-header-title {
             font-size: 2rem;
             font-weight: 800;
-            margin-bottom: 10px;
-            background: linear-gradient(to right, #FFD700, #FFA500);
+            margin-bottom: 5px;
+            background: linear-gradient(to right, #d35400, #e67e22);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            text-align: center;
             text-transform: uppercase;
         }
-        
-        .login-subtitle {
+        .login-header-subtitle {
             font-size: 0.9rem;
-            color: #ddd;
-            margin-bottom: 25px;
-            font-weight: 300;
+            color: #555;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
         }
 
-        /* Input Alanlarını Güzelleştirme */
-        .stTextInput > div > div > input {
-            background-color: rgba(255, 255, 255, 0.8) !important;
-            border: none !important;
-            color: #333 !important;
-            border-radius: 8px !important;
-            padding: 10px !important;
-        }
-        
-        /* Buton Tasarımı */
+        /* 5. Buton Tasarımı */
         .stButton > button {
             width: 100%;
             background: linear-gradient(45deg, #FF8C00, #FF4500) !important;
@@ -104,61 +93,52 @@ def check_login():
             border: none !important;
             padding: 12px !important;
             border-radius: 8px !important;
-            font-size: 1.1rem !important;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.2s;
         }
         .stButton > button:hover {
             transform: scale(1.02);
-            box-shadow: 0 0 15px rgba(255, 140, 0, 0.6);
+            box-shadow: 0 5px 15px rgba(255, 69, 0, 0.4);
         }
-        
-        /* Footer/Header Gizle */
+
+        /* Header/Footer Gizle */
         header {visibility: hidden;}
         footer {visibility: hidden;}
     </style>
     
     <!-- ARKA PLAN VİDEOSU -->
     <video autoplay muted loop id="myVideo">
-        <!-- Telifsiz Şehir/Trafik Videosu (Pexels/Pixabay vb.) -->
         <source src="https://cdn.pixabay.com/video/2020/05/25/40149-424075114_large.mp4" type="video/mp4">
-        Tarayıcınız video etiketini desteklemiyor.
     </video>
-    
-    <div class="login-box">
-        <div style="font-size: 3rem; margin-bottom: 10px;">⛽</div>
-        <div class="login-title">EPDK ANALİZ<br>PANELİ</div>
-        <div class="login-subtitle">Lütfen yetkili giriş bilgilerinizi giriniz</div>
-    </div>
     """, unsafe_allow_html=True)
 
-    # Formu CSS ile ortalanmış kutunun içine denk getirmek için
-    # Streamlit formunu ortada tutmaya çalışıyoruz.
-    # Not: Streamlit elementlerini tam CSS içine gömemeyiz ama üstüne bindirebiliriz.
+    # --- FORM YAPISI ---
+    # Ortalamak için kolon kullanıyoruz
+    col1, col2, col3 = st.columns([1, 1, 1])
     
-    # Sayfayı ortalamak için boşluklar
-    c1, c2, c3 = st.columns([1.5, 2, 1.5])
-    
-    with c2:
-        # Boşluk bırakarak kutunun içine denk getirme (Yaklaşık hizalama)
-        st.markdown("<br><br><br><br><br><br><br><br>", unsafe_allow_html=True)
-        
+    with col2:
+        # Formun kendisi
         with st.form("login_form"):
-            username = st.text_input("Kullanıcı Adı", placeholder="GE2026")
+            # Başlıkları Formun İÇİNE koyduk ki kaymasın
+            st.markdown('<div class="login-header-icon">⛽</div>', unsafe_allow_html=True)
+            st.markdown('<div class="login-header-title">EPDK ANALİZ PANELİ</div>', unsafe_allow_html=True)
+            st.markdown('<div class="login-header-subtitle">Lütfen yetkili giriş bilgilerinizi giriniz</div>', unsafe_allow_html=True)
+            
+            username = st.text_input("Kullanıcı Adı", placeholder="Örn: GE2026")
             password = st.text_input("Şifre", type="password", placeholder="••••••")
-            submit_button = st.form_submit_button("SİSTEME GİRİŞ")
+            
+            submit_button = st.form_submit_button("SİSTEME GİRİŞ YAP")
 
             if submit_button:
+                # Şifre kontrolü: Kullanıcı GE yazmalı, EG değil :)
                 if username == "GE2026" and password == "GE2620":
                     st.session_state['authenticated'] = True
-                    # ÖNEMLİ: Animasyonu tekrar oynatması için bayrağı sıfırla
-                    st.session_state['intro_played'] = False 
-                    st.success("Giriş Başarılı! 🚀")
-                    time.sleep(0.5)
+                    st.session_state['intro_played'] = False
+                    st.success("Giriş Başarılı! Yönlendiriliyorsunuz...")
+                    time.sleep(1)
                     st.rerun()
                 else:
-                    st.error("❌ Hatalı Bilgi!")
+                    st.error("❌ Hatalı Kullanıcı Adı veya Şifre!")
     
-    # Giriş yapılmadıysa burada dur
     st.stop()
 
 
@@ -1017,3 +997,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
