@@ -9,7 +9,7 @@ import time
 import math
 from datetime import datetime, timedelta, date
 
-# --- 1. SAYFA VE GENEL AYARLAR ---
+# --- 1. PAGE AND GENERAL SETTINGS ---
 st.set_page_config(
     page_title="EPDK Akaryakıt Pazar Analizi",
     page_icon="⛽",
@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed" 
 )
 
-# --- HAVERSINE (MESAFE HESAPLAMA) FONKSİYONU ---
+# --- HAVERSINE (DISTANCE CALCULATION) FUNCTION ---
 def haversine(lat1, lon1, lat2, lon2):
     if any(x is None for x in [lat1, lon1, lat2, lon2]): return 99999
     R = 6371
@@ -28,7 +28,7 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return R * c
 
-# --- DOSYA TARİHİ HESAPLAMA ---
+# --- FILE DATE CALCULATION ---
 def get_file_last_modified(file_path):
     try:
         if not os.path.exists(file_path): return "DOSYA BULUNAMADI"
@@ -41,7 +41,7 @@ def get_file_last_modified(file_path):
         return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
     except: return "TARİH ALINAMADI"
 
-# --- GİRİŞ ANİMASYONU ---
+# --- INTRO ANIMATION ---
 def show_intro_animation():
     if 'intro_played' not in st.session_state: st.session_state['intro_played'] = False
     if st.session_state['intro_played']: return
@@ -64,7 +64,7 @@ def show_intro_animation():
     placeholder.empty()
     st.session_state['intro_played'] = True
 
-# --- AYARLAR VE CSS ---
+# --- SETTINGS AND CSS ---
 MAX_ROW_DISPLAY = 1000  
 MAX_MAP_POINTS = 50000 
 PREVIEW_ROW_LIMIT = 100
@@ -87,7 +87,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- KOORDİNAT VERİTABANI ---
+# --- COORDINATE DATABASE ---
 CITY_COORDINATES = {
     "ADANA": [37.0000, 35.3213], "ADIYAMAN": [37.7648, 38.2786], "AFYONKARAHİSAR": [38.7507, 30.5567],
     "AĞRI": [39.7191, 43.0503], "AMASYA": [40.6499, 35.8353], "ANKARA": [39.9334, 32.8597],
@@ -118,7 +118,7 @@ CITY_COORDINATES = {
     "KİLİS": [36.7184, 37.1212], "OSMANİYE": [37.0742, 36.2467], "DÜZCE": [40.8438, 31.1565]
 }
 
-# --- BÖLGE TANIMLARI ---
+# --- REGION DEFINITIONS ---
 BOLGE_TANIMLARI = {
     "Orta Anadolu": [
         "DÜZCE", "KARABÜK", "KONYA", "BOLU", "AFYONKARAHİSAR",
@@ -130,7 +130,7 @@ BOLGE_TANIMLARI = {
 
 if 'crm_notes' not in st.session_state: st.session_state.crm_notes = {}
 
-# --- VERİ YÜKLEME ---
+# --- DATA LOADING ---
 @st.cache_data
 def load_data(file_path):
     if not os.path.exists(file_path): return None, None, None
@@ -139,7 +139,7 @@ def load_data(file_path):
         df.columns = [str(c).strip() for c in df.columns]
         if 'Dağıtıcı' in df.columns: df.rename(columns={'Dağıtıcı': 'Dağıtım Şirketi'}, inplace=True)
         
-        # ŞEHİR İSİMLERİNİ TEMİZLE
+        # Clean City Names
         if 'İl' in df.columns: 
             df['İl'] = df['İl'].astype(str).str.upper().str.strip().str.replace('i', 'İ').str.replace('ı', 'I')
         if 'İlçe' in df.columns: 
@@ -223,7 +223,7 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 # ==========================================
-# 🛠️ BAĞIMSIZ FİLTRE FONKSİYONU
+# 🛠️ INDEPENDENT FILTER FUNCTION
 # ==========================================
 def create_tab_filters(df, key_prefix):
     st.markdown(f"#### 🔍 Filtre Paneli")
@@ -258,7 +258,7 @@ def create_tab_filters(df, key_prefix):
     st.markdown("</div>", unsafe_allow_html=True)
     return filtered
 
-# --- ANA UYGULAMA ---
+# --- MAIN APP ---
 def main():
     show_intro_animation()
     data_result = load_data(SABIT_DOSYA_ADI)
@@ -268,7 +268,7 @@ def main():
     df, target_date_col, start_date_col = data_result
     
     # ----------------------------------------------------
-    # 🛠️ KOORDİNAT SİMÜLASYONU (JITTER)
+    # 🛠️ COORDINATE SIMULATION (JITTER)
     # ----------------------------------------------------
     if 'Enlem' not in df.columns or 'Boylam' not in df.columns:
         np.random.seed(42)
@@ -282,7 +282,7 @@ def main():
 
     file_date_str = get_file_last_modified(SABIT_DOSYA_ADI)
 
-    # --- ÜST BİLGİ PANELİ ---
+    # --- TOP INFO PANEL ---
     st.markdown("### 🚀 Akaryakıt Pazar & Risk Analizi")
     col_info1, col_info2, col_info3 = st.columns([1, 1, 1])
     
@@ -309,7 +309,7 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER (YENİ SEKME EKLENDİ) ---
+    # --- TABS (UPDATED) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
         "⚡ Hızlı Analiz",      
@@ -707,42 +707,29 @@ def main():
                 with st.expander(b):
                     for i in n: st.write(i)
 
-    # 12. STRATEJİK ANALİZ (YENİ EKLEDİĞİMİZ SEKME)
+    # 12. STRATEJİK ANALİZ (UPDATED: VERGİ NO & UNVAN ZİNCİRLERİ)
     with tabs[11]:
         st.subheader("🧠 Stratejik Analiz Paneli")
         
-        # 1. HIZ GÖSTERGESİ
-        st.markdown("#### 🎯 1. Hedef vs Gerçekleşen")
-        target_val = st.number_input("Yıl Sonu Bayi Hedefiniz:", min_value=1, value=1000, step=50)
-        current_val = len(df)
+        st.markdown("#### 1. 🔗 Zincir Bayi Dedektifi (UNVAN Bazlı)")
+        st.info("💡 Veritabanında **3'ten fazla** istasyonu olan unvanlar otomatik olarak taranmış ve aşağıda listelenmiştir.")
         
-        fig_gauge = go.Figure(go.Indicator(
-            mode = "gauge+number+delta",
-            value = current_val,
-            domain = {'x': [0, 1], 'y': [0, 1]},
-            title = {'text': "Toplam Bayi Sayısı"},
-            delta = {'reference': target_val, 'increasing': {'color': "green"}},
-            gauge = {
-                'axis': {'range': [None, target_val * 1.2], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                'bar': {'color': "darkblue"},
-                'bgcolor': "white",
-                'borderwidth': 2,
-                'bordercolor': "gray",
-                'steps': [
-                    {'range': [0, target_val * 0.5], 'color': 'red'},
-                    {'range': [target_val * 0.5, target_val * 0.8], 'color': 'yellow'},
-                    {'range': [target_val * 0.8, target_val * 1.5], 'color': 'green'}],
-                'threshold': {
-                    'line': {'color': "red", 'width': 4},
-                    'thickness': 0.75,
-                    'value': target_val}}))
-        st.plotly_chart(fig_gauge, use_container_width=True)
+        unvan_counts = df['Unvan'].value_counts()
+        chains = unvan_counts[unvan_counts > 3].index.tolist()
         
+        if chains:
+            chain_data = df[df['Unvan'].isin(chains)].copy()
+            pivot_table = pd.pivot_table(chain_data, index='Unvan', columns='İl', values='Dağıtım Şirketi', aggfunc='count', fill_value=0)
+            pivot_table['TOPLAM'] = pivot_table.sum(axis=1)
+            pivot_table = pivot_table.sort_values('TOPLAM', ascending=False)
+            st.dataframe(pivot_table, use_container_width=True)
+        else:
+            st.warning("Veritabanında 3'ten fazla istasyonu olan bir unvan bulunamadı.")
+
         st.markdown("---")
         
-        # 2. VERGİ NO DEDEKTİFİ (Marka Karnesi yerine geldi)
-        st.markdown("#### 🕵️ 2. Vergi No Dedektifi (Gizli Zincirler)")
-        st.info("💡 Vergi Numarası aynı olan ve **10'dan fazla** istasyonu bulunan yapılar taranmıştır.")
+        st.markdown("#### 2. 🕵️ Zincir Bayi Dedektifi (VERGİ NO Bazlı)")
+        st.info("💡 Veritabanında **10'dan fazla** istasyonu olan **Vergi Numaraları** (Gizli Zincirler) taranmıştır.")
         
         # Kolon bulma rutini (Vergi No, VKN vb.)
         tax_candidates = [col for col in df.columns if 'VERGİ' in col.upper() or 'VKN' in col.upper()]
@@ -754,15 +741,7 @@ def main():
             
             if big_whales:
                 whale_data = df[df[tax_col].isin(big_whales)].copy()
-                # Pivot
-                pivot_vkn = pd.pivot_table(
-                    whale_data, 
-                    index=tax_col, # Tax ID satırda
-                    columns='İl', 
-                    values='Dağıtım Şirketi', 
-                    aggfunc='count', 
-                    fill_value=0
-                )
+                pivot_vkn = pd.pivot_table(whale_data, index=tax_col, columns='İl', values='Dağıtım Şirketi', aggfunc='count', fill_value=0)
                 pivot_vkn['TOPLAM'] = pivot_vkn.sum(axis=1)
                 pivot_vkn = pivot_vkn.sort_values('TOPLAM', ascending=False)
                 st.dataframe(pivot_vkn, use_container_width=True)
@@ -770,35 +749,6 @@ def main():
                 st.warning("10'dan fazla bayisi olan bir Vergi No grubu bulunamadı.")
         else:
             st.error("Veri setinde 'Vergi No' veya 'VKN' içeren bir sütun bulunamadı.")
-        
-        st.markdown("---")
-        
-        # 3. ZİNCİR BAYİ PİVOTU (UNVAN > 3)
-        st.markdown("#### 🔗 3. Zincir Bayi Dedektifi (Unvan Bazlı)")
-        st.info("💡 Veritabanında **3'ten fazla** istasyonu olan unvanlar otomatik olarak taranmış ve aşağıda listelenmiştir.")
-        
-        # Unvan sayılarını bul
-        unvan_counts = df['Unvan'].value_counts()
-        chains = unvan_counts[unvan_counts > 3].index.tolist()
-        
-        if chains:
-            chain_data = df[df['Unvan'].isin(chains)].copy()
-            # Pivot Tablo: Satırlar=Unvan, Sütunlar=İl, Değer=Adet
-            pivot_table = pd.pivot_table(
-                chain_data, 
-                index='Unvan', 
-                columns='İl', 
-                values='Dağıtım Şirketi', 
-                aggfunc='count', 
-                fill_value=0
-            )
-            # Toplam sütunu ekle ve sırala
-            pivot_table['TOPLAM'] = pivot_table.sum(axis=1)
-            pivot_table = pivot_table.sort_values('TOPLAM', ascending=False)
-            
-            st.dataframe(pivot_table, use_container_width=True)
-        else:
-            st.warning("Veritabanında 3'ten fazla istasyonu olan bir grup bulunamadı.")
 
     # 13. HAM VERİ
     with tabs[12]:
