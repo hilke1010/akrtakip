@@ -181,9 +181,16 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
         except: pass
     
     st.markdown(f"**📋 Listelenen Bayi Sayısı:** {len(dataframe)}")
+    
+    # EXCEL MOTORU HATASI DÜZELTİLDİ
+    if record_count > 0:
+        buf = io.BytesIO()
+        dataframe.to_excel(buf, index=False)
+        st.download_button(label=f"📥 Tüm Listeyi Excel İndir ({record_count} Kayıt)", data=buf.getvalue(), file_name="Bayi_Listesi.xlsx")
+
     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-# --- 🛰️ YENİ: SAYFA İÇİ FİLTRE MOTORU ---
+# --- 🛰️ SAYFA İÇİ FİLTRE MOTORU ---
 def local_filter_ui(df_base, suffix, include_comp=True):
     st.markdown("#### 🔍 Bu Sayfa İçin Filtrele")
     c1, c2, c3, c4 = st.columns(4)
