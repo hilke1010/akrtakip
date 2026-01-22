@@ -745,7 +745,7 @@ def main():
         st.markdown("---")
         
         st.markdown("#### 2. 🕵️ Zincir Bayi Dedektifi (VERGİ NO Bazlı)")
-        st.info("💡 Veritabanında **10'dan fazla** istasyonu olan **Vergi Numaraları** (Gizli Zincirler) taranmıştır.")
+        st.info("💡 Veritabanında **10'dan fazla** istasyonu olan **Vergi Numaraları** (Gizli Zincirler) taranmıştır. YAPIM AŞAMASINDA , VERGİ NO'YA GÖRE UNVAN GELECEK :)")
         
         # SÜTUNU BULMA (GELİŞMİŞ ARAMA)
         all_cols = df.columns.tolist()
@@ -785,4 +785,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
