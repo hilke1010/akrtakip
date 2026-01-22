@@ -84,8 +84,9 @@ st.markdown("""
     .insight-box-danger { padding: 15px; border-radius: 8px; background-color: #f8d7da; border-left: 5px solid #dc3545; color: #721c24; margin-bottom: 10px; }
     .insight-box-info { padding: 15px; border-radius: 8px; background-color: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460; margin-bottom: 10px; }
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
-    .district-chip:hover { background-color: #e2e6ea; border-color: #adb5bd; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
+    .chat-user { text-align: right; background-color: #dcf8c6; padding: 10px; border-radius: 10px; margin: 5px; display: inline-block; float: right; clear: both; }
+    .chat-bot { text-align: left; background-color: #f1f0f0; padding: 10px; border-radius: 10px; margin: 5px; display: inline-block; float: left; clear: both; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -120,8 +121,14 @@ CITY_COORDINATES = {
     "KİLİS": [36.7184, 37.1212], "OSMANİYE": [37.0742, 36.2467], "DÜZCE": [40.8438, 31.1565]
 }
 
+# --- BÖLGE TANIMLARI (DÜZELTİLDİ: SENİN İSTEDİĞİN 18 İL) ---
 BOLGE_TANIMLARI = {
-    "Orta Anadolu": ["DÜZCE", "KARABÜK", "KONYA", "BOLU", "AFYONKARAHİSAR", "AKSARAY", "ESKİŞEHİR", "ANKARA", "KIRIKKALE"]
+    "Orta Anadolu": [
+        "DÜZCE", "KARABÜK", "KONYA", "BOLU", "AFYONKARAHİSAR",
+        "AKSARAY", "ESKİŞEHİR", "ANKARA", "KIRIKKALE", "KASTAMONU",
+        "ÇANKIRI", "YOZGAT", "KIRŞEHİR", "KAYSERİ", "NEVŞEHİR",
+        "NİĞDE", "ZONGULDAK", "BARTIN"
+    ]
 }
 
 if 'crm_notes' not in st.session_state: st.session_state.crm_notes = {}
@@ -135,6 +142,12 @@ def load_data(file_path):
         df.columns = [str(c).strip() for c in df.columns]
         if 'Dağıtıcı' in df.columns: df.rename(columns={'Dağıtıcı': 'Dağıtım Şirketi'}, inplace=True)
         
+        # ŞEHİR İSİMLERİNİ TEMİZLE
+        if 'İl' in df.columns: 
+            df['İl'] = df['İl'].astype(str).str.upper().str.strip().str.replace('i', 'İ').str.replace('ı', 'I')
+        if 'İlçe' in df.columns: 
+            df['İlçe'] = df['İlçe'].astype(str).str.upper().str.strip().str.replace('i', 'İ').str.replace('ı', 'I')
+
         date_cols = [
             'Lisans Bitiş Tarihi', 
             'Dağıtıcı ile Yapılan Sözleşme Bitiş Tarihi', 
@@ -154,7 +167,6 @@ def load_data(file_path):
             df['Bitis_Yili'] = df[target_col].dt.year
             df['Bitis_Ayi_No'] = df[target_col].dt.month
             
-            # Ay İsimleri Mapping (Takvim için)
             month_map = {1:'Ocak', 2:'Şubat', 3:'Mart', 4:'Nisan', 5:'Mayıs', 6:'Haziran', 
                          7:'Temmuz', 8:'Ağustos', 9:'Eylül', 10:'Ekim', 11:'Kasım', 12:'Aralık'}
             df['Bitis_Ayi'] = df['Bitis_Ayi_No'].map(month_map)
@@ -165,8 +177,6 @@ def load_data(file_path):
         else: df['Sozlesme_Suresi_Gun'] = np.nan
 
         df['Risk_Durumu'] = df['Kalan_Gun'].apply(lambda x: "KRİTİK" if x < 90 else "GÜVENLİ")
-        if 'İl' in df.columns: df['İl'] = df['İl'].astype(str).str.upper().str.replace('i', 'İ').str.replace('ı', 'I')
-        if 'İlçe' in df.columns: df['İlçe'] = df['İlçe'].astype(str).str.upper().str.replace('i', 'İ').str.replace('ı', 'I')
         
         return df, target_col, start_col
     except Exception as e: return None, str(e), None
@@ -305,7 +315,7 @@ def main():
     # --- SEKMELER (GÜNCELLENDİ) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
-        "🤖 Makine Analizi",      
+        "⚡ Hızlı Analiz",  # <-- İSİM DEĞİŞTİ
         "⚔️ Karşılaştırma", 
         "📍 Yarıçap (Radar) :red[[NEW]]", 
         "🚗 Rota Planlayıcı :red[[NEW]]",
@@ -357,9 +367,9 @@ def main():
         
         show_details_table(df_tab1, target_date_col)
 
-    # 2. MAKİNE ANALİZİ (DÜZELTİLDİ: FİLTREYE GÖRE YIL GÖSTERİMİ)
+    # 2. HIZLI ANALİZ (İSİM DEĞİŞTİ, MANTIK DÜZELDİ)
     with tabs[1]:
-        st.subheader("🤖 Makine Analizi")
+        st.subheader("⚡ Hızlı Analiz")
         df_tab2 = create_tab_filters(df, "tab2")
         
         if not df_tab2.empty:
@@ -454,9 +464,7 @@ def main():
                 )
                 st.plotly_chart(fig_rad, use_container_width=True)
                 
-                # Tablo Düzenlemesi (Unvan, Dağıtıcı, Kalan Gün, Bitiş Tarihi)
                 display_cols = ['Unvan', 'İlçe', 'Dağıtım Şirketi', target_date_col, 'Kalan_Gun', 'Mesafe']
-                # Eğer target_date_col yoksa çıkar
                 cols_to_use = [c for c in display_cols if c in nearby_stations.columns]
                 
                 table_df = nearby_stations[cols_to_use].copy()
@@ -540,20 +548,16 @@ def main():
                 df_yr = df_cal[df_cal['Bitis_Yili'] == sel_yr]
                 
                 if not df_yr.empty:
-                    # Ay sırasına göre grupla
                     mon_counts = df_yr.groupby(['Bitis_Ayi_No', 'Bitis_Ayi']).size().reset_index(name='Adet')
                     mon_counts = mon_counts.sort_values('Bitis_Ayi_No')
                     
-                    # Grafik (X ekseni Ay ismi, Y ekseni Adet, Text Adet)
                     fig_cal = px.bar(mon_counts, x='Bitis_Ayi', y='Adet', text='Adet', title=f"{sel_yr} Yılı Sözleşme Bitiş Dağılımı")
                     fig_cal.update_layout(xaxis_title="Ay", yaxis_title="Sözleşme Sayısı")
                     
-                    # İNTERAKTİF SEÇİM (on_select="rerun")
                     selection = st.plotly_chart(fig_cal, use_container_width=True, on_select="rerun")
                     
                     selected_month = None
                     if selection and selection['selection']['points']:
-                        # Seçilen ay ismini al
                         selected_month = selection['selection']['points'][0]['x']
                         st.info(f"🔍 **Seçilen Ay:** {selected_month}")
                         filtered_table = df_yr[df_yr['Bitis_Ayi'] == selected_month]
@@ -586,34 +590,86 @@ def main():
             fig_bar.update_layout(yaxis={'categoryorder':'total ascending'})
             st.plotly_chart(fig_bar, use_container_width=True)
 
-    # 10. İL KARNESİ (DÜZELTİLDİ: SÖZLEŞME BİTİŞ TARİHİ EKLENDİ)
+    # 10. İL KARNESİ (YENİLENDİ: KPI, PASTA, LİDER, DETAYLI TABLO)
     with tabs[9]:
-        st.subheader("📄 İl Karnesi")
-        report_city = st.selectbox("İl Seç:", sorted(df['İl'].unique()))
+        st.subheader("📄 İl Karnesi (360° Analiz)")
         
-        city_df = df[df['İl'] == report_city]
+        all_provinces = sorted(df['İl'].unique().tolist())
+        report_city = st.selectbox("Analiz Edilecek İli Seçin:", all_provinces, key="report_city_sel")
         
-        target_company_report = st.selectbox("Analiz Şirketi:", sorted(city_df['Dağıtım Şirketi'].unique()))
-        my_city_df = city_df[city_df['Dağıtım Şirketi'] == target_company_report]
-        
-        c1, c2 = st.columns(2)
-        c1.metric("Toplam Pazar", len(city_df))
-        c2.metric(f"{target_company_report} Payı", len(my_city_df))
-        
-        st.divider()
-        st.subheader("Sözleşme Bitiş Takvimi")
-        if 'Bitis_Yili' in my_city_df.columns:
-            exp = my_city_df['Bitis_Yili'].value_counts().sort_index()
-            st.bar_chart(exp)
+        if report_city:
+            city_df = df[df['İl'] == report_city]
+            total_stations = len(city_df)
             
-            # TABLOYA TARGET_DATE_COL EKLENDİ (Örn: 15.05.2026 formatında)
-            # Tarih formatlamasını burada da yapalım
-            table_view = my_city_df[['Unvan', 'İlçe', 'Bitis_Yili', target_date_col, 'Kalan_Gun']].sort_values('Kalan_Gun').copy()
-            try:
-                table_view[target_date_col] = pd.to_datetime(table_view[target_date_col]).dt.strftime('%d.%m.%Y')
-            except: pass
+            comp_counts = city_df['Dağıtım Şirketi'].value_counts()
+            market_leader = comp_counts.idxmax()
+            leader_count = comp_counts.max()
             
-            st.dataframe(table_view, use_container_width=True, hide_index=True)
+            st.markdown("---")
+            target_company = st.selectbox("Odaklanılacak Şirket:", sorted(city_df['Dağıtım Şirketi'].unique()), index=0, key="report_comp_sel")
+            
+            my_company_df = city_df[city_df['Dağıtım Şirketi'] == target_company]
+            my_count = len(my_company_df)
+            my_share = (my_count / total_stations) * 100
+            
+            # 1. SATIR: KPI KARTLARI
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("🏙️ Toplam Pazar", total_stations)
+            k2.metric("👑 Pazar Lideri", f"{market_leader}", f"{leader_count} Bayi")
+            k3.metric(f"⛽ {target_company}", my_count)
+            k4.metric("📊 Pazar Payı", f"%{my_share:.1f}")
+            
+            st.markdown("---")
+            
+            # 2. SATIR: GRAFİKLER
+            g1, g2 = st.columns(2)
+            
+            with g1:
+                st.markdown("##### 🍰 Pazar Payı Dağılımı")
+                if len(comp_counts) > 10:
+                    top10 = comp_counts.head(10)
+                    others = pd.Series([comp_counts.iloc[10:].sum()], index=['DİĞER'])
+                    final_counts = pd.concat([top10, others])
+                else:
+                    final_counts = comp_counts
+                
+                fig_pie = px.pie(values=final_counts.values, names=final_counts.index, hole=0.4)
+                st.plotly_chart(fig_pie, use_container_width=True)
+                
+            with g2:
+                st.markdown(f"##### 📍 {target_company} İlçe Dağılımı")
+                if not my_company_df.empty:
+                    dist_counts = my_company_df['İlçe'].value_counts().reset_index()
+                    dist_counts.columns = ['İlçe', 'Adet']
+                    fig_bar = px.bar(dist_counts, x='Adet', y='İlçe', orientation='h', text='Adet')
+                    st.plotly_chart(fig_bar, use_container_width=True)
+                else:
+                    st.warning("Bu şirketin bu ilde bayisi yok.")
+
+            # 3. SATIR: SÖZLEŞME VE DETAY
+            st.markdown("---")
+            c_exp, c_list = st.columns([1, 2])
+            
+            with c_exp:
+                st.markdown("##### ⏳ Sözleşme Bitiş Takvimi")
+                if 'Bitis_Yili' in my_company_df.columns and not my_company_df.empty:
+                    exp_counts = my_company_df['Bitis_Yili'].value_counts().sort_index()
+                    st.bar_chart(exp_counts)
+                else:
+                    st.info("Veri yok.")
+                    
+            with c_list:
+                st.markdown("##### 📋 Bayi Listesi (Kalan Güne Göre)")
+                if not my_company_df.empty:
+                    display_df = my_company_df[['Unvan', 'İlçe', 'Dağıtım Şirketi', 'Bitis_Yili', 'Kalan_Gun']].sort_values('Kalan_Gun')
+                    st.dataframe(
+                        display_df,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "Kalan_Gun": st.column_config.NumberColumn("Kalan Gün", format="%d")
+                        }
+                    )
 
     # 11. CRM
     with tabs[10]:
