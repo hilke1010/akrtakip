@@ -130,7 +130,14 @@ def load_data(file_path):
         df.columns = [str(c).strip() for c in df.columns]
         if 'Dağıtıcı' in df.columns: df.rename(columns={'Dağıtıcı': 'Dağıtım Şirketi'}, inplace=True)
         
-        date_cols = ['Lisans Bitiş Tarihi', 'Dağıtıcı ile Yapılan Sözleşme Bitiş Tarihi', 'Lisans Başlangıç Tarihi']
+        # DÜZELTME: 'Dağıtıcı ile Yapılan Sözleşme Başlangıç Tarihi' eklendi!
+        date_cols = [
+            'Lisans Bitiş Tarihi', 
+            'Dağıtıcı ile Yapılan Sözleşme Bitiş Tarihi', 
+            'Lisans Başlangıç Tarihi',
+            'Dağıtıcı ile Yapılan Sözleşme Başlangıç Tarihi' # <--- EKSİK OLAN BUYDU
+        ]
+        
         for col in date_cols:
             if col in df.columns: df[col] = pd.to_datetime(df[col], dayfirst=True, errors='coerce')
 
@@ -406,18 +413,23 @@ def main():
     # 10. KARNE
     with tabs[9]:
         st.subheader("📄 İl Karnesi")
-        city = st.selectbox("İl", sorted(df['İl'].unique()))
-        cdf = df[df['İl'] == city]
-        comp = st.selectbox("Şirket", sorted(cdf['Dağıtım Şirketi'].unique()))
-        mdf = cdf[cdf['Dağıtım Şirketi'] == comp]
+        report_city = st.selectbox("İl Seç:", sorted(df['İl'].unique()))
+        
+        city_df = df[df['İl'] == report_city]
+        
+        target_company_report = st.selectbox("Analiz Şirketi:", sorted(city_df['Dağıtım Şirketi'].unique()))
+        my_city_df = city_df[city_df['Dağıtım Şirketi'] == target_company_report]
         
         c1, c2 = st.columns(2)
-        c1.metric("Toplam Pazar", len(cdf))
-        c2.metric(f"{comp} Payı", len(mdf))
+        c1.metric("Toplam Pazar", len(city_df))
+        c2.metric(f"{target_company_report} Payı", len(my_city_df))
         
-        if 'Bitis_Yili' in mdf.columns:
-            st.bar_chart(mdf['Bitis_Yili'].value_counts().sort_index())
-            st.dataframe(mdf[['Unvan', 'İlçe', 'Bitis_Yili']].sort_values('Bitis_Yili'), use_container_width=True)
+        st.divider()
+        st.subheader("Sözleşme Bitiş Takvimi")
+        if 'Bitis_Yili' in my_city_df.columns:
+            exp = my_city_df['Bitis_Yili'].value_counts().sort_index()
+            st.bar_chart(exp)
+            st.dataframe(my_city_df[['Unvan', 'İlçe', 'Bitis_Yili', 'Kalan_Gun']].sort_values('Kalan_Gun'), use_container_width=True)
 
     # 11. CHATBOT LİTE (YENİ TAB)
     with tabs[10]:
