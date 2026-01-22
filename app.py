@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="EPDK Akaryakıt Pazar Analizi",
     page_icon="⛽",
     layout="wide",
-    initial_sidebar_state="collapsed" 
+    initial_sidebar_state="expanded" 
 )
 
 # --- DOSYA TARİHİ HESAPLAMA (TÜRKİYE SAATİ GMT+3) ---
@@ -22,13 +22,8 @@ def get_file_last_modified(file_path):
         if not os.path.exists(file_path):
             return "DOSYA BULUNAMADI"
         
-        # Dosyanın değiştirilme zamanı
         timestamp = os.path.getmtime(file_path)
-        
-        # UTC zamanını al
-        utc_time = datetime.utcfromtimestamp(timestamp)
-        
-        # Türkiye Saati (GMT+3)
+        utc_time = datetime.fromtimestamp(timestamp)
         turkey_time = utc_time + timedelta(hours=3)
         
         tr_months = {
@@ -37,7 +32,6 @@ def get_file_last_modified(file_path):
         }
         
         month_name = tr_months.get(turkey_time.month, "")
-        # Format: 23 OCAK 2026 SAAT 14:30
         return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
     except:
         return "TARİH ALINAMADI"
@@ -77,7 +71,7 @@ def show_intro_animation():
     </ul>
 </div>
 """, unsafe_allow_html=True)
-       time.sleep(2.0)
+       time.sleep(1.5)
     
     placeholder.empty()
     st.session_state['intro_played'] = True
@@ -110,6 +104,7 @@ st.markdown("""
     .insight-box-info { padding: 15px; border-radius: 8px; background-color: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460; margin-bottom: 10px; }
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .district-chip:hover { background-color: #e2e6ea; border-color: #adb5bd; }
+    /* Filtre kutusu stili - Expander olmadan */
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
 </style>
 """, unsafe_allow_html=True)
@@ -270,49 +265,52 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
 def create_tab_filters(df, key_prefix):
     """
     Bu fonksiyon her sekme için bağımsız filtreler oluşturur ve filtrelenmiş veriyi döndürür.
+    Expander kullanılmadan direkt gösterilir.
     """
-    with st.expander("🔍 **Filtre Paneli (Bu Sekme İçin)**", expanded=True):
-        st.markdown(f"<div class='filter-container'>", unsafe_allow_html=True)
-        c1, c2, c3, c4 = st.columns(4)
+    # Filtre Başlığı
+    st.markdown(f"#### 🔍 Filtre Paneli")
+    st.markdown(f"<div class='filter-container'>", unsafe_allow_html=True)
+    
+    c1, c2, c3, c4 = st.columns(4)
+    
+    # 1. BÖLGE
+    with c1:
+        region_opts = ["Tümü"] + list(BOLGE_TANIMLARI.keys())
+        sel_reg = st.selectbox("🌍 Bölge", region_opts, key=f"{key_prefix}_reg")
+    
+    filtered_by_reg = df.copy()
+    if sel_reg != "Tümü":
+        filtered_by_reg = df[df['İl'].isin(BOLGE_TANIMLARI[sel_reg])]
         
-        # 1. BÖLGE
-        with c1:
-            region_opts = ["Tümü"] + list(BOLGE_TANIMLARI.keys())
-            sel_reg = st.selectbox("🌍 Bölge", region_opts, key=f"{key_prefix}_reg")
+    # 2. İL
+    with c2:
+        city_opts = sorted(filtered_by_reg['İl'].unique().tolist())
+        sel_city = st.multiselect("🏢 İl", city_opts, key=f"{key_prefix}_city")
+
+    filtered_by_city = filtered_by_reg.copy()
+    if sel_city:
+        filtered_by_city = filtered_by_reg[filtered_by_reg['İl'].isin(sel_city)]
         
-        filtered_by_reg = df.copy()
-        if sel_reg != "Tümü":
-            filtered_by_reg = df[df['İl'].isin(BOLGE_TANIMLARI[sel_reg])]
-            
-        # 2. İL
-        with c2:
-            city_opts = sorted(filtered_by_reg['İl'].unique().tolist())
-            sel_city = st.multiselect("🏢 İl", city_opts, key=f"{key_prefix}_city")
+    # 3. İLÇE
+    with c3:
+        dist_opts = sorted(filtered_by_city['İlçe'].unique().tolist()) if 'İlçe' in filtered_by_city.columns else []
+        sel_dist = st.multiselect("📍 İlçe", dist_opts, key=f"{key_prefix}_dist")
 
-        filtered_by_city = filtered_by_reg.copy()
-        if sel_city:
-            filtered_by_city = filtered_by_reg[filtered_by_reg['İl'].isin(sel_city)]
-            
-        # 3. İLÇE
-        with c3:
-            dist_opts = sorted(filtered_by_city['İlçe'].unique().tolist()) if 'İlçe' in filtered_by_city.columns else []
-            sel_dist = st.multiselect("📍 İlçe", dist_opts, key=f"{key_prefix}_dist")
-
-        filtered_by_dist = filtered_by_city.copy()
-        if sel_dist:
-            filtered_by_dist = filtered_by_dist[filtered_by_dist['İlçe'].isin(sel_dist)]
-            
-        # 4. ŞİRKET
-        with c4:
-            comp_opts = sorted(filtered_by_dist['Dağıtım Şirketi'].dropna().astype(str).unique().tolist())
-            sel_comp = st.multiselect("⛽ Şirket", comp_opts, key=f"{key_prefix}_comp")
-            
-        filtered_final = filtered_by_dist.copy()
-        if sel_comp:
-            filtered_final = filtered_final[filtered_final['Dağıtım Şirketi'].isin(sel_comp)]
-            
-        st.markdown("</div>", unsafe_allow_html=True)
-            
+    filtered_by_dist = filtered_by_city.copy()
+    if sel_dist:
+        filtered_by_dist = filtered_by_dist[filtered_by_dist['İlçe'].isin(sel_dist)]
+        
+    # 4. ŞİRKET
+    with c4:
+        comp_opts = sorted(filtered_by_dist['Dağıtım Şirketi'].dropna().astype(str).unique().tolist())
+        sel_comp = st.multiselect("⛽ Şirket", comp_opts, key=f"{key_prefix}_comp")
+        
+    filtered_final = filtered_by_dist.copy()
+    if sel_comp:
+        filtered_final = filtered_final[filtered_final['Dağıtım Şirketi'].isin(sel_comp)]
+        
+    st.markdown("</div>", unsafe_allow_html=True)
+        
     return filtered_final
 
 # --- ANA UYGULAMA ---
@@ -330,10 +328,14 @@ def main():
     # 3. Dosyanın Son Değiştirilme Tarihini Al
     file_date_str = get_file_last_modified(SABIT_DOSYA_ADI)
 
-    # --- SIDEBAR (SADECE BİLGİ, FİLTRE YOK) ---
+    # --- SIDEBAR (GÜNCEL TARİH VE İLETİŞİM) ---
     with st.sidebar:
+        # GÜNCELLEME SAATİ KUTUSU
         st.success(f"🔄 **VERİ GÜNCELLEME:**\n\n{file_date_str}")
+        
+        # İLETİŞİM KUTUSU
         st.info(f"📧 **İletişim:**\n\nkerim.aksu@milangaz.com.tr")
+        
         st.markdown("---")
         st.header("🔗 Diğer Uygulamalar")
         st.markdown("[📊 EPDK LPG Sektör Raporu](https://pazarpayi.streamlit.app/)")
@@ -368,7 +370,7 @@ def main():
     with tab_overview:
         st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
         
-        # TAB İÇİ FİLTRELEME
+        # TAB İÇİ FİLTRELEME (EXPANDER OLMADAN)
         df_tab1 = create_tab_filters(df, "tab1")
         
         if len(df_tab1) > MAX_MAP_POINTS:
@@ -397,7 +399,6 @@ def main():
         city_stats = df_tab1['İl'].value_counts().reset_index()
         city_stats.columns = ['İl', 'Total']
         
-        # Şirket seçildiyse ona göre, seçilmediyse en büyüğe göre etiketleme
         top_comp_name = df_tab1['Dağıtım Şirketi'].value_counts().idxmax() if not df_tab1.empty else "Bilinmiyor"
         top_comp_df = df_tab1[df_tab1['Dağıtım Şirketi'] == top_comp_name]
         top_counts = top_comp_df['İl'].value_counts().reset_index()
@@ -419,22 +420,20 @@ def main():
         
         col_pie1, col_pie2 = st.columns(2)
         with col_pie1:
-            # DÜZELTME: SADECE TOP 15 İLİ GÖSTER, "DİĞER" OLUŞTURMA
+            # DÜZELTME: TOP 15 SINIRLAMASI KALDIRILDI, HEPSİNİ GÖSTERİYOR
             city_pie_data = df_tab1['İl'].value_counts().reset_index()
             city_pie_data.columns = ['İl', 'Adet']
-            # İlk 15'i alıyoruz, geri kalanı ("Diğer") eklemiyoruz
-            city_pie_data = city_pie_data.head(15) 
+            # .head() fonksiyonunu sildik, tüm veriyi basıyoruz
             
-            fig_city_pie = px.pie(city_pie_data, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı (Top 15)")
+            fig_city_pie = px.pie(city_pie_data, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı (Tamamı)")
             st.plotly_chart(fig_city_pie, use_container_width=True)
 
         with col_pie2:
             if 'Dağıtım Şirketi' in df_tab1.columns:
                 dist_pie_data = df_tab1['Dağıtım Şirketi'].value_counts().reset_index()
                 dist_pie_data.columns = ['Dağıtım Şirketi', 'Adet']
-                # Burada da karmaşayı önlemek için ilk 15'i gösterebiliriz
-                dist_pie_data = dist_pie_data.head(15)
-                fig_dist_pie = px.pie(dist_pie_data, values='Adet', names='Dağıtım Şirketi', hole=0.4, title="Pazar Payı (Top 15)")
+                # Burada da tüm veriyi gösteriyoruz
+                fig_dist_pie = px.pie(dist_pie_data, values='Adet', names='Dağıtım Şirketi', hole=0.4, title="Pazar Payı (Tamamı)")
                 st.plotly_chart(fig_dist_pie, use_container_width=True)
 
         show_details_table(df_tab1, target_date_col)
@@ -449,14 +448,10 @@ def main():
         if df_tab2.empty:
             st.warning("⚠️ Seçilen kriterlere uygun veri bulunamadı. Lütfen filtreyi değiştirin.")
         else:
-            # ARTIK "GÜZEL ENERJİ" ŞARTI YOK. Filtrede ne varsa o analiz edilir.
-            
-            # 1. En Güçlü Şehir
             top_city = df_tab2['İl'].value_counts().idxmax()
             top_city_count = df_tab2['İl'].value_counts().max()
             st.markdown(f"<div class='insight-box-success'><b>🏆 Filtre Lider Bölgesi:</b><br>Mevcut seçimdeki en yoğun il <b>{top_city}</b> ({top_city_count} Bayi).</div>", unsafe_allow_html=True)
 
-            # 2. Eksik İlçe Analizi (Filtrelenen iller içinde, filtrelenen şirketlerin olmadığı yerler)
             selected_cities_in_filter = df_tab2['İl'].unique()
             all_possible_districts = df[df['İl'].isin(selected_cities_in_filter)]['İlçe'].unique()
             current_districts = df_tab2['İlçe'].unique()
@@ -474,7 +469,6 @@ def main():
                         html_chips += f'<span class="district-chip" title="{tooltip_text}">{dist}</span>'
                     st.markdown(html_chips, unsafe_allow_html=True)
             
-            # 3. Sözleşme Bitiş Analizi
             if 'Bitis_Yili' in df_tab2.columns:
                 current_year = datetime.now().year
                 future_expirations = df_tab2[df_tab2['Bitis_Yili'] >= current_year]['Bitis_Yili'].value_counts().sort_index()
@@ -488,7 +482,6 @@ def main():
                     msg_list += "</ul>"
                     st.markdown(f"<div class='insight-box-danger'><b>⚠️ Kritik Yenileme Dönemleri (Seçili Kapsam):</b><br>Toplamda <b>{total_future}</b> sözleşme sona erecek.<br>{msg_list}</div>", unsafe_allow_html=True)
             
-            # 4. Pasta Grafiği (Filtre içindeki dağılım)
             col_share_text, col_share_chart = st.columns([1, 1])
             with col_share_text:
                 total_in_filter = len(df_tab2)
@@ -506,7 +499,7 @@ def main():
         st.subheader("⚔️ Head-to-Head Rakip Analizi")
         st.info("Aşağıdaki filtreden **Bölge/İl/İlçe** seçerek arenayı daraltabilirsiniz. Şirket karşılaştırması filtrenin altındadır.")
         
-        # TAB İÇİ FİLTRELEME (Şirket hariç, şirketler aşağıda seçilecek)
+        # TAB İÇİ FİLTRELEME
         df_tab3 = create_tab_filters(df, "tab3")
 
         if 'Dağıtım Şirketi' in df.columns:
@@ -656,7 +649,6 @@ def main():
             
             st.divider()
             
-            # Seçili illerde hiç olmayan ilçeleri bulma mantığı
             all_d = df[df['İl'].isin(df_tab7['İl'].unique())]['İlçe'].unique()
             curr_d = df_tab7['İlçe'].unique()
             miss = sorted(list(set(all_d) - set(curr_d)))
@@ -670,7 +662,6 @@ def main():
         st.subheader("📄 Tek Tuşla İl Karnesi")
         st.markdown("Seçilen ilin tüm kritik verilerini tek sayfada özetler.")
         
-        # Burası özel bir sayfa olduğu için standart filtre yerine sadece İl seçimi koyuyoruz
         all_provinces = sorted(df['İl'].unique().tolist())
         report_city = st.selectbox("Karne Çıkarılacak İli Seçin:", all_provinces, key="report_city_sel")
         
