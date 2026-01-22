@@ -583,18 +583,36 @@ def main():
                     st.markdown(html_chips, unsafe_allow_html=True)
                     st.info("💡 **İpucu:** İlçelerin üzerine gelerek toplam rakip istasyon sayısını görebilirsiniz.")
             
-            if 'Bitis_Yili' in my_df.columns:
-                current_year = datetime.date.today().year
-                future_expirations = my_df[my_df['Bitis_Yili'] >= current_year]['Bitis_Yili'].value_counts().sort_index()
-                if not future_expirations.empty:
-                    msg_list = "<ul>"
-                    total_future = 0
-                    for year, count in future_expirations.items():
-                        yr_text = f"{int(year)} (Bu Yıl)" if year == current_year else f"{int(year)}"
-                        msg_list += f"<li><b>{yr_text}:</b> {count} adet sözleşme</li>"
-                        total_future += count
-                    msg_list += "</ul>"
-                    st.markdown(f"<div class='insight-box-danger'><b>⚠️ Kritik Yenileme Dönemleri:</b><br>Toplamda <b>{total_future}</b> sözleşme sona erecek.<br>{msg_list}</div>", unsafe_allow_html=True)
+            # --- YENİ EKLENEN KISIM: YILLARA GÖRE DETAYLI SÖZLEŞME ANALİZİ ---
+            st.markdown("---")
+            st.subheader("🦅 Yıllara Göre Pazar Dağılımı (Sözleşme Bitişleri)")
+            st.info("Aşağıdaki yıllara tıklayarak hangi dağıtıcının kaç bayisinin sözleşmesinin bittiğini detaylı görebilirsiniz.")
+            
+            # Gelecek yılları filtrele (Tüm şirketler, sadece biz değil)
+            future_scope = scope_df[scope_df['Bitis_Yili'] >= datetime.date.today().year]
+            
+            if not future_scope.empty:
+                years = sorted(future_scope['Bitis_Yili'].unique())
+                
+                for year in years:
+                    y_int = int(year)
+                    # O yıla ait veriyi al
+                    y_data = future_scope[future_scope['Bitis_Yili'] == year]
+                    total_count = len(y_data)
+                    
+                    # Şirket bazlı kırılım (En çoktan en aza)
+                    comp_breakdown = y_data['Dağıtım Şirketi'].value_counts().head(3) 
+                    
+                    # Başlık için özet metin oluştur
+                    top_summary = ", ".join([f"{k}: {v}" for k,v in comp_breakdown.items()])
+                    
+                    # Expander (Açılır Kutu)
+                    with st.expander(f"📅 {y_int} Yılı: Toplam {total_count} İstasyon Boşa Çıkıyor (Özet: {top_summary}...)"):
+                        # Tam listeyi dataframe olarak göster
+                        full_breakdown = y_data['Dağıtım Şirketi'].value_counts().reset_index()
+                        full_breakdown.columns = ['Dağıtım Şirketi', 'Bitecek Sözleşme Sayısı']
+                        st.dataframe(full_breakdown, use_container_width=True, hide_index=True)
+            # ------------------------------------------------------------------
             
             total_market = len(scope_df)
             my_share = len(my_df)
