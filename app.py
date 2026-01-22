@@ -5,7 +5,7 @@ import datetime
 import numpy as np
 import os
 import io
-import time  # Standart kütüphanedir, requirements.txt'ye eklemeyin.
+import time  # Animasyon için gerekli
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -16,90 +16,163 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🔐 GÜVENLİK VE GİRİŞ SİSTEMİ (YENİ EKLENDİ)
+# 🔐 1. VİDEOLU & CAM EFEKTLİ GİRİŞ EKRANI
 # ==========================================
 def check_login():
-    # Session state'de giriş durumu yoksa False yap
+    # Session state tanımları
     if 'authenticated' not in st.session_state:
         st.session_state['authenticated'] = False
-
-    # Eğer zaten giriş yapılmışsa fonksiyondan çık, ana kod çalışsın
+    
+    # Zaten giriş yapıldıysa çık, ana kod aksın
     if st.session_state['authenticated']:
         return
 
-    # --- GİRİŞ EKRANI TASARIMI ---
+    # --- CSS: VİDEO ARKA PLAN VE CAM KUTU ---
     st.markdown("""
     <style>
-        .login-container {
-            max-width: 400px;
-            margin: 0 auto;
+        /* Video Arka Plan */
+        #myVideo {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            min-width: 100%; 
+            min-height: 100%;
+            z-index: -1;
+            filter: brightness(0.6); /* Videoyu biraz karart ki yazılar okunsun */
+            object-fit: cover;
+        }
+
+        /* Ana Konteyner Gizleme (Streamlit'in varsayılan boşluklarını siler) */
+        .block-container {
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            max-width: 100% !important;
+        }
+        
+        /* Giriş Kutusu (Glassmorphism) */
+        .login-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
             padding: 40px;
-            background: linear-gradient(135deg, #ffffff, #f0f2f6);
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            background: rgba(255, 255, 255, 0.1); /* Yarı saydam beyaz */
+            backdrop-filter: blur(15px); /* Buzlu cam efekti */
+            -webkit-backdrop-filter: blur(15px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
             text-align: center;
-        }
-        .login-header {
-            color: #0277bd;
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 20px;
-        }
-        .stButton>button {
-            width: 100%;
-            background-color: #FF8C00; 
             color: white;
-            border: none;
-            padding: 10px;
-            font-weight: bold;
-            transition: all 0.3s;
+            z-index: 100;
         }
-        .stButton>button:hover {
-            background-color: #e67e00;
-            box-shadow: 0 5px 15px rgba(255, 140, 0, 0.4);
+
+        /* Başlıklar */
+        .login-title {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
         }
+        
+        .login-subtitle {
+            font-size: 0.9rem;
+            color: #ddd;
+            margin-bottom: 25px;
+            font-weight: 300;
+        }
+
+        /* Input Alanlarını Güzelleştirme */
+        .stTextInput > div > div > input {
+            background-color: rgba(255, 255, 255, 0.8) !important;
+            border: none !important;
+            color: #333 !important;
+            border-radius: 8px !important;
+            padding: 10px !important;
+        }
+        
+        /* Buton Tasarımı */
+        .stButton > button {
+            width: 100%;
+            background: linear-gradient(45deg, #FF8C00, #FF4500) !important;
+            color: white !important;
+            font-weight: bold !important;
+            border: none !important;
+            padding: 12px !important;
+            border-radius: 8px !important;
+            font-size: 1.1rem !important;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stButton > button:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 15px rgba(255, 140, 0, 0.6);
+        }
+        
+        /* Footer/Header Gizle */
+        header {visibility: hidden;}
+        footer {visibility: hidden;}
     </style>
+    
+    <!-- ARKA PLAN VİDEOSU -->
+    <video autoplay muted loop id="myVideo">
+        <!-- Telifsiz Şehir/Trafik Videosu (Pexels/Pixabay vb.) -->
+        <source src="https://cdn.pixabay.com/video/2020/05/25/40149-424075114_large.mp4" type="video/mp4">
+        Tarayıcınız video etiketini desteklemiyor.
+    </video>
+    
+    <div class="login-box">
+        <div style="font-size: 3rem; margin-bottom: 10px;">⛽</div>
+        <div class="login-title">EPDK ANALİZ<br>PANELİ</div>
+        <div class="login-subtitle">Lütfen yetkili giriş bilgilerinizi giriniz</div>
+    </div>
     """, unsafe_allow_html=True)
 
-    # Ortalamak için kolon kullanımı
-    col1, col2, col3 = st.columns([1, 1, 1])
+    # Formu CSS ile ortalanmış kutunun içine denk getirmek için
+    # Streamlit formunu ortada tutmaya çalışıyoruz.
+    # Not: Streamlit elementlerini tam CSS içine gömemeyiz ama üstüne bindirebiliriz.
     
-    with col2:
-        st.markdown("<div style='text-align: center; font-size: 3rem; margin-bottom: 10px;'>🔒</div>", unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align: center; color: #021B79;'>GÜVENLİ GİRİŞ</h2>", unsafe_allow_html=True)
-        st.info("EPDK Pazar Analiz Sistemine hoş geldiniz. Lütfen yetkili bilgilerinizi giriniz.")
+    # Sayfayı ortalamak için boşluklar
+    c1, c2, c3 = st.columns([1.5, 2, 1.5])
+    
+    with c2:
+        # Boşluk bırakarak kutunun içine denk getirme (Yaklaşık hizalama)
+        st.markdown("<br><br><br><br><br><br><br><br>", unsafe_allow_html=True)
         
         with st.form("login_form"):
-            username = st.text_input("Kullanıcı Adı", placeholder="Kullanıcı Adınız")
-            password = st.text_input("Şifre", type="password", placeholder="Şifreniz")
-            submit_button = st.form_submit_button("GİRİŞ YAP")
+            username = st.text_input("Kullanıcı Adı", placeholder="GE2026")
+            password = st.text_input("Şifre", type="password", placeholder="••••••")
+            submit_button = st.form_submit_button("SİSTEME GİRİŞ")
 
             if submit_button:
                 if username == "GE2026" and password == "GE2620":
                     st.session_state['authenticated'] = True
-                    st.success("✅ Giriş Başarılı! Yönlendiriliyorsunuz...")
-                    time.sleep(1)
+                    # ÖNEMLİ: Animasyonu tekrar oynatması için bayrağı sıfırla
+                    st.session_state['intro_played'] = False 
+                    st.success("Giriş Başarılı! 🚀")
+                    time.sleep(0.5)
                     st.rerun()
                 else:
-                    st.error("❌ Hatalı Kullanıcı Adı veya Şifre!")
+                    st.error("❌ Hatalı Bilgi!")
     
-    # Giriş yapılmamışsa kodun geri kalanını çalıştırma
+    # Giriş yapılmadıysa burada dur
     st.stop()
 
-# Giriş kontrolünü en başta çalıştır
-check_login()
+
 # ==========================================
-
-
-# --- GİRİŞ ANİMASYONU FONKSİYONU ---
+# 🎬 2. CAFCAFLI YÜKLEME ANİMASYONU
+# ==========================================
 def show_intro_animation():
     """
-    Mavi ve Turuncu ağırlıklı cafcaflı giriş animasyonu.
+    Giriş yapıldıktan SONRA çalışacak animasyon.
     """
-    # Sadece giriş yapıldıktan sonra ve ilk kez dashboard açıldığında çalışsın
     if 'intro_played' not in st.session_state:
         st.session_state['intro_played'] = False
 
+    # Eğer daha önce oynatıldıysa tekrar oynatma
     if st.session_state['intro_played']:
         return
 
@@ -114,6 +187,7 @@ def show_intro_animation():
                 left: 0;
                 width: 100vw;
                 height: 100vh;
+                /* Mavi ve Turuncu Karışımı Hareketli Gradyan */
                 background: linear-gradient(-45deg, #021B79, #0575E6, #FF8C00, #ff4e00);
                 background-size: 400% 400%;
                 animation: gradientBG 6s ease infinite;
@@ -221,9 +295,10 @@ PREVIEW_ROW_LIMIT = 100
 # --- 2. DOSYA İSİMLERİ ---
 SABIT_DOSYA_ADI = "asatis.xlsx"
 
-# --- 3. CSS ÖZELLEŞTİRME ---
+# --- 3. CSS ÖZELLEŞTİRME (Dashboard İçin) ---
 st.markdown("""
 <style>
+    /* Dashboard'daki Standart Stil */
     .stMetric {
         background-color: #f0f2f6;
         border-left: 5px solid #2980b9; 
@@ -231,7 +306,6 @@ st.markdown("""
         border-radius: 5px;
         box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
     }
-    .block-container { padding-top: 2rem; }
     .crm-box {
         background-color: #fff9c4;
         padding: 10px;
@@ -419,10 +493,13 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
 
 # --- ANA UYGULAMA ---
 def main():
-    # --- GİRİŞ ANİMASYONUNU ÇAĞIR ---
-    show_intro_animation()
-    # --------------------------------
+    # 1. Önce Giriş Kontrolü Yap
+    check_login()
 
+    # 2. Giriş Yapıldıysa Animasyonu Oynat (Sadece ilk girişte)
+    show_intro_animation()
+
+    # 3. Verileri Yükle ve Ana Ekranı Göster
     data_result = load_data(SABIT_DOSYA_ADI)
     if data_result is None or data_result[0] is None:
         st.error(f"⚠️ Hata: {data_result[1] if data_result else 'Veri Yüklenemedi'}")
