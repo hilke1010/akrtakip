@@ -544,90 +544,146 @@ def main():
         show_details_table(filtered_table, target_date_col)
 
     # 2. MAKİNE ANALİZİ
+    # 2. MAKİNE ANALİZİ (GÜNCELLENMİŞ & DİNAMİK)
     with tab_machine:
-        st.subheader("🤖 Makine Analizi (Akıllı Asistan)")
-        st.markdown("Veriler taranarak **GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ** için özel stratejik notlar oluşturuldu.")
+        st.subheader("🤖 Dinamik Makine Analizi")
         
-        col_ma1, col_ma2 = st.columns([1,3])
-        with col_ma1:
-            analiz_bolge = st.selectbox("Analiz Bölgesi", ["Tümü"] + list(BOLGE_TANIMLARI.keys()), key="ma_region")
-        
-        my_company = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
-        if analiz_bolge != "Tümü":
-            scope_df = df[df['İl'].isin(BOLGE_TANIMLARI[analiz_bolge])]
-            st.caption(f"📍 **Kapsam:** {analiz_bolge} Bölgesi")
+        # --- 1. KAPSAM BİLGİSİ ---
+        # Kullanıcının neyi filtrelediğini özetleyelim
+        kapsam_metni = []
+        if selected_region != "Tümü": kapsam_metni.append(f"Bölge: {selected_region}")
+        if selected_cities: kapsam_metni.append(f"İl: {', '.join(selected_cities)}")
+        if selected_districts: kapsam_metni.append(f"İlçe: {', '.join(selected_districts)}")
+        if selected_companies: 
+            kapsam_metni.append(f"Şirket: {', '.join(selected_companies)}")
         else:
-            scope_df = df.copy()
-            st.caption("📍 **Kapsam:** Tüm Türkiye")
-
-        my_df = scope_df[scope_df['Dağıtım Şirketi'] == my_company]
+            kapsam_metni.append("Şirket: Tümü")
+            
+        st.caption(f"📍 **Analiz Kapsamı:** {' | '.join(kapsam_metni)}")
         
-        if not my_df.empty:
-            top_city = my_df['İl'].value_counts().idxmax()
-            top_city_count = my_df['İl'].value_counts().max()
-            st.markdown(f"<div class='insight-box-success'><b>🏆 En Güçlü Kale:</b><br>Şirketin bu bölgedeki en yoğun olduğu il <b>{top_city}</b> ({top_city_count} Bayi).</div>", unsafe_allow_html=True)
-
-            all_scope_districts = scope_df['İlçe'].unique()
-            my_districts = my_df['İlçe'].unique()
-            missing_districts = sorted(list(set(all_scope_districts) - set(my_districts)))
-            district_market_size = scope_df['İlçe'].value_counts()
-
-            if len(missing_districts) > 0:
-                st.markdown(f"<div class='insight-box-warning'><b>🚀 Büyüme Fırsatları (Boş Noktalar):</b><br>Bu bölgede toplam <b>{len(missing_districts)}</b> ilçede hiç bayiniz bulunmuyor.</div>", unsafe_allow_html=True)
-                with st.expander("📄 Tüm Eksik İlçeleri Listele (Üzerine Gelip Pazar Büyüklüğünü Görün)", expanded=False):
-                    html_chips = ""
-                    for dist in missing_districts:
-                        total_stations = district_market_size.get(dist, 0)
-                        tooltip_text = f"{dist}: Bizde 0, Toplam Pazar: {total_stations} Bayi"
-                        html_chips += f'<span class="district-chip" title="{tooltip_text}">{dist}</span>'
-                    st.markdown(html_chips, unsafe_allow_html=True)
-                    st.info("💡 **İpucu:** İlçelerin üzerine gelerek toplam rakip istasyon sayısını görebilirsiniz.")
-            
-            # --- YENİ EKLENEN KISIM: YILLARA GÖRE DETAYLI SÖZLEŞME ANALİZİ ---
-            st.markdown("---")
-            st.subheader("🦅 Yıllara Göre Pazar Dağılımı (Sözleşme Bitişleri)")
-            st.info("Aşağıdaki yıllara tıklayarak hangi dağıtıcının kaç bayisinin sözleşmesinin bittiğini detaylı görebilirsiniz.")
-            
-            # Gelecek yılları filtrele (Tüm şirketler, sadece biz değil)
-            future_scope = scope_df[scope_df['Bitis_Yili'] >= datetime.date.today().year]
-            
-            if not future_scope.empty:
-                years = sorted(future_scope['Bitis_Yili'].unique())
+        if df_filtered.empty:
+            st.warning("⚠️ Seçilen kriterlere uygun veri bulunamadı. Lütfen filtreleri genişletin.")
+        else:
+            # --- 2. DİNAMİK SÖZLEŞME BİTİŞ ANALİZİ (KRİTİK İSTEK) ---
+            if 'Bitis_Yili' in df_filtered.columns:
+                current_year = datetime.date.today().year
+                # Sadece gelecekteki veya bu yılki bitişleri al
+                future_exp = df_filtered[df_filtered['Bitis_Yili'] >= current_year]
                 
-                for year in years:
-                    y_int = int(year)
-                    # O yıla ait veriyi al
-                    y_data = future_scope[future_scope['Bitis_Yili'] == year]
-                    total_count = len(y_data)
+                if not future_exp.empty:
+                    # Yıllara göre grupla
+                    yearly_counts = future_exp['Bitis_Yili'].value_counts().sort_index()
+                    total_expiring = yearly_counts.sum()
                     
-                    # Şirket bazlı kırılım (En çoktan en aza)
-                    comp_breakdown = y_data['Dağıtım Şirketi'].value_counts().head(3) 
+                    # HTML Liste oluşturucu
+                    msg_list = "<ul style='margin-top:5px;'>"
+                    for year, count in yearly_counts.items():
+                        yr = int(year)
+                        
+                        # O yıl içinde en çok sözleşmesi biten ilk 3 şirketi bul (Detay için)
+                        this_year_data = future_exp[future_exp['Bitis_Yili'] == yr]
+                        top_companies_expiry = this_year_data['Dağıtım Şirketi'].value_counts().head(3)
+                        
+                        # Şirket detaylarını metne dök
+                        comp_details = []
+                        for comp, c_count in top_companies_expiry.items():
+                            # Şirket ismi çok uzunsa kısalt (Görsel düzgün dursun diye)
+                            short_name = comp[:15] + ".." if len(comp) > 15 else comp
+                            comp_details.append(f"<b>{short_name}:</b> {c_count}")
+                        
+                        details_str = " | ".join(comp_details)
+                        if len(this_year_data['Dağıtım Şirketi'].unique()) > 3:
+                            details_str += " ve diğerleri..."
+
+                        badge = "(Bu Yıl)" if yr == current_year else ""
+                        
+                        msg_list += f"""
+                        <li style="margin-bottom:8px;">
+                            <span style="color:#c0392b; font-weight:bold;">{yr} {badge}</span>: 
+                            Toplam <b>{count}</b> Bayi
+                            <br><span style="font-size:0.85em; color:#555; background-color:#fff; padding:2px 5px; border-radius:4px;">👉 {details_str}</span>
+                        </li>
+                        """
+                    msg_list += "</ul>"
                     
-                    # Başlık için özet metin oluştur
-                    top_summary = ", ".join([f"{k}: {v}" for k,v in comp_breakdown.items()])
-                    
-                    # Expander (Açılır Kutu)
-                    with st.expander(f"📅 {y_int} Yılı: Toplam {total_count} İstasyon Boşa Çıkıyor (Özet: {top_summary}...)"):
-                        # Tam listeyi dataframe olarak göster
-                        full_breakdown = y_data['Dağıtım Şirketi'].value_counts().reset_index()
-                        full_breakdown.columns = ['Dağıtım Şirketi', 'Bitecek Sözleşme Sayısı']
-                        st.dataframe(full_breakdown, use_container_width=True, hide_index=True)
-            # ------------------------------------------------------------------
+                    st.markdown(f"""
+                    <div class='insight-box-danger'>
+                        <div style="font-size:1.1em; font-weight:bold; margin-bottom:5px;">⚠️ Kritik Yenileme Dönemleri (Seçili Kapsam)</div>
+                        <div>Seçtiğiniz filtrelerde toplam <b>{total_expiring}</b> sözleşme önümüzdeki dönemde sona erecek.</div>
+                        {msg_list}
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.success("✅ Seçilen kriterlerde yakın zamanda sözleşmesi bitecek bayi bulunmuyor.")
+
+            # --- 3. GÜÇLÜ KALE VE PAZAR LİDERİ ---
+            col_kpi1, col_kpi2 = st.columns(2)
             
-            total_market = len(scope_df)
-            my_share = len(my_df)
-            share_pct = (my_share / total_market) * 100
+            with col_kpi1:
+                # Seçili filtredeki en güçlü ilçe (veya il)
+                target_col = 'İlçe' if selected_cities else 'İl'
+                if target_col in df_filtered.columns:
+                    top_loc = df_filtered[target_col].value_counts().idxmax()
+                    top_loc_count = df_filtered[target_col].value_counts().max()
+                    st.markdown(f"""
+                    <div class='insight-box-success'>
+                        <b>🏆 En Yoğun Bölge:</b><br>
+                        Seçiminiz içindeki en yoğun {target_col}: <b>{top_loc}</b> ({top_loc_count} İstasyon)
+                    </div>
+                    """, unsafe_allow_html=True)
             
-            col_share_text, col_share_chart = st.columns([1, 1])
-            with col_share_text:
-                st.markdown(f"<div class='insight-box-info'><b>📊 Pazar Payı:</b><br>Bölgedeki payınız: <b>%{share_pct:.1f}</b>.<br>Toplam İstasyon: <b>{total_market}</b><br>Sizin İstasyonunuz: <b>{my_share}</b></div>", unsafe_allow_html=True)
-            with col_share_chart:
-                others_share = total_market - my_share
-                fig_my_share = px.pie(names=['GÜZEL ENERJİ', 'RAKİPLER'], values=[my_share, others_share], hole=0.5, title=f"Bölgesel Hakimiyet Oranı", color_discrete_sequence=['#2ecc71', '#e74c3c'])
-                fig_my_share.update_layout(margin=dict(t=30, b=0, l=0, r=0))
-                st.plotly_chart(fig_my_share, use_container_width=True)
-        else:
-            st.warning(f"Seçilen bölgede ({analiz_bolge}) GÜZEL ENERJİ verisine rastlanmadı.")
+            with col_kpi2:
+                # Seçili filtredeki Pazar Lideri
+                if 'Dağıtım Şirketi' in df_filtered.columns:
+                    market_leader = df_filtered['Dağıtım Şirketi'].value_counts().idxmax()
+                    leader_count = df_filtered['Dağıtım Şirketi'].value_counts().max()
+                    st.markdown(f"""
+                    <div class='insight-box-info'>
+                        <b>👑 Filtre Lideri:</b><br>
+                        Bu filtredeki en büyük oyuncu: <b>{market_leader}</b> ({leader_count} İstasyon)
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            # --- 4. PAZAR PAYI GRAFİĞİ (SEÇİLENLER vs DİĞERLERİ) ---
+            # Mantık: Eğer kullanıcı sol menüden Şirket seçtiyse, o şirketlerin o bölgedeki pazar payını göster.
+            # Eğer şirket seçmediyse, o bölgedeki en büyük 10 şirketi göster.
+            
+            st.markdown("### 📊 Pazar Payı Analizi")
+            
+            if selected_companies:
+                # Kullanıcı belirli şirketleri seçti, bunları "Seçilenler" vs "Diğerleri" (O bölgedeki) olarak kıyasla
+                # df_filtered_geo_only -> Sadece Bölge/İl filtresi uygulanmış (Şirket filtresi uygulanmamış) veri
+                
+                total_market_in_region = len(df_filtered_geo_only)
+                selected_count = len(df_filtered) # Zaten şirket filtresi uygulanmış veri
+                others_count = total_market_in_region - selected_count
+                
+                pct = (selected_count / total_market_in_region) * 100 if total_market_in_region > 0 else 0
+                
+                col_graph1, col_graph2 = st.columns([1, 2])
+                with col_graph1:
+                    st.metric("Seçilenlerin Payı", f"%{pct:.1f}", help="Seçilen şirketlerin, seçilen bölgedeki toplam pazar payı")
+                    st.caption(f"Toplam Pazar: {total_market_in_region}")
+                    st.caption(f"Seçilenler: {selected_count}")
+                    
+                with col_graph2:
+                    fig_share = px.pie(
+                        names=['Seçilen Şirketler', 'Diğer Rakipler'], 
+                        values=[selected_count, others_count],
+                        hole=0.4,
+                        color_discrete_sequence=['#2980b9', '#ecf0f1']
+                    )
+                    fig_share.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=200)
+                    st.plotly_chart(fig_share, use_container_width=True)
+            
+            else:
+                # Şirket seçilmediyse, o bölgedeki Top 10'u göster
+                top_10_comps = df_filtered['Dağıtım Şirketi'].value_counts().head(10).reset_index()
+                top_10_comps.columns = ['Şirket', 'Adet']
+                
+                fig_top = px.bar(top_10_comps, x='Adet', y='Şirket', orientation='h', text='Adet', title="Bölgedeki En Büyük 10 Oyuncu")
+                fig_top.update_layout(yaxis=dict(autorange="reversed"))
+                st.plotly_chart(fig_top, use_container_width=True)
 
     # 3. KARŞILAŞTIRMA (VS.)
     with tab_compare:
@@ -907,3 +963,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
