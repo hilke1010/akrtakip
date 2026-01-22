@@ -7,7 +7,6 @@ import os
 import io
 import time
 import math
-# DÜZELTME: Datetime hatasını önleyen import yapısı
 from datetime import datetime, timedelta, date
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
@@ -74,6 +73,7 @@ SABIT_DOSYA_ADI = "asatis.xlsx"
 st.markdown("""
 <style>
     .stMetric { background-color: #f0f2f6; border-left: 5px solid #2980b9; padding: 15px; border-radius: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
+    .crm-box { background-color: #fff9c4; padding: 10px; border-radius: 5px; border: 1px solid #fbc02d; margin-bottom: 10px; }
     .warning-box { padding: 1rem; background-color: #ffeba0; border-left: 6px solid #ffa500; color: #5c3a00; border-radius: 4px; font-weight: bold; }
     .year-box { background-color: #e8f4f8; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #b3e5fc; margin-bottom: 5px; }
     .year-title { font-weight: bold; color: #0277bd; font-size: 1.1em; }
@@ -84,8 +84,6 @@ st.markdown("""
     .insight-box-info { padding: 15px; border-radius: 8px; background-color: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460; margin-bottom: 10px; }
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
-    .chat-user { text-align: right; background-color: #dcf8c6; padding: 10px; border-radius: 10px; margin: 5px; display: inline-block; float: right; clear: both; }
-    .chat-bot { text-align: left; background-color: #f1f0f0; padding: 10px; border-radius: 10px; margin: 5px; display: inline-block; float: left; clear: both; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -130,7 +128,7 @@ BOLGE_TANIMLARI = {
     ]
 }
 
-if 'chat_history' not in st.session_state: st.session_state.chat_history = []
+if 'crm_notes' not in st.session_state: st.session_state.crm_notes = {}
 
 # --- VERİ YÜKLEME ---
 @st.cache_data
@@ -296,9 +294,9 @@ def main():
         st.warning("🔗 **Diğer Uygulamalar**")
         st.markdown("""
         <div style="font-size:0.9em;">
-        • <a href="https://pazarpayi.streamlit.app/" target="_blank">EPDK LPG Sektör Raporu</a><br>
-        • <a href="https://newslpg.streamlit.app/" target="_blank">Haber Aracı</a><br>
-        • <a href="https://lpg2026.streamlit.app/" target="_blank">Mobil Hesaplayıcı</a>
+        • 📊 <a href="https://pazarpayi.streamlit.app/" target="_blank">EPDK LPG AYLIK SEKTÖR RAPORU ( AÇIK KAYNAK SATIŞ )</a><br>
+        • 📰 <a href="https://newslpg.streamlit.app/" target="_blank">Haber Aracı</a><br>
+        • 📱 <a href="https://lpg2026.streamlit.app/" target="_blank">Mobil Hesaplayıcı</a>
         </div>
         """, unsafe_allow_html=True)
     st.divider()
@@ -311,7 +309,7 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER ---
+    # --- SEKMELER (GÜNCELLENDİ) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
         "⚡ Hızlı Analiz",      
@@ -323,7 +321,7 @@ def main():
         "📡 Sözleşme Radar", 
         "📍 İlçe Penetrasyonu",
         "📄 İl Karnesi", 
-        "💬 Chatbot Lite",             
+        "📝 CRM",             
         "📋 Ham Veri"
     ])
 
@@ -451,24 +449,12 @@ def main():
             st.success(f"🎯 **{center_station_name}** merkezli **{radius_km} km** içinde **{len(nearby_stations)}** istasyon bulundu.")
             
             if not nearby_stations.empty:
-                # MERKEZ İSTASYONU BÜYÜK YAPMAK İÇİN SİZE KOLONU
-                nearby_stations['Nokta_Buyukluk'] = np.where(nearby_stations['Unvan'] == center_station_name, 25, 10)
                 nearby_stations['Renk'] = np.where(nearby_stations['Unvan'] == center_station_name, 'MERKEZ', 'RAKİP')
+                nearby_stations['Nokta_Buyukluk'] = np.where(nearby_stations['Unvan'] == center_station_name, 25, 10)
                 
                 fig_rad = px.scatter_mapbox(
-                    nearby_stations, lat=lat_col, lon=lon_col, 
-                    color='Renk', 
-                    size='Nokta_Buyukluk', # <--- DÜZELTME BURADA
-                    hover_name='Unvan', 
-                    hover_data={
-                        'Dağıtım Şirketi': True, 
-                        'Kalan_Gun': True, 
-                        'Mesafe': ':.2f',
-                        'Nokta_Buyukluk': False,
-                        lat_col: False, 
-                        lon_col: False,
-                        'Renk': False
-                    },
+                    nearby_stations, lat=lat_col, lon=lon_col, color='Renk', size='Nokta_Buyukluk', 
+                    hover_name='Unvan', hover_data=['Dağıtım Şirketi', 'İlçe', 'Mesafe', 'Kalan_Gun'],
                     color_discrete_map={'MERKEZ': 'red', 'RAKİP': 'blue'},
                     zoom=10, mapbox_style="open-street-map"
                 )
@@ -588,16 +574,70 @@ def main():
             else:
                 st.success("Riskli kayıt yok.")
 
-    # 9. İLÇE PENETRASYON
+    # 9. İLÇE PENETRASYONU
     with tabs[8]:
         st.subheader("📍 İlçe Analizi")
         df_dist = create_tab_filters(df, "tab7")
         if not df_dist.empty:
+            # Grafik İçin Veri
             cnt = df_dist['İlçe'].value_counts().reset_index()
             cnt.columns = ['İlçe', 'Adet']
+            
             fig_bar = px.bar(cnt.head(20), x='Adet', y='İlçe', orientation='h', text='Adet')
             fig_bar.update_layout(yaxis={'categoryorder':'total ascending'})
-            st.plotly_chart(fig_bar, use_container_width=True)
+            
+            st.caption("👇 **İlçelere tıklayarak aşağıda o ilçenin detaylı listesini görebilirsiniz.**")
+            
+            # Seçim Etkileşimi
+            selection = st.plotly_chart(fig_bar, use_container_width=True, on_select="rerun")
+            
+            selected_district = None
+            if selection and selection['selection']['points']:
+                selected_district = selection['selection']['points'][0]['y'] # Yatay bar olduğu için Y ekseni
+                st.info(f"📍 **Seçilen İlçe:** {selected_district}")
+                filtered_table = df_dist[df_dist['İlçe'] == selected_district]
+            else:
+                st.info("Tüm ilçeler gösteriliyor. Detay için grafiğe tıklayın.")
+                filtered_table = df_dist
+                
+            # Tablo Gösterimi (Özel Sütunlar)
+            display_cols = ['Unvan', 'Dağıtım Şirketi', target_date_col, 'Kalan_Gun']
+            # Eğer target_date_col yoksa hata vermesin
+            available_cols = [c for c in display_cols if c in filtered_table.columns]
+            
+            table_to_show = filtered_table[available_cols].copy()
+            
+            # Tarih formatı
+            if target_date_col in table_to_show.columns:
+                try: table_to_show[target_date_col] = pd.to_datetime(table_to_show[target_date_col]).dt.strftime('%d.%m.%Y')
+                except: pass
+
+            st.dataframe(table_to_show, use_container_width=True, hide_index=True)
+            
+            # FIRSAT ANALİZİ: BOŞ İLÇELER
+            st.markdown("---")
+            st.markdown("##### 🚀 Fırsat Analizi: Boş Noktalar")
+            
+            # Seçili filtredeki (Bölge/İl) TÜM olası ilçeler
+            selected_cities = df_dist['İl'].unique()
+            all_possible_districts = df[df['İl'].isin(selected_cities)]['İlçe'].unique()
+            current_districts = df_dist['İlçe'].unique()
+            
+            missing = sorted(list(set(all_possible_districts) - set(current_districts)))
+            
+            if missing:
+                 st.warning(f"⚠️ Şu anki filtrede (Şirket vb.) varlık göstermediğiniz **{len(missing)}** ilçe tespit edildi.")
+                 with st.expander("📄 Boş İlçe Listesini Göster"):
+                     chips = ""
+                     # Boş ilçelerin toplam pazar büyüklüğünü hesapla
+                     market_size_ref = df[df['İl'].isin(selected_cities)]['İlçe'].value_counts()
+                     
+                     for m in missing:
+                         size = market_size_ref.get(m, 0)
+                         chips += f"<span class='district-chip' title='Toplam Pazar: {size}'>{m} ({size})</span> "
+                     st.markdown(chips, unsafe_allow_html=True)
+            else:
+                st.success("Tebrikler! Seçili bölgedeki tüm ilçelerde varlık gösteriyorsunuz.")
 
     # 10. İL KARNESİ
     with tabs[9]:
@@ -628,7 +668,6 @@ def main():
             k4.metric("📊 Pazar Payı", f"%{my_share:.1f}")
             
             st.markdown("---")
-            
             g1, g2 = st.columns(2)
             with g1:
                 st.markdown("##### 🍰 Pazar Payı Dağılımı")
@@ -651,40 +690,41 @@ def main():
 
             st.markdown("---")
             c_exp, c_list = st.columns([1, 2])
-            
             with c_exp:
                 st.markdown("##### ⏳ Sözleşme Bitiş Takvimi")
                 if 'Bitis_Yili' in my_company_df.columns and not my_company_df.empty:
                     exp_counts = my_company_df['Bitis_Yili'].value_counts().sort_index()
                     st.bar_chart(exp_counts)
                 else: st.info("Veri yok.")
-                    
             with c_list:
                 st.markdown("##### 📋 Bayi Listesi")
                 if not my_company_df.empty:
-                    display_df = my_company_df[['Unvan', 'İlçe', 'Dağıtım Şirketi', 'Bitis_Yili', 'Kalan_Gun']].sort_values('Kalan_Gun')
+                    cols_rep = ['Unvan', 'İlçe', 'Dağıtım Şirketi', 'Bitis_Yili', 'Kalan_Gun', target_date_col]
+                    cols_use_rep = [c for c in cols_rep if c in my_company_df.columns]
+                    display_df = my_company_df[cols_use_rep].sort_values('Kalan_Gun')
+                    
+                    if target_date_col in display_df.columns:
+                        try: display_df[target_date_col] = pd.to_datetime(display_df[target_date_col]).dt.strftime('%d.%m.%Y')
+                        except: pass
+                        
                     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    # 11. CHATBOT
+    # 11. CRM
     with tabs[10]:
-        st.subheader("💬 Chatbot Lite")
-        st.info("Örnekler: 'Ankara'da kaç bayi var?', 'En büyük il hangisi?'")
-        for msg in st.session_state.chat_history:
-            role_class = "chat-user" if msg["role"] == "user" else "chat-bot"
-            st.markdown(f"<div class='{role_class}'>{msg['content']}</div>", unsafe_allow_html=True)
-            
-        prompt = st.chat_input("Sorunuzu yazın...")
-        if prompt:
-            st.session_state.chat_history.append({"role": "user", "content": prompt})
-            st.markdown(f"<div class='chat-user'>{prompt}</div>", unsafe_allow_html=True)
-            
-            q = prompt.upper()
-            answer = "Anlaşılamadı."
-            if "KAÇ BAYİ" in q: answer = f"Toplam {len(df)} bayi var."
-            elif "EN BÜYÜK" in q: answer = f"En büyük il: {df['İl'].value_counts().idxmax()}"
-            
-            st.session_state.chat_history.append({"role": "assistant", "content": answer})
-            st.markdown(f"<div class='chat-bot'>{answer}</div>", unsafe_allow_html=True)
+        st.subheader("📝 CRM")
+        df_crm = create_tab_filters(df, "tab9")
+        bayi = st.selectbox("Bayi", df_crm['Unvan'].unique())
+        note = st.text_area("Not")
+        if st.button("Kaydet"):
+            ts = datetime.now().strftime("%d.%m %H:%M")
+            if bayi not in st.session_state.crm_notes: st.session_state.crm_notes[bayi] = []
+            st.session_state.crm_notes[bayi].append(f"[{ts}] {note}")
+            st.success("OK")
+        
+        if st.session_state.crm_notes:
+            for b, n in st.session_state.crm_notes.items():
+                with st.expander(b):
+                    for i in n: st.write(i)
 
     # 12. HAM VERİ
     with tabs[11]:
