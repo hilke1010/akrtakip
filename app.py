@@ -322,7 +322,7 @@ def main():
         "📍 İlçe Penetrasyonu",
         "📄 İl Karnesi", 
         "📝 CRM",
-        "🧠 Stratejik Analiz", # <-- YENİ SEKME BURADA
+        "🧠 Stratejik Analiz", 
         "📋 Ham Veri"
     ])
 
@@ -684,9 +684,11 @@ def main():
                     cols_rep = ['Unvan', 'İlçe', 'Dağıtım Şirketi', 'Bitis_Yili', 'Kalan_Gun', target_date_col]
                     cols_use_rep = [c for c in cols_rep if c in my_company_df.columns]
                     display_df = my_company_df[cols_use_rep].sort_values('Kalan_Gun')
+                    
                     if target_date_col in display_df.columns:
                         try: display_df[target_date_col] = pd.to_datetime(display_df[target_date_col]).dt.strftime('%d.%m.%Y')
                         except: pass
+                        
                     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
     # 11. CRM
@@ -738,40 +740,46 @@ def main():
         
         st.markdown("---")
         
-        # 2. MARKA KARNESİ
-        st.markdown("#### 🏢 2. Marka (Rakip) Karnesi")
-        selected_brand = st.selectbox("Analiz Edilecek Markayı Seçin:", sorted(df['Dağıtım Şirketi'].unique()))
-        brand_df = df[df['Dağıtım Şirketi'] == selected_brand]
+        # 2. VERGİ NO DEDEKTİFİ (Marka Karnesi yerine geldi)
+        st.markdown("#### 🕵️ 2. Vergi No Dedektifi (Gizli Zincirler)")
+        st.info("💡 Vergi Numarası aynı olan ve **10'dan fazla** istasyonu bulunan yapılar taranmıştır.")
         
-        if not brand_df.empty:
-            b1, b2, b3 = st.columns(3)
-            b1.metric("Toplam İstasyon", len(brand_df))
-            top_city = brand_df['İl'].value_counts().idxmax()
-            b2.metric("En Güçlü İl", top_city, f"{brand_df['İl'].value_counts().max()} Adet")
-            avg_rem = brand_df['Kalan_Gun'].mean()
-            b3.metric("Ort. Kalan Gün", f"{int(avg_rem)} Gün")
+        # Kolon bulma rutini (Vergi No, VKN vb.)
+        tax_candidates = [col for col in df.columns if 'VERGİ' in col.upper() or 'VKN' in col.upper()]
+        tax_col = tax_candidates[0] if tax_candidates else None
+        
+        if tax_col:
+            vkn_counts = df[tax_col].value_counts()
+            big_whales = vkn_counts[vkn_counts > 10].index.tolist()
             
-            c_chart, c_map = st.columns(2)
-            with c_chart:
-                if 'Bitis_Yili' in brand_df.columns:
-                    exp_brand = brand_df['Bitis_Yili'].value_counts().sort_index()
-                    st.bar_chart(exp_brand)
-                    st.caption("Sözleşme Bitiş Yılları")
-            with c_map:
-                brand_city_dist = brand_df['İl'].value_counts().head(10).reset_index()
-                brand_city_dist.columns = ['İl', 'Adet']
-                fig_b = px.bar(brand_city_dist, x='Adet', y='İl', orientation='h', title="Top 10 İl Dağılımı")
-                st.plotly_chart(fig_b, use_container_width=True)
+            if big_whales:
+                whale_data = df[df[tax_col].isin(big_whales)].copy()
+                # Pivot
+                pivot_vkn = pd.pivot_table(
+                    whale_data, 
+                    index=tax_col, # Tax ID satırda
+                    columns='İl', 
+                    values='Dağıtım Şirketi', 
+                    aggfunc='count', 
+                    fill_value=0
+                )
+                pivot_vkn['TOPLAM'] = pivot_vkn.sum(axis=1)
+                pivot_vkn = pivot_vkn.sort_values('TOPLAM', ascending=False)
+                st.dataframe(pivot_vkn, use_container_width=True)
+            else:
+                st.warning("10'dan fazla bayisi olan bir Vergi No grubu bulunamadı.")
+        else:
+            st.error("Veri setinde 'Vergi No' veya 'VKN' içeren bir sütun bulunamadı.")
         
         st.markdown("---")
         
-        # 3. ZİNCİR BAYİ PİVOTU
-        st.markdown("#### 🔗 3. Zincir Bayi Dedektifi (Otomatik Tespit)")
-        st.info("💡 Veritabanında **10'dan fazla** istasyonu olan unvanlar otomatik olarak taranmış ve aşağıda listelenmiştir.")
+        # 3. ZİNCİR BAYİ PİVOTU (UNVAN > 3)
+        st.markdown("#### 🔗 3. Zincir Bayi Dedektifi (Unvan Bazlı)")
+        st.info("💡 Veritabanında **3'ten fazla** istasyonu olan unvanlar otomatik olarak taranmış ve aşağıda listelenmiştir.")
         
         # Unvan sayılarını bul
         unvan_counts = df['Unvan'].value_counts()
-        chains = unvan_counts[unvan_counts > 10].index.tolist()
+        chains = unvan_counts[unvan_counts > 3].index.tolist()
         
         if chains:
             chain_data = df[df['Unvan'].isin(chains)].copy()
@@ -805,4 +813,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
