@@ -15,15 +15,41 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# --- DOSYA TARİHİ HESAPLAMA FONKSİYONU (YENİ) ---
+def get_file_last_modified(file_path):
+    """
+    Excel dosyasının son değiştirilme tarihini okur ve Türkçe formatta döndürür.
+    Örnek: 22 OCAK 2026 SAAT 14:30
+    """
+    try:
+        if not os.path.exists(file_path):
+            return "DOSYA BULUNAMADI"
+        
+        # Dosyanın son değiştirilme zaman damgasını al
+        timestamp = os.path.getmtime(file_path)
+        # Tarih formatına çevir
+        mod_time = datetime.datetime.fromtimestamp(timestamp)
+        
+        # Türkçe Ay İsimleri
+        tr_months = {
+            1: 'OCAK', 2: 'ŞUBAT', 3: 'MART', 4: 'NİSAN', 5: 'MAYIS', 6: 'HAZİRAN',
+            7: 'TEMMUZ', 8: 'AĞUSTOS', 9: 'EYLÜL', 10: 'EKİM', 11: 'KASIM', 12: 'ARALIK'
+        }
+        
+        month_name = tr_months.get(mod_time.month, "")
+        
+        # Formatı oluştur
+        return f"{mod_time.day} {month_name} {mod_time.year} SAAT {mod_time.strftime('%H:%M')}"
+    except:
+        return "TARİH ALINAMADI"
+
 # ==========================================
 # 🔐 1. VİDEOLU & CAM EFEKTLİ GİRİŞ EKRANI
-# ==========================================
-# 🔐 GÜVENLİK VE GİRİŞ SİSTEMİ (DÜZELTİLMİŞ VERSİYON)
 # ==========================================
 def check_login():
     if 'authenticated' not in st.session_state:
         st.session_state['authenticated'] = False
-
+    
     if st.session_state['authenticated']:
         return
 
@@ -38,7 +64,7 @@ def check_login():
             min-width: 100%; 
             min-height: 100%;
             z-index: -1;
-            filter: brightness(0.5); /* Arka planı biraz karart */
+            filter: brightness(0.5);
             object-fit: cover;
         }
 
@@ -50,7 +76,7 @@ def check_login():
         
         /* 3. Streamlit Formunu Cam Kutuya Çevir (Glassmorphism) */
         [data-testid="stForm"] {
-            background-color: rgba(255, 255, 255, 0.85); /* Hafif şeffaf beyaz */
+            background-color: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(10px);
             border-radius: 20px;
             padding: 30px;
@@ -112,13 +138,10 @@ def check_login():
     """, unsafe_allow_html=True)
 
     # --- FORM YAPISI ---
-    # Ortalamak için kolon kullanıyoruz
     col1, col2, col3 = st.columns([1, 1, 1])
     
     with col2:
-        # Formun kendisi
         with st.form("login_form"):
-            # Başlıkları Formun İÇİNE koyduk ki kaymasın
             st.markdown('<div class="login-header-icon">⛽</div>', unsafe_allow_html=True)
             st.markdown('<div class="login-header-title">EPDK ANALİZ PANELİ</div>', unsafe_allow_html=True)
             st.markdown('<div class="login-header-subtitle">Lütfen yetkili giriş bilgilerinizi giriniz</div>', unsafe_allow_html=True)
@@ -129,7 +152,6 @@ def check_login():
             submit_button = st.form_submit_button("SİSTEME GİRİŞ YAP")
 
             if submit_button:
-                # Şifre kontrolü: Kullanıcı GE yazmalı, EG değil :)
                 if username == "GE2026" and password == "GE2620":
                     st.session_state['authenticated'] = True
                     st.session_state['intro_played'] = False
@@ -146,13 +168,9 @@ def check_login():
 # 🎬 2. CAFCAFLI YÜKLEME ANİMASYONU
 # ==========================================
 def show_intro_animation():
-    """
-    Giriş yapıldıktan SONRA çalışacak animasyon.
-    """
     if 'intro_played' not in st.session_state:
         st.session_state['intro_played'] = False
 
-    # Eğer daha önce oynatıldıysa tekrar oynatma
     if st.session_state['intro_played']:
         return
 
@@ -167,7 +185,6 @@ def show_intro_animation():
                 left: 0;
                 width: 100vw;
                 height: 100vh;
-                /* Mavi ve Turuncu Karışımı Hareketli Gradyan */
                 background: linear-gradient(-45deg, #021B79, #0575E6, #FF8C00, #ff4e00);
                 background-size: 400% 400%;
                 animation: gradientBG 6s ease infinite;
@@ -179,20 +196,17 @@ def show_intro_animation():
                 color: white;
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             }
-            
             @keyframes gradientBG {
                 0% {background-position: 0% 50%;}
                 50% {background-position: 100% 50%;}
                 100% {background-position: 0% 50%;}
             }
-
             .intro-icon {
                 font-size: 8rem;
                 margin-bottom: 20px;
                 animation: bounce 2s infinite;
                 text-shadow: 0 10px 30px rgba(0,0,0,0.5);
             }
-
             .intro-title {
                 font-size: 5rem;
                 font-weight: 900;
@@ -205,7 +219,6 @@ def show_intro_animation():
                 margin: 0;
                 padding: 0;
             }
-
             .intro-subtitle {
                 font-size: 1.8rem;
                 color: #FFD700;
@@ -215,7 +228,6 @@ def show_intro_animation():
                 animation: fadeInUp 1.6s ease-out;
                 letter-spacing: 2px;
             }
-
             .loading-bar-container {
                 width: 350px;
                 height: 8px;
@@ -225,7 +237,6 @@ def show_intro_animation():
                 overflow: hidden;
                 box-shadow: 0 0 15px rgba(255, 140, 0, 0.5);
             }
-
             .loading-bar {
                 width: 100%;
                 height: 100%;
@@ -233,18 +244,15 @@ def show_intro_animation():
                 transform-origin: left;
                 animation: load 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
             }
-
             @keyframes bounce {
                 0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
                 40% {transform: translateY(-30px);}
                 60% {transform: translateY(-15px);}
             }
-
             @keyframes fadeInUp {
                 from { opacity: 0; transform: translateY(50px); }
                 to { opacity: 1; transform: translateY(0); }
             }
-
             @keyframes load {
                 0% { transform: scaleX(0); }
                 100% { transform: scaleX(1); }
@@ -275,10 +283,9 @@ PREVIEW_ROW_LIMIT = 100
 # --- 2. DOSYA İSİMLERİ ---
 SABIT_DOSYA_ADI = "asatis.xlsx"
 
-# --- 3. CSS ÖZELLEŞTİRME (Dashboard İçin) ---
+# --- 3. CSS ÖZELLEŞTİRME ---
 st.markdown("""
 <style>
-    /* Dashboard'daki Standart Stil */
     .stMetric {
         background-color: #f0f2f6;
         border-left: 5px solid #2980b9; 
@@ -485,9 +492,14 @@ def main():
         st.error(f"⚠️ Hata: {data_result[1] if data_result else 'Veri Yüklenemedi'}")
         st.stop()
     df, target_date_col, start_date_col = data_result
+    
+    # 4. Dosyanın Son Değiştirilme Tarihini Al (OTOMATİK)
+    file_date_str = get_file_last_modified(SABIT_DOSYA_ADI)
 
     with st.sidebar:
-        st.info("🕒 Veriler her gün saat 10:00'da yenilenmektedir. (Anlık Veri Talebiniz olması halinde lütfen arayın , Güncel Veriler : 22 OCAK 2026 SAAT 10:00  )")
+        # OTOMATİK TARİH GÖSTERİMİ
+        st.success(f"🔄 **VERİ GÜNCELLEME:**\n\n{file_date_str}")
+        
         st.markdown("---")
         st.title("🔍 Filtre Paneli")
         
@@ -997,4 +1009,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
