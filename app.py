@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="EPDK Akaryakıt Pazar Analizi",
     page_icon="⛽",
     layout="wide",
-    initial_sidebar_state="expanded" 
+    initial_sidebar_state="collapsed" 
 )
 
 # --- DOSYA TARİHİ HESAPLAMA (TÜRKİYE SAATİ GMT+3) ---
@@ -104,7 +104,7 @@ st.markdown("""
     .insight-box-info { padding: 15px; border-radius: 8px; background-color: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460; margin-bottom: 10px; }
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .district-chip:hover { background-color: #e2e6ea; border-color: #adb5bd; }
-    /* Filtre kutusu stili - Expander olmadan */
+    /* Filtre kutusu stili */
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
 </style>
 """, unsafe_allow_html=True)
@@ -328,22 +328,32 @@ def main():
     # 3. Dosyanın Son Değiştirilme Tarihini Al
     file_date_str = get_file_last_modified(SABIT_DOSYA_ADI)
 
-    # --- SIDEBAR (GÜNCEL TARİH VE İLETİŞİM) ---
-    with st.sidebar:
-        # GÜNCELLEME SAATİ KUTUSU
-        st.success(f"🔄 **VERİ GÜNCELLEME:**\n\n{file_date_str}")
+    # --- ÜST BİLGİ PANELİ (SIDEBAR YERİNE BURADA) ---
+    st.markdown("### 🚀 Akaryakıt Pazar & Risk Analizi")
+    
+    # Bilgi Kutucuklarını Yan Yana Diziyoruz
+    col_info1, col_info2, col_info3 = st.columns([1, 1, 1])
+    
+    with col_info1:
+        st.success(f"🔄 **Veri Güncelleme:**\n\n{file_date_str}")
         
-        # İLETİŞİM KUTUSU
+    with col_info2:
         st.info(f"📧 **İletişim:**\n\nkerim.aksu@milangaz.com.tr")
         
-        st.markdown("---")
-        st.header("🔗 Diğer Uygulamalar")
-        st.markdown("[📊 EPDK LPG Sektör Raporu](https://pazarpayi.streamlit.app/)")
-        st.markdown("[📰 Haber Aracı](https://newslpg.streamlit.app/)")
-        st.markdown("[📱 Mobil Hesaplayıcı](https://lpg2026.streamlit.app/)")
+    with col_info3:
+        # Linkleri tek bir kutuda topluyoruz
+        st.warning("🔗 **Diğer Uygulamalar**")
+        st.markdown("""
+        <div style="font-size:0.9em;">
+        • <a href="https://pazarpayi.streamlit.app/" target="_blank">EPDK LPG Sektör Raporu</a><br>
+        • <a href="https://newslpg.streamlit.app/" target="_blank">Haber Aracı</a><br>
+        • <a href="https://lpg2026.streamlit.app/" target="_blank">Mobil Hesaplayıcı</a>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.divider()
 
     # --- GLOBAL KPI (TÜM VERİTABANI ÖZETİ) ---
-    st.title("🚀 Akaryakıt Pazar & Risk Analizi")
     c1, c2, c3 = st.columns(3)
     c1.metric("Toplam Veri Tabanı", f"{len(df):,}")
     c2.metric("Aktif Şirket", df['Dağıtım Şirketi'].nunique() if 'Dağıtım Şirketi' in df.columns else 0)
