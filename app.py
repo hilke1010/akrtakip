@@ -5,6 +5,7 @@ import datetime
 import numpy as np
 import os
 import io
+import time  # <-- YENİ EKLENDİ: Animasyon süresi için gerekli
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -13,6 +14,133 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# --- GİRİŞ ANİMASYONU FONKSİYONU (YENİ) ---
+def show_intro_animation():
+    """
+    Sayfa ilk yüklendiğinde gösterilecek cafcaflı giriş animasyonu.
+    """
+    if 'intro_played' not in st.session_state:
+        st.session_state['intro_played'] = False
+
+    # Eğer animasyon daha önce oynatıldıysa çık (Filtrelerde tekrar çalışmasın)
+    if st.session_state['intro_played']:
+        return
+
+    # Animasyon alanı
+    placeholder = st.empty()
+    
+    with placeholder.container():
+        st.markdown("""
+        <style>
+            .intro-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: radial-gradient(circle at center, #2b32b2, #1488cc); /* Cafcaflı Mavi Gradyan */
+                background-size: 400% 400%;
+                animation: gradientBG 5s ease infinite;
+                z-index: 999999;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                color: white;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            }
+            
+            @keyframes gradientBG {
+                0% {background-position: 0% 50%;}
+                50% {background-position: 100% 50%;}
+                100% {background-position: 0% 50%;}
+            }
+
+            .intro-icon {
+                font-size: 8rem;
+                margin-bottom: 20px;
+                animation: bounce 2s infinite;
+                text-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            }
+
+            .intro-title {
+                font-size: 5rem;
+                font-weight: 900;
+                text-transform: uppercase;
+                background: linear-gradient(to right, #FFD700, #FF8C00, #FF4500); /* Ateş renkleri */
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                animation: fadeInUp 1.2s ease-out;
+                text-align: center;
+                letter-spacing: 3px;
+                margin: 0;
+                padding: 0;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            }
+
+            .intro-subtitle {
+                font-size: 1.8rem;
+                color: #e0e0e0;
+                margin-top: 15px;
+                font-weight: 300;
+                animation: fadeInUp 1.6s ease-out;
+                letter-spacing: 6px;
+            }
+
+            .loading-bar-container {
+                width: 300px;
+                height: 6px;
+                background: rgba(255,255,255,0.2);
+                margin-top: 50px;
+                border-radius: 10px;
+                overflow: hidden;
+                position: relative;
+            }
+
+            .loading-bar {
+                width: 100%;
+                height: 100%;
+                background: #FFD700;
+                transform-origin: left;
+                animation: load 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            }
+
+            @keyframes bounce {
+                0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+                40% {transform: translateY(-30px);}
+                60% {transform: translateY(-15px);}
+            }
+
+            @keyframes fadeInUp {
+                from { opacity: 0; transform: translateY(40px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+
+            @keyframes load {
+                0% { transform: scaleX(0); }
+                100% { transform: scaleX(1); }
+            }
+        </style>
+
+        <div class="intro-overlay">
+            <div class="intro-icon">⛽</div>
+            <h1 class="intro-title">AKARYAKIT<br>BAYİ ANALİZİ</h1>
+            <div class="intro-subtitle">GÜNCEL PAZAR VERİLERİ YÜKLENİYOR...</div>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Animasyonun ekranda kalma süresi
+        time.sleep(2.5)
+    
+    # Animasyonu kaldır
+    placeholder.empty()
+    # Oynatıldı olarak işaretle
+    st.session_state['intro_played'] = True
+
 
 # --- PERFORMANS AYARLARI ---
 MAX_ROW_DISPLAY = 1000  
@@ -220,6 +348,10 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
 
 # --- ANA UYGULAMA ---
 def main():
+    # --- GİRİŞ ANİMASYONUNU ÇAĞIR ---
+    show_intro_animation()
+    # --------------------------------
+
     data_result = load_data(SABIT_DOSYA_ADI)
     if data_result is None or data_result[0] is None:
         st.error(f"⚠️ Hata: {data_result[1] if data_result else 'Veri Yüklenemedi'}")
@@ -737,5 +869,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
