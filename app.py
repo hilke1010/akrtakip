@@ -90,13 +90,11 @@ st.markdown("""
         50% { opacity: 0.3; color: #ff2b2b; }
     }
     
-    /* 4. Tab (Yarıçap), 5. Tab (Rota) ve 12. Tab (Stratejik) Hedefleme */
-    /* Not: Python listesindeki index + 1 (CSS 1-tabanlıdır) */
-    
+    /* NEW Olan Tablar İçin Seçiciler */
     button[data-testid="stTab"]:nth-child(4) p,
     button[data-testid="stTab"]:nth-child(5) p,
     button[data-testid="stTab"]:nth-child(12) p {
-        color: #d62728 !important; /* Kırmızı Renk */
+        color: #d62728 !important;
         font-weight: 800 !important;
         animation: blinker 1.5s linear infinite;
     }
@@ -325,20 +323,20 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER (GÜNCELLENDİ) ---
+    # --- SEKMELER (YENİ SEKME EKLENDİ) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
         "⚡ Hızlı Analiz",      
         "⚔️ Karşılaştırma", 
-        "📍 Yarıçap (Radar) [NEW]", # İsim güncellendi
-        "🚗 Rota Planlayıcı [NEW]", # İsim güncellendi
+        "📍 Yarıçap (Radar) [NEW]", 
+        "🚗 Rota Planlayıcı [NEW]",
         "🔮 Simülasyon",          
         "📅 Takvim",
         "📡 Sözleşme Radar", 
         "📍 İlçe Penetrasyonu",
         "📄 İl Karnesi", 
         "📝 CRM",
-        "🧠 Stratejik Analiz [NEW]", # İsim güncellendi
+        "🧠 Stratejik Analiz [NEW]", 
         "📋 Ham Veri"
     ])
 
@@ -369,6 +367,7 @@ def main():
         st.divider()
         col_pie1, col_pie2 = st.columns(2)
         with col_pie1:
+            st.metric("Seçili Bayi Sayısı", len(df_tab1)) # YENİ SAYAÇ
             city_pie = df_tab1['İl'].value_counts().reset_index()
             city_pie.columns = ['İl', 'Adet']
             fig_cp = px.pie(city_pie, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı")
@@ -414,6 +413,7 @@ def main():
                 else:
                     st.info("Bu filtrede yakın zamanda biten sözleşme bulunmuyor.")
 
+            st.metric("Bu Filtredeki Toplam Bayi", len(df_tab2)) # YENİ SAYAÇ
             comp_dist = df_tab2['Dağıtım Şirketi'].value_counts().reset_index()
             comp_dist.columns = ['Şirket', 'Adet']
             fig_my_share = px.pie(comp_dist, names='Şirket', values='Adet', hole=0.5, title="Filtre İçi Pazar Payı")
@@ -728,10 +728,10 @@ def main():
         st.subheader("🧠 Stratejik Analiz Paneli")
         
         st.markdown("#### 1. 🔗 Zincir Bayi Dedektifi (UNVAN Bazlı)")
-        st.info("💡 Veritabanında **8'den fazla** istasyonu olan unvanlar otomatik olarak taranmış ve aşağıda listelenmiştir.")
+        st.info("💡 Veritabanında **3'ten fazla** istasyonu olan unvanlar otomatik olarak taranmış ve aşağıda listelenmiştir.")
         
         unvan_counts = df['Unvan'].value_counts()
-        chains = unvan_counts[unvan_counts > 8].index.tolist()
+        chains = unvan_counts[unvan_counts > 3].index.tolist()
         
         if chains:
             chain_data = df[df['Unvan'].isin(chains)].copy()
@@ -747,9 +747,15 @@ def main():
         st.markdown("#### 2. 🕵️ Zincir Bayi Dedektifi (VERGİ NO Bazlı)")
         st.info("💡 Veritabanında **10'dan fazla** istasyonu olan **Vergi Numaraları** (Gizli Zincirler) taranmıştır.")
         
-        # Kolon bulma rutini (Vergi No, VKN vb.)
-        tax_candidates = [col for col in df.columns if 'VERGİ' in col.upper() or 'VKN' in col.upper()]
-        tax_col = tax_candidates[0] if tax_candidates else None
+        # SÜTUNU BULMA (GELİŞMİŞ ARAMA)
+        all_cols = df.columns.tolist()
+        tax_col = None
+        for c in all_cols:
+            # Türkçe karakterleri temizleyip kontrol et
+            clean_c = c.upper().replace('İ', 'I').replace('Ğ', 'G').replace('Ü', 'U').replace('Ş', 'S').replace('Ö', 'O').replace('Ç', 'C')
+            if "VERGI" in clean_c or "VKN" in clean_c:
+                tax_col = c
+                break
         
         if tax_col:
             vkn_counts = df[tax_col].value_counts()
@@ -764,7 +770,7 @@ def main():
             else:
                 st.warning("10'dan fazla bayisi olan bir Vergi No grubu bulunamadı.")
         else:
-            st.error("Veri setinde 'Vergi No' veya 'VKN' içeren bir sütun bulunamadı.")
+            st.error("Veri setinde 'Vergi No' veya 'VKN' içeren bir sütun bulunamadı. Lütfen Excel dosyasını kontrol edin.")
 
     # 13. HAM VERİ
     with tabs[12]:
@@ -779,4 +785,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
