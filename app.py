@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import datetime
 import numpy as np
 import os
 import io
 import time
+# DÜZELTME: Hata veren kısmı buradaki import şekliyle çözdük
+from datetime import datetime, timedelta, date
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -28,11 +29,11 @@ def get_file_last_modified(file_path):
         # Dosyanın son değiştirilme zaman damgası
         timestamp = os.path.getmtime(file_path)
         
-        # 1. Önce UTC (Evrensel) zamanı al
-        utc_time = datetime.datetime.utcfromtimestamp(timestamp)
+        # DÜZELTME: utcfromtimestamp yerine fromtimestamp (Python 3.12+ uyumlu)
+        utc_time = datetime.fromtimestamp(timestamp)
         
         # 2. Türkiye Saati için 3 saat ekle (GMT+3)
-        turkey_time = utc_time + datetime.timedelta(hours=3)
+        turkey_time = utc_time + timedelta(hours=3)
         
         # Türkçe Ay İsimleri
         tr_months = {
@@ -279,7 +280,9 @@ def load_data(file_path):
         start_col = 'Dağıtıcı ile Yapılan Sözleşme Başlangıç Tarihi'
         if start_col not in df.columns: start_col = 'Lisans Başlangıç Tarihi'
 
-        today = pd.to_datetime(datetime.date.today())
+        # DÜZELTME: datetime.date.today() hatası giderildi, direkt date.today()
+        today = pd.to_datetime(date.today())
+        
         if target_col in df.columns:
             df['Kalan_Gun'] = (df[target_col] - today).dt.days
             df['Bitis_Yili'] = df[target_col].dt.year
@@ -364,7 +367,7 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
 
 # --- ANA UYGULAMA ---
 def main():
-    # 1. Animasyonu Oynat (Şifre kaldırıldığı için direkt başlar)
+    # 1. Animasyonu Oynat
     show_intro_animation()
 
     # 2. Verileri Yükle
@@ -381,7 +384,7 @@ def main():
         # OTOMATİK TARİH GÖSTERİMİ
         st.success(f"🔄 **VERİ GÜNCELLEME:**\n\n{file_date_str}")
         
-        # DESTEK MESAJI (YENİ EKLENDİ)
+        # DESTEK MESAJI
         st.info("💡 **Gelişmeye destek olur musunuz?**\n\n📧 kerim.aksu@milangaz.com.tr")
 
         st.markdown("---")
@@ -431,7 +434,7 @@ def main():
     aktif_dagitici = df_filtered['Dağıtım Şirketi'].nunique() if 'Dağıtım Şirketi' in df_filtered.columns else 0
     c3.metric("Aktif Dağıtıcı", aktif_dagitici)
     
-    # --- YENİ EKLENEN KISIM: AKTİF FİLTRE BİLGİSİ ---
+    # --- AKTİF FİLTRE BİLGİSİ ---
     active_filters = []
     if selected_region != "Tümü": active_filters.append(f"🌍 Bölge: {selected_region}")
     if selected_cities: active_filters.append(f"🏙️ İl: {', '.join(selected_cities)}")
@@ -456,7 +459,7 @@ def main():
         "📡 Sözleşme Radar", 
         "📍 İlçe Penetrasyonu",
         "📄 İl Karnesi", 
-        "📝 CRM Lite",           
+        "📝 CRM Lite",            
         "📋 Ham Veri"
     ])
 
@@ -584,7 +587,7 @@ def main():
                     st.info("💡 **İpucu:** İlçelerin üzerine gelerek toplam rakip istasyon sayısını görebilirsiniz.")
             
             if 'Bitis_Yili' in my_df.columns:
-                current_year = datetime.date.today().year
+                current_year = datetime.now().year
                 future_expirations = my_df[my_df['Bitis_Yili'] >= current_year]['Bitis_Yili'].value_counts().sort_index()
                 if not future_expirations.empty:
                     msg_list = "<ul>"
@@ -713,7 +716,7 @@ def main():
         if 'Bitis_Yili' in df_filtered.columns:
             yrs = sorted(df_filtered['Bitis_Yili'].dropna().unique().astype(int).tolist())
             if yrs:
-                curr_yr = datetime.date.today().year
+                curr_yr = datetime.now().year
                 sel_yr = st.selectbox("Yıl", yrs, index=yrs.index(curr_yr) if curr_yr in yrs else 0)
                 df_yr = df_filtered[df_filtered['Bitis_Yili'] == sel_yr]
                 if not df_yr.empty:
@@ -794,7 +797,7 @@ def main():
             
             st.markdown("---")
             st.markdown(f"<h1 style='text-align: center; color: #2980b9;'>{report_city} İLİ PAZAR KARNESİ</h1>", unsafe_allow_html=True)
-            st.markdown(f"<p style='text-align: center;'>Rapor Tarihi: {datetime.date.today().strftime('%d.%m.%Y')}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align: center;'>Rapor Tarihi: {datetime.now().strftime('%d.%m.%Y')}</p>", unsafe_allow_html=True)
             
             rk1, rk2, rk3 = st.columns(3)
             rk1.metric("Toplam İstasyon", total_stations_city)
@@ -806,7 +809,7 @@ def main():
             st.subheader(f"📅 Güzel Enerji Sözleşme Bitiş Projeksiyonu ({report_city})")
             
             if not my_city_df.empty and 'Bitis_Yili' in my_city_df.columns:
-                current_year = datetime.date.today().year
+                current_year = datetime.now().year
                 future_expirations = my_city_df[my_city_df['Bitis_Yili'] >= current_year]['Bitis_Yili'].value_counts().sort_index()
                 
                 if not future_expirations.empty:
@@ -857,7 +860,7 @@ def main():
                 sel_b = st.selectbox("Bayi", bayiler)
                 note = st.text_area("Not", height=100)
                 if st.button("Kaydet", type="primary") and note:
-                    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                    ts = datetime.now().strftime("%Y-%m-%d %H:%M")
                     if sel_b not in st.session_state.crm_notes: st.session_state.crm_notes[sel_b] = []
                     st.session_state.crm_notes[sel_b].append(f"[{ts}] {note}")
                     st.success("Kaydedildi!")
