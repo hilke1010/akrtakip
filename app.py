@@ -32,7 +32,7 @@ def get_file_last_modified(file_path):
     except:
         return "TARİH ALINAMADI"
 
-# --- 🎬 CAFCAFLI YÜKLEME ANİMASYONU ---
+# --- 🎬 CAFCAFLI YÜKLEME ANİMASYONU (ORİJİNAL) ---
 def show_intro_animation():
     if 'intro_played' not in st.session_state:
         st.session_state['intro_played'] = False
@@ -71,13 +71,12 @@ def show_intro_animation():
     placeholder.empty()
     st.session_state['intro_played'] = True
 
-# --- PERFORMANS AYARLARI ---
+# --- 2. AYARLAR VE CSS (ORİJİNAL) ---
 MAX_ROW_DISPLAY = 1000  
 MAX_MAP_POINTS = 50000 
 PREVIEW_ROW_LIMIT = 100
 SABIT_DOSYA_ADI = "asatis.xlsx"
 
-# --- 3. CSS ÖZELLEŞTİRME ---
 st.markdown("""
 <style>
     .stMetric { background-color: #f0f2f6; border-left: 5px solid #2980b9; padding: 15px; border-radius: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
@@ -94,7 +93,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 4. KOORDİNAT VE BÖLGE VERİTABANI ---
+# --- 3. KOORDİNAT VERİTABANI (ORİJİNAL) ---
 CITY_COORDINATES = {
     "ADANA": [37.0000, 35.3213], "ADIYAMAN": [37.7648, 38.2786], "AFYONKARAHİSAR": [38.7507, 30.5567],
     "AĞRI": [39.7191, 43.0503], "AMASYA": [40.6499, 35.8353], "ANKARA": [39.9334, 32.8597],
@@ -129,7 +128,7 @@ BOLGE_TANIMLARI = {
     "Orta Anadolu": ["DÜZCE", "KARABÜK", "KONYA", "BOLU", "AFYONKARAHİSAR", "AKSARAY", "ESKİŞEHİR", "ANKARA", "KIRIKKALE", "KASTAMONU", "ÇANKIRI", "YOZGAT", "KIRŞEHİR", "KAYSERİ", "NEVŞEHİR", "NİĞDE", "ZONGULDAK", "BARTIN"]
 }
 
-# --- 6. EXCEL VERİ YÜKLEME ---
+# --- 4. VERİ YÜKLEME (ORİJİNAL) ---
 @st.cache_data
 def load_data(file_path):
     if not os.path.exists(file_path): return None, None, None
@@ -163,7 +162,7 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
         return
     record_count = len(dataframe)
     if record_count > MAX_ROW_DISPLAY:
-        st.markdown(f"<div class='warning-box'>⚠️ <b>Performans Uyarısı:</b> Listede toplam <b>{record_count:,}</b> kayıt var.<br>Sadece ilk <b>{MAX_ROW_DISPLAY:,}</b> tanesi gösterilmektedir.</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='warning-box'>⚠️ <b>Performans Uyarısı:</b> Listede toplam <b>{record_count:,}</b> kayıt var. Sadece ilk <b>{MAX_ROW_DISPLAY:,}</b> tanesi gösteriliyor.</div>", unsafe_allow_html=True)
         display_df_limit = dataframe.head(MAX_ROW_DISPLAY)
     else: display_df_limit = dataframe
 
@@ -184,9 +183,9 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
     st.markdown(f"**📋 Listelenen Bayi Sayısı:** {len(dataframe)}")
     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-# --- 🛰️ LOCAL FILTER ENGINE (HER TAB İÇİN) ---
-def local_filter_ui(df_base, suffix):
-    st.markdown("### 🔍 Filtrele")
+# --- 🛰️ YENİ: SAYFA İÇİ FİLTRE MOTORU ---
+def local_filter_ui(df_base, suffix, include_comp=True):
+    st.markdown("#### 🔍 Bu Sayfa İçin Filtrele")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         reg = st.selectbox("🌍 Bölge", ["Tümü"] + list(BOLGE_TANIMLARI.keys()), key=f"reg_{suffix}")
@@ -204,10 +203,11 @@ def local_filter_ui(df_base, suffix):
         sel_dist = st.multiselect("📍 İlçe", districts, key=f"dist_{suffix}")
     if sel_dist: df_temp = df_temp[df_temp['İlçe'].isin(sel_dist)]
     
-    with c4:
-        comps = sorted(df_temp['Dağıtım Şirketi'].dropna().unique().tolist())
-        sel_comp = st.multiselect("⛽ Şirket", comps, key=f"comp_{suffix}")
-    if sel_comp: df_temp = df_temp[df_temp['Dağıtım Şirketi'].isin(sel_comp)]
+    if include_comp:
+        with c4:
+            comps = sorted(df_temp['Dağıtım Şirketi'].dropna().unique().tolist())
+            sel_comp = st.multiselect("⛽ Şirket", comps, key=f"comp_{suffix}")
+        if sel_comp: df_temp = df_temp[df_temp['Dağıtım Şirketi'].isin(sel_comp)]
     
     return df_temp
 
@@ -219,6 +219,7 @@ def main():
     
     file_date_str = get_file_last_modified(SABIT_DOSYA_ADI)
 
+    # SIDEBAR TEMİZLENDİ
     with st.sidebar:
         st.success(f"🔄 **VERİ GÜNCELLEME:**\n\n{file_date_str}")
         st.info("💡 **Gelişmeye destek olur musunuz?**\n\n📧 kerim.aksu@milangaz.com.tr")
@@ -244,19 +245,27 @@ def main():
         c2.metric("Acil Sözleşme", len(df_f[df_f['Kalan_Gun'] < 90]), delta="Acil Yenileme", delta_color="inverse")
         c3.metric("Aktif Dağıtıcı", df_f['Dağıtım Şirketi'].nunique())
         
+        # HARİTA (ORİJİNAL RENK VE BOYUTLAR GERİ GELDİ)
         if not df_f.empty:
             map_data = df_f['İl'].value_counts().reset_index()
             map_data.columns = ['İl', 'Adet']
             map_data['lat'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[0])
             map_data['lon'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[1])
-            fig_map = px.scatter_mapbox(map_data.dropna(), lat="lat", lon="lon", size="Adet", color="Adet", hover_name="İl", mapbox_style="open-street-map", zoom=4.8)
+            map_data = map_data.dropna()
+            fig_map = px.scatter_mapbox(
+                map_data, lat="lat", lon="lon", size="Adet", color="Adet",
+                hover_name="İl", size_max=35, zoom=4.8, 
+                mapbox_style="open-street-map", color_continuous_scale=px.colors.sequential.Bluered,
+                title="İl Bazlı Bayi Yoğunluğu"
+            )
+            fig_map.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
             st.plotly_chart(fig_map, use_container_width=True)
             show_details_table(df_f, target_date_col)
 
     # 2. MAKİNE ANALİZİ
     with tab_machine:
         st.subheader("🤖 Makine Analizi (Akıllı Asistan)")
-        m_df = local_filter_ui(df, "mch") # Şirket filtresi kaldırılabilir ama esneklik için kalsın
+        m_df = local_filter_ui(df, "mch", include_comp=False)
         st.divider()
         my_comp = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
         my_df = m_df[m_df['Dağıtım Şirketi'] == my_comp]
@@ -269,19 +278,19 @@ def main():
             st.markdown(f"<div class='insight-box-warning'><b>🚀 Boş Noktalar:</b> Seçili alandaki {len(missing)} ilçede hiç bayiniz yok.</div>", unsafe_allow_html=True)
             
             p_val = [len(my_df), len(m_df)-len(my_df)]
-            fig_p = px.pie(names=['GÜZEL ENERJİ', 'RAKİPLER'], values=p_val, hole=0.5, title="Pazar Hakimiyeti")
+            fig_p = px.pie(names=['GÜZEL ENERJİ', 'RAKİPLER'], values=p_val, hole=0.5, title="Pazar Hakimiyeti", color_discrete_sequence=['#2ecc71', '#e74c3c'])
             st.plotly_chart(fig_p)
 
     # 3. KARŞILAŞTIRMA (VS.)
     with tab_compare:
         st.subheader("⚔️ Head-to-Head Rakip Analizi")
-        df_vs = local_filter_ui(df, "vss")
+        df_vs = local_filter_ui(df, "vss", include_comp=False)
         st.divider()
         comps = sorted(df_vs['Dağıtım Şirketi'].dropna().unique().tolist())
         if len(comps) > 1:
             v1, v2 = st.columns(2)
-            c_a = v1.selectbox("Şirket A", comps, index=0)
-            c_b = v2.selectbox("Şirket B", comps, index=1)
+            c_a = v1.selectbox("Şirket A", comps, index=0, key="va")
+            c_b = v2.selectbox("Şirket B", comps, index=1 if len(comps)>1 else 0, key="vb")
             res_a = df_vs[df_vs['Dağıtım Şirketi']==c_a]
             res_b = df_vs[df_vs['Dağıtım Şirketi']==c_b]
             k1, k2 = st.columns(2)
@@ -293,7 +302,7 @@ def main():
     # 4. SİMÜLASYON
     with tab_sim:
         st.subheader("🔮 Simülasyon Analizi")
-        df_s = local_filter_ui(df, "sim")
+        df_s = local_filter_ui(df, "sim", include_comp=False)
         st.divider()
         my_c = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
         target_c = st.selectbox("Hedef Rakip", [c for c in sorted(df_s['Dağıtım Şirketi'].unique()) if c != my_c])
@@ -308,9 +317,9 @@ def main():
         df_c = local_filter_ui(df, "cal")
         yrs = sorted(df_c['Bitis_Yili'].dropna().unique().astype(int))
         if yrs:
-            sel_y = st.selectbox("Yıl", yrs)
-            cal_data = df_c[df_c['Bitis_Yili']==sel_y].groupby('Bitis_Ayi').size().reindex(['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']).fillna(0)
-            st.plotly_chart(px.bar(cal_data, title=f"{sel_y} Bitiş Dağılımı"))
+            sel_y = st.selectbox("Yıl Seçin", yrs, key="sy")
+            cal_data = df_c[df_c['Bitis_Yili']==sel_y].groupby('Bitis_Ayi').size().reindex(['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','TEMMUZ','Ağustos','Eylül','Ekim','Kasım','Aralık']).fillna(0)
+            st.plotly_chart(px.bar(cal_data, title=f"{sel_y} Yılı Sözleşme Bitiş Dağılımı"))
             show_details_table(df_c[df_c['Bitis_Yili']==sel_y], target_date_col)
 
     # 6. SÖZLEŞME RADAR
@@ -322,7 +331,7 @@ def main():
         if not radar_df.empty:
             st.error(f"⚠️ Kritik Durumda olan {len(radar_df)} sözleşme bulundu.")
             show_details_table(radar_df, target_date_col)
-        else: st.success("Güvenli bölge.")
+        else: st.success("Seçili kriterlerde kritik sözleşme bulunmamaktadır.")
 
     # 7. İLÇE PENETRASYONU
     with tab_ilce:
@@ -330,38 +339,39 @@ def main():
         df_i = local_filter_ui(df, "ilc")
         if not df_i.empty:
             d_cnt = df_i.groupby('İlçe').size().reset_index(name='Adet').sort_values('Adet', ascending=False)
-            st.plotly_chart(px.bar(d_cnt.head(20), x='İlçe', y='Adet', title="En Yoğun 20 İlçe"))
+            st.plotly_chart(px.bar(d_cnt.head(20), x='İlçe', y='Adet', title="İstasyon Sayısına Göre En Yoğun 20 İlçe"))
             show_details_table(df_i, target_date_col)
 
     # 8. İL KARNESİ
     with tab_report:
         st.subheader("📄 İl Karnesi")
-        report_city = st.selectbox("İl Seçin", sorted(df['İl'].unique()), key="rep_c")
+        report_city = st.selectbox("İl Seçin", sorted(df['İl'].unique()), key="rep_city")
         city_df = df[df['İl'] == report_city]
         st.markdown(f"### {report_city} Pazar Özeti")
         r1, r2, r3 = st.columns(3)
         r1.metric("Toplam İstasyon", len(city_df))
-        r2.metric("Pazar Lideri", city_df['Dağıtım Şirketi'].value_counts().idxmax())
+        r2.metric("Pazar Lideri", city_df['Dağıtım Şirketi'].value_counts().idxmax() if not city_df.empty else "N/A")
         r3.metric("Güzel Enerji", len(city_df[city_df['Dağıtım Şirketi']=="GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"]))
-        st.plotly_chart(px.pie(city_df['Dağıtım Şirketi'].value_counts().head(5), names=city_df['Dağıtım Şirketi'].value_counts().head(5).index, title="Pazar Payı"))
+        st.plotly_chart(px.pie(city_df['Dağıtım Şirketi'].value_counts().head(5), names=city_df['Dağıtım Şirketi'].value_counts().head(5).index, title="Pazar Payı Dağılımı"))
 
     # 9. CRM LITE
     with tab_crm:
         st.subheader("📝 CRM Lite")
         df_crm = local_filter_ui(df, "crm")
         if not df_crm.empty:
-            sel_b = st.selectbox("Bayi", sorted(df_crm['Unvan'].unique()))
-            note = st.text_area("Not")
-            if st.button("Kaydet"): st.success("Not sisteme eklendi (Simülasyon).")
+            sel_b = st.selectbox("Bayi Unvanı", sorted(df_crm['Unvan'].unique()), key="sb")
+            note = st.text_area("Bayi Notu")
+            if st.button("Kaydet"): st.success("Not kaydedildi (Veritabanı bağlantısı kapalı olduğu için simüle edildi).")
 
     # 10. HAM VERİ
     with tab_data:
         st.subheader("📋 Ham Veri")
         df_v = local_filter_ui(df, "raw")
         st.dataframe(df_v.head(PREVIEW_ROW_LIMIT), use_container_width=True)
+        # EXCEL MOTORU HATASI DÜZELTİLDİ
         buf = io.BytesIO()
-        with pd.ExcelWriter(buf, engine='xlsxwriter') as w: df_v.to_excel(w, index=False)
-        st.download_button("📥 Excel İndir", buf.getvalue(), "data.xlsx")
+        df_v.to_excel(buf, index=False)
+        st.download_button("📥 Seçili Listeyi Excel İndir", buf.getvalue(), "bayi_listesi.xlsx")
 
 if __name__ == "__main__":
     main()
