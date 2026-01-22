@@ -9,7 +9,7 @@ import time
 import math
 from datetime import datetime, timedelta, date
 
-# --- 1. PAGE AND GENERAL SETTINGS ---
+# --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
     page_title="EPDK Akaryakıt Pazar Analizi",
     page_icon="⛽",
@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed" 
 )
 
-# --- HAVERSINE (DISTANCE CALCULATION) FUNCTION ---
+# --- HAVERSINE (MESAFE HESAPLAMA) FONKSİYONU ---
 def haversine(lat1, lon1, lat2, lon2):
     if any(x is None for x in [lat1, lon1, lat2, lon2]): return 99999
     R = 6371
@@ -28,7 +28,7 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return R * c
 
-# --- FILE DATE CALCULATION ---
+# --- DOSYA TARİHİ HESAPLAMA ---
 def get_file_last_modified(file_path):
     try:
         if not os.path.exists(file_path): return "DOSYA BULUNAMADI"
@@ -41,7 +41,7 @@ def get_file_last_modified(file_path):
         return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
     except: return "TARİH ALINAMADI"
 
-# --- INTRO ANIMATION ---
+# --- GİRİŞ ANİMASYONU ---
 def show_intro_animation():
     if 'intro_played' not in st.session_state: st.session_state['intro_played'] = False
     if st.session_state['intro_played']: return
@@ -64,7 +64,7 @@ def show_intro_animation():
     placeholder.empty()
     st.session_state['intro_played'] = True
 
-# --- SETTINGS AND CSS ---
+# --- AYARLAR VE CSS ---
 MAX_ROW_DISPLAY = 1000  
 MAX_MAP_POINTS = 50000 
 PREVIEW_ROW_LIMIT = 100
@@ -84,10 +84,26 @@ st.markdown("""
     .insight-box-info { padding: 15px; border-radius: 8px; background-color: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460; margin-bottom: 10px; }
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
+    
+    /* YANIP SÖNME EFEKTİ (BLINK) */
+    @keyframes blinker {
+        50% { opacity: 0.3; color: #ff2b2b; }
+    }
+    
+    /* 4. Tab (Yarıçap), 5. Tab (Rota) ve 12. Tab (Stratejik) Hedefleme */
+    /* Not: Python listesindeki index + 1 (CSS 1-tabanlıdır) */
+    
+    button[data-testid="stTab"]:nth-child(4) p,
+    button[data-testid="stTab"]:nth-child(5) p,
+    button[data-testid="stTab"]:nth-child(12) p {
+        color: #d62728 !important; /* Kırmızı Renk */
+        font-weight: 800 !important;
+        animation: blinker 1.5s linear infinite;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- COORDINATE DATABASE ---
+# --- KOORDİNAT VERİTABANI ---
 CITY_COORDINATES = {
     "ADANA": [37.0000, 35.3213], "ADIYAMAN": [37.7648, 38.2786], "AFYONKARAHİSAR": [38.7507, 30.5567],
     "AĞRI": [39.7191, 43.0503], "AMASYA": [40.6499, 35.8353], "ANKARA": [39.9334, 32.8597],
@@ -118,7 +134,7 @@ CITY_COORDINATES = {
     "KİLİS": [36.7184, 37.1212], "OSMANİYE": [37.0742, 36.2467], "DÜZCE": [40.8438, 31.1565]
 }
 
-# --- REGION DEFINITIONS ---
+# --- BÖLGE TANIMLARI ---
 BOLGE_TANIMLARI = {
     "Orta Anadolu": [
         "DÜZCE", "KARABÜK", "KONYA", "BOLU", "AFYONKARAHİSAR",
@@ -130,7 +146,7 @@ BOLGE_TANIMLARI = {
 
 if 'crm_notes' not in st.session_state: st.session_state.crm_notes = {}
 
-# --- DATA LOADING ---
+# --- VERİ YÜKLEME ---
 @st.cache_data
 def load_data(file_path):
     if not os.path.exists(file_path): return None, None, None
@@ -139,7 +155,7 @@ def load_data(file_path):
         df.columns = [str(c).strip() for c in df.columns]
         if 'Dağıtıcı' in df.columns: df.rename(columns={'Dağıtıcı': 'Dağıtım Şirketi'}, inplace=True)
         
-        # Clean City Names
+        # ŞEHİR İSİMLERİNİ TEMİZLE
         if 'İl' in df.columns: 
             df['İl'] = df['İl'].astype(str).str.upper().str.strip().str.replace('i', 'İ').str.replace('ı', 'I')
         if 'İlçe' in df.columns: 
@@ -223,7 +239,7 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 # ==========================================
-# 🛠️ INDEPENDENT FILTER FUNCTION
+# 🛠️ BAĞIMSIZ FİLTRE FONKSİYONU
 # ==========================================
 def create_tab_filters(df, key_prefix):
     st.markdown(f"#### 🔍 Filtre Paneli")
@@ -258,7 +274,7 @@ def create_tab_filters(df, key_prefix):
     st.markdown("</div>", unsafe_allow_html=True)
     return filtered
 
-# --- MAIN APP ---
+# --- ANA UYGULAMA ---
 def main():
     show_intro_animation()
     data_result = load_data(SABIT_DOSYA_ADI)
@@ -268,7 +284,7 @@ def main():
     df, target_date_col, start_date_col = data_result
     
     # ----------------------------------------------------
-    # 🛠️ COORDINATE SIMULATION (JITTER)
+    # 🛠️ KOORDİNAT SİMÜLASYONU (JITTER)
     # ----------------------------------------------------
     if 'Enlem' not in df.columns or 'Boylam' not in df.columns:
         np.random.seed(42)
@@ -282,7 +298,7 @@ def main():
 
     file_date_str = get_file_last_modified(SABIT_DOSYA_ADI)
 
-    # --- TOP INFO PANEL ---
+    # --- ÜST BİLGİ PANELİ ---
     st.markdown("### 🚀 Akaryakıt Pazar & Risk Analizi")
     col_info1, col_info2, col_info3 = st.columns([1, 1, 1])
     
@@ -309,20 +325,20 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- TABS (UPDATED) ---
+    # --- SEKMELER (GÜNCELLENDİ) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
         "⚡ Hızlı Analiz",      
         "⚔️ Karşılaştırma", 
-        "📍 Yarıçap (Radar) :red[[NEW]]", 
-        "🚗 Rota Planlayıcı :red[[NEW]]",
+        "📍 Yarıçap (Radar) [NEW]", # İsim güncellendi
+        "🚗 Rota Planlayıcı [NEW]", # İsim güncellendi
         "🔮 Simülasyon",          
         "📅 Takvim",
         "📡 Sözleşme Radar", 
         "📍 İlçe Penetrasyonu",
         "📄 İl Karnesi", 
         "📝 CRM",
-        "🧠 Stratejik Analiz", 
+        "🧠 Stratejik Analiz [NEW]", # İsim güncellendi
         "📋 Ham Veri"
     ])
 
