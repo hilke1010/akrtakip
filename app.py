@@ -5,7 +5,7 @@ import datetime
 import numpy as np
 import os
 import io
-import time  # Animasyon için gerekli
+import time
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -15,20 +15,24 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- DOSYA TARİHİ HESAPLAMA FONKSİYONU (YENİ) ---
+# --- DOSYA TARİHİ HESAPLAMA (TÜRKİYE SAATİ GMT+3) ---
 def get_file_last_modified(file_path):
     """
-    Excel dosyasının son değiştirilme tarihini okur ve Türkçe formatta döndürür.
-    Örnek: 22 OCAK 2026 SAAT 14:30
+    Excel dosyasının son değiştirilme tarihini alır,
+    GMT+3 (İstanbul) saatine çevirir ve Türkçe formatta döndürür.
     """
     try:
         if not os.path.exists(file_path):
             return "DOSYA BULUNAMADI"
         
-        # Dosyanın son değiştirilme zaman damgasını al
+        # Dosyanın son değiştirilme zaman damgası
         timestamp = os.path.getmtime(file_path)
-        # Tarih formatına çevir
-        mod_time = datetime.datetime.fromtimestamp(timestamp)
+        
+        # 1. Önce UTC (Evrensel) zamanı al
+        utc_time = datetime.datetime.utcfromtimestamp(timestamp)
+        
+        # 2. Türkiye Saati için 3 saat ekle (GMT+3)
+        turkey_time = utc_time + datetime.timedelta(hours=3)
         
         # Türkçe Ay İsimleri
         tr_months = {
@@ -36,136 +40,16 @@ def get_file_last_modified(file_path):
             7: 'TEMMUZ', 8: 'AĞUSTOS', 9: 'EYLÜL', 10: 'EKİM', 11: 'KASIM', 12: 'ARALIK'
         }
         
-        month_name = tr_months.get(mod_time.month, "")
+        month_name = tr_months.get(turkey_time.month, "")
         
-        # Formatı oluştur
-        return f"{mod_time.day} {month_name} {mod_time.year} SAAT {mod_time.strftime('%H:%M')}"
+        # Format: 22 OCAK 2026 SAAT 20:19
+        return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
     except:
         return "TARİH ALINAMADI"
 
-# ==========================================
-# 🔐 1. VİDEOLU & CAM EFEKTLİ GİRİŞ EKRANI
-# ==========================================
-def check_login():
-    if 'authenticated' not in st.session_state:
-        st.session_state['authenticated'] = False
-    
-    if st.session_state['authenticated']:
-        return
-
-    # --- CSS TASARIMI ---
-    st.markdown("""
-    <style>
-        /* 1. Arka Plan Videosu */
-        #myVideo {
-            position: fixed;
-            right: 0;
-            bottom: 0;
-            min-width: 100%; 
-            min-height: 100%;
-            z-index: -1;
-            filter: brightness(0.5);
-            object-fit: cover;
-        }
-
-        /* 2. Sayfa Kenar Boşluklarını Sıfırla */
-        .block-container {
-            padding-top: 5rem !important;
-            padding-bottom: 0 !important;
-        }
-        
-        /* 3. Streamlit Formunu Cam Kutuya Çevir (Glassmorphism) */
-        [data-testid="stForm"] {
-            background-color: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            text-align: center;
-        }
-
-        /* 4. Başlık ve İkon Stilleri */
-        .login-header-icon {
-            font-size: 4rem;
-            margin-bottom: 10px;
-            display: block;
-            text-align: center;
-        }
-        .login-header-title {
-            font-size: 2rem;
-            font-weight: 800;
-            margin-bottom: 5px;
-            background: linear-gradient(to right, #d35400, #e67e22);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-align: center;
-            text-transform: uppercase;
-        }
-        .login-header-subtitle {
-            font-size: 0.9rem;
-            color: #555;
-            margin-bottom: 20px;
-            text-align: center;
-            font-weight: 600;
-        }
-
-        /* 5. Buton Tasarımı */
-        .stButton > button {
-            width: 100%;
-            background: linear-gradient(45deg, #FF8C00, #FF4500) !important;
-            color: white !important;
-            font-weight: bold !important;
-            border: none !important;
-            padding: 12px !important;
-            border-radius: 8px !important;
-            transition: transform 0.2s;
-        }
-        .stButton > button:hover {
-            transform: scale(1.02);
-            box-shadow: 0 5px 15px rgba(255, 69, 0, 0.4);
-        }
-
-        /* Header/Footer Gizle */
-        header {visibility: hidden;}
-        footer {visibility: hidden;}
-    </style>
-    
-    <!-- ARKA PLAN VİDEOSU -->
-    <video autoplay muted loop id="myVideo">
-        <source src="https://cdn.pixabay.com/video/2020/05/25/40149-424075114_large.mp4" type="video/mp4">
-    </video>
-    """, unsafe_allow_html=True)
-
-    # --- FORM YAPISI ---
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col2:
-        with st.form("login_form"):
-            st.markdown('<div class="login-header-icon">⛽</div>', unsafe_allow_html=True)
-            st.markdown('<div class="login-header-title">EPDK ANALİZ PANELİ</div>', unsafe_allow_html=True)
-            st.markdown('<div class="login-header-subtitle">Lütfen yetkili giriş bilgilerinizi giriniz</div>', unsafe_allow_html=True)
-            
-            username = st.text_input("Kullanıcı Adı", placeholder="Örn: GE2026")
-            password = st.text_input("Şifre", type="password", placeholder="••••••")
-            
-            submit_button = st.form_submit_button("SİSTEME GİRİŞ YAP")
-
-            if submit_button:
-                if username == "GE2026" and password == "GE2620":
-                    st.session_state['authenticated'] = True
-                    st.session_state['intro_played'] = False
-                    st.success("Giriş Başarılı! Yönlendiriliyorsunuz...")
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    st.error("❌ Hatalı Kullanıcı Adı veya Şifre!")
-    
-    st.stop()
-
 
 # ==========================================
-# 🎬 2. CAFCAFLI YÜKLEME ANİMASYONU
+# 🎬 CAFCAFLI YÜKLEME ANİMASYONU
 # ==========================================
 def show_intro_animation():
     if 'intro_played' not in st.session_state:
@@ -480,26 +364,26 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
 
 # --- ANA UYGULAMA ---
 def main():
-    # 1. Önce Giriş Kontrolü Yap
-    check_login()
-
-    # 2. Giriş Yapıldıysa Animasyonu Oynat (Sadece ilk girişte)
+    # 1. Animasyonu Oynat (Şifre kaldırıldığı için direkt başlar)
     show_intro_animation()
 
-    # 3. Verileri Yükle ve Ana Ekranı Göster
+    # 2. Verileri Yükle
     data_result = load_data(SABIT_DOSYA_ADI)
     if data_result is None or data_result[0] is None:
         st.error(f"⚠️ Hata: {data_result[1] if data_result else 'Veri Yüklenemedi'}")
         st.stop()
     df, target_date_col, start_date_col = data_result
     
-    # 4. Dosyanın Son Değiştirilme Tarihini Al (OTOMATİK)
+    # 3. Dosyanın Son Değiştirilme Tarihini Al (OTOMATİK GMT+3)
     file_date_str = get_file_last_modified(SABIT_DOSYA_ADI)
 
     with st.sidebar:
         # OTOMATİK TARİH GÖSTERİMİ
         st.success(f"🔄 **VERİ GÜNCELLEME:**\n\n{file_date_str}")
         
+        # DESTEK MESAJI (YENİ EKLENDİ)
+        st.info("💡 **Gelişmeye destek olur musunuz?**\n\n📧 kerim.aksu@milangaz.com.tr")
+
         st.markdown("---")
         st.title("🔍 Filtre Paneli")
         
@@ -527,10 +411,6 @@ def main():
         st.markdown("[📊 EPDK LPG Sektör Raporu](https://pazarpayi.streamlit.app/)")
         st.markdown("[📰 Haber Aracı](https://newslpg.streamlit.app/)")
         st.markdown("[📱 Mobil Hesaplayıcı](https://lpg2026.streamlit.app/)")
-
-        st.markdown("---")
-        st.header("📧 İletişim")
-        st.info("kerim.aksu@milangaz.com.tr")
 
     # Filtreleme
     df_filtered = df.copy()
