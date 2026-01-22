@@ -326,7 +326,7 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER (GÜNCELLENDİ) ---
+    # --- SEKMELER (GÜNCELLENDİ: AYRILDI VE RENKLENDİRİLDİ) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
         "🤖 Makine Analizi",      
@@ -345,6 +345,7 @@ def main():
     # 1. BÖLGESEL
     with tabs[0]:
         st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
+        st.caption("💡 Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         df_tab1 = create_tab_filters(df, "tab1")
         
         if len(df_tab1) > MAX_MAP_POINTS:
@@ -425,6 +426,7 @@ def main():
     # -----------------------------------------------------------
     with tabs[3]:
         st.subheader("📍 Yarıçap (Radar) Analizi")
+        st.caption("💡 Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         st.info("💡 **Bilgi:** Gerçek koordinat verisi olmadığı durumlarda, sistem istasyonları şehir merkezleri etrafına akıllıca dağıtarak (simülasyon) analiz yapar.")
         st.markdown("##### Bir Merkez Bayi Seçin ve Çevresini Tarayın")
         
@@ -480,6 +482,7 @@ def main():
     # -----------------------------------------------------------
     with tabs[4]:
         st.subheader("🚗 Akıllı Rota Planlayıcı")
+        st.caption("💡 Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         st.info("💡 **Bilgi:** Gerçek koordinat verisi olmadığı durumlarda, sistem istasyonları şehir merkezleri etrafına akıllıca dağıtarak (simülasyon) analiz yapar.")
         st.markdown("##### Ziyaret Edilecek Bayileri Seçin (Sıralamayı Biz Yapalım)")
         
