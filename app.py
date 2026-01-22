@@ -5,7 +5,7 @@ import datetime
 import numpy as np
 import os
 import io
-import time  # <-- YENİ EKLENDİ: Animasyon süresi için gerekli
+import time  # Bu standart kütüphanedir, requirements.txt'ye eklemeyin.
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -15,19 +15,18 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- GİRİŞ ANİMASYONU FONKSİYONU (YENİ) ---
+# --- GİRİŞ ANİMASYONU FONKSİYONU (YENİ VE RENKLİ) ---
 def show_intro_animation():
     """
-    Sayfa ilk yüklendiğinde gösterilecek cafcaflı giriş animasyonu.
+    Mavi ve Turuncu ağırlıklı cafcaflı giriş animasyonu.
     """
     if 'intro_played' not in st.session_state:
         st.session_state['intro_played'] = False
 
-    # Eğer animasyon daha önce oynatıldıysa çık (Filtrelerde tekrar çalışmasın)
+    # Eğer animasyon daha önce oynatıldıysa çık
     if st.session_state['intro_played']:
         return
 
-    # Animasyon alanı
     placeholder = st.empty()
     
     with placeholder.container():
@@ -39,9 +38,10 @@ def show_intro_animation():
                 left: 0;
                 width: 100vw;
                 height: 100vh;
-                background: radial-gradient(circle at center, #2b32b2, #1488cc); /* Cafcaflı Mavi Gradyan */
+                /* Mavi ve Turuncu Karışımı Hareketli Gradyan */
+                background: linear-gradient(-45deg, #021B79, #0575E6, #FF8C00, #ff4e00);
                 background-size: 400% 400%;
-                animation: gradientBG 5s ease infinite;
+                animation: gradientBG 6s ease infinite;
                 z-index: 999999;
                 display: flex;
                 flex-direction: column;
@@ -51,6 +51,7 @@ def show_intro_animation():
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             }
             
+            /* Arka plan renk geçiş animasyonu */
             @keyframes gradientBG {
                 0% {background-position: 0% 50%;}
                 50% {background-position: 100% 50%;}
@@ -61,47 +62,46 @@ def show_intro_animation():
                 font-size: 8rem;
                 margin-bottom: 20px;
                 animation: bounce 2s infinite;
-                text-shadow: 0 10px 20px rgba(0,0,0,0.3);
+                text-shadow: 0 10px 30px rgba(0,0,0,0.5);
             }
 
             .intro-title {
                 font-size: 5rem;
                 font-weight: 900;
                 text-transform: uppercase;
-                background: linear-gradient(to right, #FFD700, #FF8C00, #FF4500); /* Ateş renkleri */
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
+                color: #ffffff;
+                text-shadow: 4px 4px 0px #021B79, 8px 8px 20px rgba(0,0,0,0.4);
                 animation: fadeInUp 1.2s ease-out;
                 text-align: center;
-                letter-spacing: 3px;
+                letter-spacing: 4px;
                 margin: 0;
                 padding: 0;
-                text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
             }
 
             .intro-subtitle {
                 font-size: 1.8rem;
-                color: #e0e0e0;
+                color: #FFD700; /* Altın sarısı alt başlık */
                 margin-top: 15px;
-                font-weight: 300;
+                font-weight: 600;
+                text-shadow: 1px 1px 5px rgba(0,0,0,0.5);
                 animation: fadeInUp 1.6s ease-out;
-                letter-spacing: 6px;
+                letter-spacing: 2px;
             }
 
             .loading-bar-container {
-                width: 300px;
-                height: 6px;
-                background: rgba(255,255,255,0.2);
+                width: 350px;
+                height: 8px;
+                background: rgba(255,255,255,0.3);
                 margin-top: 50px;
                 border-radius: 10px;
                 overflow: hidden;
-                position: relative;
+                box-shadow: 0 0 15px rgba(255, 140, 0, 0.5);
             }
 
             .loading-bar {
                 width: 100%;
                 height: 100%;
-                background: #FFD700;
+                background: #fff;
                 transform-origin: left;
                 animation: load 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
             }
@@ -113,7 +113,7 @@ def show_intro_animation():
             }
 
             @keyframes fadeInUp {
-                from { opacity: 0; transform: translateY(40px); }
+                from { opacity: 0; transform: translateY(50px); }
                 to { opacity: 1; transform: translateY(0); }
             }
 
@@ -133,12 +133,10 @@ def show_intro_animation():
         </div>
         """, unsafe_allow_html=True)
         
-        # Animasyonun ekranda kalma süresi
+        # Animasyon süresi
         time.sleep(2.5)
     
-    # Animasyonu kaldır
     placeholder.empty()
-    # Oynatıldı olarak işaretle
     st.session_state['intro_played'] = True
 
 
