@@ -382,7 +382,7 @@ def main():
         st.success(f"🔄 **VERİ GÜNCELLEME:**\n\n{file_date_str}")
         
         # DESTEK MESAJI (YENİ EKLENDİ)
-        st.info("💡 **Gelişmeye destek olur musunuz?**\n\n📧 kerim.aksu@milangaz.com.tr")
+        st.info("💡 **Öneri İçin..**\n\n📧 kerim.aksu@milangaz.com.tr")
 
         st.markdown("---")
         st.title("🔍 Filtre Paneli")
@@ -889,3 +889,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
