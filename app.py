@@ -130,12 +130,11 @@ def load_data(file_path):
         df.columns = [str(c).strip() for c in df.columns]
         if 'Dağıtıcı' in df.columns: df.rename(columns={'Dağıtıcı': 'Dağıtım Şirketi'}, inplace=True)
         
-        # DÜZELTME: 'Dağıtıcı ile Yapılan Sözleşme Başlangıç Tarihi' eklendi!
         date_cols = [
             'Lisans Bitiş Tarihi', 
             'Dağıtıcı ile Yapılan Sözleşme Bitiş Tarihi', 
             'Lisans Başlangıç Tarihi',
-            'Dağıtıcı ile Yapılan Sözleşme Başlangıç Tarihi' # <--- EKSİK OLAN BUYDU
+            'Dağıtıcı ile Yapılan Sözleşme Başlangıç Tarihi'
         ]
         
         for col in date_cols:
@@ -184,7 +183,7 @@ def show_details_table(dataframe, target_date_col):
     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 # ==========================================
-# 🛠️ BAĞIMSIZ FİLTRE FONKSİYONU
+# 🛠️ BAĞIMSIZ FİLTRE FONKSİYONU (DÜZELTİLMİŞ HALİ)
 # ==========================================
 def create_tab_filters(df, key_prefix):
     st.markdown(f"#### 🔍 Filtre Paneli")
@@ -194,15 +193,25 @@ def create_tab_filters(df, key_prefix):
         reg = st.selectbox("🌍 Bölge", ["Tümü"] + list(BOLGE_TANIMLARI.keys()), key=f"{key_prefix}_r")
     f = df.copy()
     if reg != "Tümü": f = f[f['İl'].isin(BOLGE_TANIMLARI[reg])]
+    
     with c2:
-        cit = st.multiselect("🏢 İl", sorted(f['İl'].unique()), key=f"{key_prefix}_c")
+        # sorted() içine dropna() ve astype(str) eklendi -> Hatayı çözen yer burası
+        unique_cities = sorted(f['İl'].dropna().astype(str).unique())
+        cit = st.multiselect("🏢 İl", unique_cities, key=f"{key_prefix}_c")
     if cit: f = f[f['İl'].isin(cit)]
+    
     with c3:
-        dst = st.multiselect("📍 İlçe", sorted(f['İlçe'].unique()) if 'İlçe' in f.columns else [], key=f"{key_prefix}_d")
+        # sorted() içine dropna() ve astype(str) eklendi -> Hatayı çözen yer burası
+        unique_districts = sorted(f['İlçe'].dropna().astype(str).unique()) if 'İlçe' in f.columns else []
+        dst = st.multiselect("📍 İlçe", unique_districts, key=f"{key_prefix}_d")
     if dst: f = f[f['İlçe'].isin(dst)]
+    
     with c4:
-        cmp = st.multiselect("⛽ Şirket", sorted(f['Dağıtım Şirketi'].dropna().astype(str).unique()), key=f"{key_prefix}_co")
+        # sorted() içine dropna() ve astype(str) eklendi -> Hatayı çözen yer burası
+        unique_comps = sorted(f['Dağıtım Şirketi'].dropna().astype(str).unique())
+        cmp = st.multiselect("⛽ Şirket", unique_comps, key=f"{key_prefix}_co")
     if cmp: f = f[f['Dağıtım Şirketi'].isin(cmp)]
+    
     st.markdown("</div>", unsafe_allow_html=True)
     return f
 
@@ -247,9 +256,9 @@ def main():
     # --- SEKMELER ---
     tabs = st.tabs([
         "📊 Bölgesel", "🤖 Makine", "⚔️ Karşılaştırma", 
-        "📍 Yarıçap Analizi", "🚗 Rota Planlayıcı", # <-- AYRILDI
+        "📍 Yarıçap Analizi", "🚗 Rota Planlayıcı",
         "🔮 Simülasyon", "📅 Takvim", "📡 Sözleşme Radar", 
-        "📍 İlçe", "📄 Karne", "💬 Chatbot Lite", "📝 CRM", "📋 Veri" # <-- CHATBOT EKLENDİ
+        "📍 İlçe", "📄 Karne", "💬 Chatbot Lite", "📝 CRM", "📋 Veri"
     ])
 
     # 1. BÖLGESEL
@@ -302,7 +311,7 @@ def main():
         if not common.empty:
             st.plotly_chart(px.bar(common.groupby(['İl','Dağıtım Şirketi']).size().reset_index(name='Adet'), x='İl', y='Adet', color='Dağıtım Şirketi', barmode='group'), use_container_width=True)
 
-    # 4. YARIÇAP ANALİZİ (YENİ TAB)
+    # 4. YARIÇAP ANALİZİ
     with tabs[3]:
         st.subheader("📍 Yarıçap (Radar) Analizi")
         st.info("Bir bayi seçin ve çevresindeki (X km) rakipleri tarayın.")
@@ -328,7 +337,7 @@ def main():
                 st.plotly_chart(fig_rad, use_container_width=True)
                 st.dataframe(nearby[['Unvan', 'Dağıtım Şirketi', 'İlçe', 'Mesafe']])
 
-    # 5. ROTA PLANLAYICI (YENİ TAB)
+    # 5. ROTA PLANLAYICI
     with tabs[4]:
         st.subheader("🚗 Akıllı Rota Planlayıcı")
         st.info("Gidilecek bayileri seçin, en mantıklı sırayı biz oluşturalım.")
@@ -431,41 +440,35 @@ def main():
             st.bar_chart(exp)
             st.dataframe(my_city_df[['Unvan', 'İlçe', 'Bitis_Yili', 'Kalan_Gun']].sort_values('Kalan_Gun'), use_container_width=True)
 
-    # 11. CHATBOT LİTE (YENİ TAB)
+    # 11. CHATBOT LİTE
     with tabs[10]:
         st.subheader("💬 Chatbot Lite (Veriyle Konuş)")
         st.info("Örnekler: 'Ankara'da kaç bayi var?', 'Opet toplam sayısı?', 'En büyük il hangisi?', 'Muğla detay'")
         
-        # Chat Arayüzü
         for msg in st.session_state.chat_history:
             role_class = "chat-user" if msg["role"] == "user" else "chat-bot"
             st.markdown(f"<div class='{role_class}'>{msg['content']}</div>", unsafe_allow_html=True)
             
         prompt = st.chat_input("Sorunuzu buraya yazın...")
         if prompt:
-            # Kullanıcı mesajını ekle
             st.session_state.chat_history.append({"role": "user", "content": prompt})
             st.markdown(f"<div class='chat-user'>{prompt}</div>", unsafe_allow_html=True)
             
-            # Basit Cevaplama Mantığı
             q = prompt.upper()
             answer = "Bunu tam anlayamadım, ama filtreleri kullanabilirsin."
             
-            # 1. İl Sorgusu
             found_cities = [c for c in df['İl'].unique() if c in q]
             if found_cities:
                 city = found_cities[0]
                 count = len(df[df['İl'] == city])
                 answer = f"📍 **{city}** ilinde toplam **{count}** adet istasyon bulunuyor."
                 
-            # 2. Şirket Sorgusu
             found_comps = [c for c in df['Dağıtım Şirketi'].dropna().unique() if c in q]
             if found_comps:
                 comp = found_comps[0]
                 count = len(df[df['Dağıtım Şirketi'] == comp])
                 answer = f"⛽ **{comp}** şirketinin toplam **{count}** bayisi var."
                 
-            # 3. Genel Sorular
             if "EN BÜYÜK" in q or "EN ÇOK" in q:
                 top_city = df['İl'].value_counts().idxmax()
                 top_comp = df['Dağıtım Şirketi'].value_counts().idxmax()
@@ -474,7 +477,6 @@ def main():
             if "TOPLAM" in q:
                 answer = f"📊 Veritabanında toplam **{len(df):,}** kayıt var."
 
-            # Bot Cevabını Ekle
             st.session_state.chat_history.append({"role": "assistant", "content": answer})
             st.markdown(f"<div class='chat-bot'>{answer}</div>", unsafe_allow_html=True)
 
