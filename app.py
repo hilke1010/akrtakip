@@ -134,7 +134,7 @@ def show_intro_animation():
         """, unsafe_allow_html=True)
         
         # Animasyon süresi
-        time.sleep(2.5)
+        time.sleep(4)
     
     placeholder.empty()
     st.session_state['intro_played'] = True
@@ -867,3 +867,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
