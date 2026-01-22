@@ -22,8 +22,13 @@ def get_file_last_modified(file_path):
         if not os.path.exists(file_path):
             return "DOSYA BULUNAMADI"
         
+        # Dosyanın değiştirilme zamanı
         timestamp = os.path.getmtime(file_path)
-        utc_time = datetime.fromtimestamp(timestamp)
+        
+        # UTC zamanını al
+        utc_time = datetime.utcfromtimestamp(timestamp)
+        
+        # Türkiye Saati (GMT+3)
         turkey_time = utc_time + timedelta(hours=3)
         
         tr_months = {
@@ -32,6 +37,7 @@ def get_file_last_modified(file_path):
         }
         
         month_name = tr_months.get(turkey_time.month, "")
+        # Format: 23 OCAK 2026 SAAT 14:30
         return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
     except:
         return "TARİH ALINAMADI"
@@ -327,7 +333,7 @@ def main():
     # --- SIDEBAR (SADECE BİLGİ, FİLTRE YOK) ---
     with st.sidebar:
         st.success(f"🔄 **VERİ GÜNCELLEME:**\n\n{file_date_str}")
-        st.info("💡 **Gelişmeye destek olur musunuz?**\n\n📧 kerim.aksu@milangaz.com.tr")
+        st.info(f"📧 **İletişim:**\n\nkerim.aksu@milangaz.com.tr")
         st.markdown("---")
         st.header("🔗 Diğer Uygulamalar")
         st.markdown("[📊 EPDK LPG Sektör Raporu](https://pazarpayi.streamlit.app/)")
@@ -401,9 +407,6 @@ def main():
         
         def get_bar_label(row):
             total = int(row['Total'])
-            tc = int(row['Top_Count'])
-            share = (tc / total * 100) if total > 0 else 0
-            # Sadece şirket seçiliyse detay göster
             return f"<b>{total}</b>"
         
         merged_stats['Label'] = merged_stats.apply(get_bar_label, axis=1)
@@ -416,20 +419,22 @@ def main():
         
         col_pie1, col_pie2 = st.columns(2)
         with col_pie1:
+            # DÜZELTME: SADECE TOP 15 İLİ GÖSTER, "DİĞER" OLUŞTURMA
             city_pie_data = df_tab1['İl'].value_counts().reset_index()
             city_pie_data.columns = ['İl', 'Adet']
-            if len(city_pie_data) > 10:
-                top_10 = city_pie_data.iloc[:10]
-                others = pd.DataFrame({'İl': ['DİĞER'], 'Adet': [city_pie_data.iloc[10:]['Adet'].sum()]})
-                city_pie_data = pd.concat([top_10, others])
-            fig_city_pie = px.pie(city_pie_data, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı (%)")
+            # İlk 15'i alıyoruz, geri kalanı ("Diğer") eklemiyoruz
+            city_pie_data = city_pie_data.head(15) 
+            
+            fig_city_pie = px.pie(city_pie_data, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı (Top 15)")
             st.plotly_chart(fig_city_pie, use_container_width=True)
 
         with col_pie2:
             if 'Dağıtım Şirketi' in df_tab1.columns:
                 dist_pie_data = df_tab1['Dağıtım Şirketi'].value_counts().reset_index()
                 dist_pie_data.columns = ['Dağıtım Şirketi', 'Adet']
-                fig_dist_pie = px.pie(dist_pie_data, values='Adet', names='Dağıtım Şirketi', hole=0.4, title="Pazar Payı (Dağıtıcı)")
+                # Burada da karmaşayı önlemek için ilk 15'i gösterebiliriz
+                dist_pie_data = dist_pie_data.head(15)
+                fig_dist_pie = px.pie(dist_pie_data, values='Adet', names='Dağıtım Şirketi', hole=0.4, title="Pazar Payı (Top 15)")
                 st.plotly_chart(fig_dist_pie, use_container_width=True)
 
         show_details_table(df_tab1, target_date_col)
@@ -452,11 +457,8 @@ def main():
             st.markdown(f"<div class='insight-box-success'><b>🏆 Filtre Lider Bölgesi:</b><br>Mevcut seçimdeki en yoğun il <b>{top_city}</b> ({top_city_count} Bayi).</div>", unsafe_allow_html=True)
 
             # 2. Eksik İlçe Analizi (Filtrelenen iller içinde, filtrelenen şirketlerin olmadığı yerler)
-            # Seçili illeri bul
             selected_cities_in_filter = df_tab2['İl'].unique()
-            # Bu illerdeki "TÜM" olası ilçeleri ana veriden çek
             all_possible_districts = df[df['İl'].isin(selected_cities_in_filter)]['İlçe'].unique()
-            # Şu anki filtrede (seçili şirkette) olan ilçeler
             current_districts = df_tab2['İlçe'].unique()
             
             missing_districts = sorted(list(set(all_possible_districts) - set(current_districts)))
@@ -679,10 +681,6 @@ def main():
             competitors_city = city_df['Dağıtım Şirketi'].value_counts()
             market_leader = competitors_city.idxmax() if not competitors_city.empty else "Veri Yok"
             leader_count = competitors_city.max() if not competitors_city.empty else 0
-            
-            # Burada sabit bir şirket analizi yerine Lidere göre analiz yapabiliriz ya da kullanıcıya seçtirebiliriz
-            # Şimdilik kullanıcı en çok kullanılanı sorduğu için GÜZEL ENERJİ kalsın mı?
-            # Kullanıcı "ne seçersem o" dediği için burada da bir seçim kutusu koyalım.
             
             st.markdown("---")
             target_company_report = st.selectbox("Analiz Edilecek Şirket:", sorted(city_df['Dağıtım Şirketi'].unique()), index=0, key="report_comp_sel")
