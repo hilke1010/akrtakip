@@ -91,9 +91,11 @@ st.markdown("""
     }
     
     /* NEW Olan Tablar İçin Seçiciler */
+    /* 4: Yarıçap, 5: Rota, 12: Stratejik, 13: Gantt */
     button[data-testid="stTab"]:nth-child(4) p,
     button[data-testid="stTab"]:nth-child(5) p,
-    button[data-testid="stTab"]:nth-child(12) p {
+    button[data-testid="stTab"]:nth-child(12) p,
+    button[data-testid="stTab"]:nth-child(13) p {
         color: #d62728 !important;
         font-weight: 800 !important;
         animation: blinker 1.5s linear infinite;
@@ -337,6 +339,7 @@ def main():
         "📄 İl Karnesi", 
         "📝 CRM",
         "🧠 Stratejik Analiz [NEW]", 
+        "⏳ Sözleşme Gantt [NEW]", # YENİ SEKME
         "📋 Ham Veri"
     ])
 
@@ -367,7 +370,7 @@ def main():
         st.divider()
         col_pie1, col_pie2 = st.columns(2)
         with col_pie1:
-            st.metric("Seçili Bayi Sayısı", len(df_tab1)) # YENİ SAYAÇ
+            st.metric("Seçili Bayi Sayısı", len(df_tab1))
             city_pie = df_tab1['İl'].value_counts().reset_index()
             city_pie.columns = ['İl', 'Adet']
             fig_cp = px.pie(city_pie, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı")
@@ -413,7 +416,7 @@ def main():
                 else:
                     st.info("Bu filtrede yakın zamanda biten sözleşme bulunmuyor.")
 
-            st.metric("Bu Filtredeki Toplam Bayi", len(df_tab2)) # YENİ SAYAÇ
+            st.metric("Bu Filtredeki Toplam Bayi", len(df_tab2))
             comp_dist = df_tab2['Dağıtım Şirketi'].value_counts().reset_index()
             comp_dist.columns = ['Şirket', 'Adet']
             fig_my_share = px.pie(comp_dist, names='Şirket', values='Adet', hole=0.5, title="Filtre İçi Pazar Payı")
@@ -728,10 +731,10 @@ def main():
         st.subheader("🧠 Stratejik Analiz Paneli")
         
         st.markdown("#### 1. 🔗 Zincir Bayi Dedektifi (UNVAN Bazlı)")
-        st.info("💡 Veritabanında **10'dan fazla** istasyonu olan unvanlar otomatik olarak taranmış ve aşağıda listelenmiştir.")
+        st.info("💡 Veritabanında **3'ten fazla** istasyonu olan unvanlar otomatik olarak taranmış ve aşağıda listelenmiştir.")
         
         unvan_counts = df['Unvan'].value_counts()
-        chains = unvan_counts[unvan_counts > 10].index.tolist()
+        chains = unvan_counts[unvan_counts > 3].index.tolist()
         
         if chains:
             chain_data = df[df['Unvan'].isin(chains)].copy()
@@ -745,7 +748,7 @@ def main():
         st.markdown("---")
         
         st.markdown("#### 2. 🕵️ Zincir Bayi Dedektifi (VERGİ NO Bazlı)")
-        st.info("💡 Veritabanında **10'dan fazla** istasyonu olan **Vergi Numaraları** (Gizli Zincirler) taranmıştır. YAPIM AŞAMASINDA , VERGİ NO'YA GÖRE UNVAN GELECEK :)")
+        st.info("💡 Veritabanında **10'dan fazla** istasyonu olan **Vergi Numaraları** (Gizli Zincirler) taranmıştır.")
         
         # SÜTUNU BULMA (GELİŞMİŞ ARAMA)
         all_cols = df.columns.tolist()
@@ -772,8 +775,47 @@ def main():
         else:
             st.error("Veri setinde 'Vergi No' veya 'VKN' içeren bir sütun bulunamadı. Lütfen Excel dosyasını kontrol edin.")
 
-    # 13. HAM VERİ
+    # 13. SÖZLEŞME GANTT (YENİ EKLEDİĞİMİZ SEKME)
     with tabs[12]:
+        st.subheader("⏳ Sözleşme Ömür Çizgisi (Gantt)")
+        st.info("💡 Bu grafik, seçilen filtredeki bayilerin sözleşme başlangıç ve bitiş tarihlerini zaman çizelgesi üzerinde gösterir. **Risk durumuna göre renklendirilmiştir.**")
+        
+        df_gantt = create_tab_filters(df, "tab_gantt")
+        
+        # Tarih kolonlarının varlığını kontrol et
+        if start_date_col in df_gantt.columns and target_date_col in df_gantt.columns:
+            # Geçerli tarihi olanları al
+            plot_df = df_gantt.dropna(subset=[start_date_col, target_date_col]).copy()
+            
+            if not plot_df.empty:
+                # Kalan güne göre sırala (en kritikler üstte olsun)
+                plot_df = plot_df.sort_values('Kalan_Gun', ascending=True)
+                
+                # Performans için ilk 50 kaydı göster (Gantt çok veriyle yavaşlar)
+                if len(plot_df) > 50:
+                    st.warning(f"⚠️ Performans için en kritik (sözleşmesi en yakın biten) **50** bayi gösteriliyor. Daha fazlası için filtreleri daraltın.")
+                    plot_df = plot_df.head(50)
+                
+                fig_gantt = px.timeline(
+                    plot_df, 
+                    x_start=start_date_col, 
+                    x_end=target_date_col, 
+                    y='Unvan', 
+                    color='Risk_Durumu',
+                    hover_data=['İl', 'İlçe', 'Dağıtım Şirketi', 'Kalan_Gun'],
+                    color_discrete_map={"KRİTİK": "red", "GÜVENLİ": "green"},
+                    title="Sözleşme Süreçleri"
+                )
+                # Y eksenini düzenle (Unvanlar karışmasın)
+                fig_gantt.update_yaxes(autorange="reversed") 
+                st.plotly_chart(fig_gantt, use_container_width=True)
+            else:
+                st.warning("Seçilen kriterlerde tarih verisi uygun kayıt bulunamadı.")
+        else:
+            st.error("Gantt şeması için gerekli Başlangıç/Bitiş tarih sütunları bulunamadı.")
+
+    # 14. HAM VERİ (İNDİSİ KAYDI)
+    with tabs[13]:
         st.subheader("📋 Ham Veri")
         df_raw = create_tab_filters(df, "tab10")
         buffer = io.BytesIO()
@@ -785,5 +827,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
