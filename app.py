@@ -86,43 +86,58 @@ st.markdown("""
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
     
-    /* --- SADE KIRMIZI YANIP SÖNME EFEKTİ --- */
-    @keyframes blinker-red {
-        0% { opacity: 1; }
-        50% { opacity: 0.5; color: #ff2b2b; transform: scale(1.02); }
-        100% { opacity: 1; }
-    }
+    /* --- SEKMELERİ DÜZENLEME (FLEX & STATIC HIGHLIGHT) --- */
     
-    /* --- SEKMELERİ SARMA (FLEX-WRAP) --- */
+    /* 1. Sekmeleri Sığdırma (Alt satıra geçebilsinler) */
     div[data-testid="stTabItemContainer"] {
         display: flex;
         flex-wrap: wrap;
-        gap: 5px;
+        gap: 6px;
     }
 
-    /* KIRMIZI GRUP ÖNCELİKLENDİRME 
-       1'den başladığı için CSS indexleri: 4(Yarıçap), 5(Rota), 6(Robo), 7(Vergi), 8(Arama) 
-       order: -1 diyerek bunları görsel olarak en başa taşıyoruz.
+    /* 2. KIRMIZI GRUP ÖNCELİĞİ VE SABİT STİLİ 
+       Animasyon yok, sadece net bir vurgu var.
+       Indexler: 4(Yarıçap), 5(Rota), 6(Robo), 7(Vergi), 8(Arama)
     */
     button[data-testid="stTab"]:nth-child(4),
     button[data-testid="stTab"]:nth-child(5),
     button[data-testid="stTab"]:nth-child(6),
     button[data-testid="stTab"]:nth-child(7),
     button[data-testid="stTab"]:nth-child(8) {
-        order: -1 !important;
-        background-color: rgba(255, 43, 43, 0.05); /* Hafif kırmızı fon */
-        border-radius: 5px;
+        order: -1 !important; /* En başa taşı */
+        background-color: #ffebee !important; /* Çok açık kırmızı arka plan */
+        border: 1px solid #ffcdd2 !important; /* İnce kırmızı çerçeve */
+        border-radius: 6px !important;
+        margin-bottom: 4px !important;
     }
 
-    /* Yazı rengi ve yanıp sönme animasyonu */
+    /* Kırmızı grup içindeki yazı stili (Koyu Kırmızı ve Kalın) */
     button[data-testid="stTab"]:nth-child(4) p,
     button[data-testid="stTab"]:nth-child(5) p,
     button[data-testid="stTab"]:nth-child(6) p,
     button[data-testid="stTab"]:nth-child(7) p,
     button[data-testid="stTab"]:nth-child(8) p {
-        color: #ff2b2b !important;
-        font-weight: 800 !important;
-        animation: blinker-red 2s linear infinite;
+        color: #c62828 !important; /* Koyu kırmızı yazı */
+        font-weight: 900 !important; /* Ekstra kalın */
+        opacity: 1 !important; /* Yanıp sönme yok, net görüntü */
+    }
+
+    /* Seçili olduklarında daha belirgin olsunlar */
+    button[data-testid="stTab"][aria-selected="true"]:nth-child(4),
+    button[data-testid="stTab"][aria-selected="true"]:nth-child(5),
+    button[data-testid="stTab"][aria-selected="true"]:nth-child(6),
+    button[data-testid="stTab"][aria-selected="true"]:nth-child(7),
+    button[data-testid="stTab"][aria-selected="true"]:nth-child(8) {
+        background-color: #e53935 !important; /* Seçilince tam kırmızı ol */
+        border-color: #b71c1c !important;
+    }
+
+    button[data-testid="stTab"][aria-selected="true"]:nth-child(4) p,
+    button[data-testid="stTab"][aria-selected="true"]:nth-child(5) p,
+    button[data-testid="stTab"][aria-selected="true"]:nth-child(6) p,
+    button[data-testid="stTab"][aria-selected="true"]:nth-child(7) p,
+    button[data-testid="stTab"][aria-selected="true"]:nth-child(8) p {
+        color: white !important; /* Seçilince yazı beyaz olsun */
     }
 
     /* Robo Kartları (Sade Tasarım) */
@@ -309,7 +324,7 @@ def create_tab_filters(df, key_prefix):
     if sel_reg != "Tümü": filtered = filtered[filtered['İl'].isin(BOLGE_TANIMLARI[sel_reg])]
         
     with c2:
-        city_opts = sorted(filtered['İlçe'].unique().tolist()) if 'İlçe' in filtered.columns else []
+        city_opts = sorted(filtered['İl'].unique().tolist()) if 'İlçe' in filtered.columns else []
         sel_city = st.multiselect("🏢 İl", city_opts, key=f"{key_prefix}_city")
 
     if sel_city: filtered = filtered[filtered['İl'].isin(sel_city)]
