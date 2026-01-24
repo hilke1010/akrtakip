@@ -730,10 +730,10 @@ def main():
         st.subheader("🧠 Stratejik Analiz Paneli")
         
         st.markdown("#### 1. 🔗 Zincir Bayi Dedektifi (UNVAN Bazlı)")
-        st.info("💡 Veritabanında **3'ten fazla** istasyonu olan unvanlar otomatik olarak taranmış ve aşağıda listelenmiştir.")
+        st.info("💡 Veritabanında **10'dan fazla** istasyonu olan unvanlar otomatik olarak taranmış ve aşağıda listelenmiştir.")
         
         unvan_counts = df['Unvan'].value_counts()
-        chains = unvan_counts[unvan_counts > 3].index.tolist()
+        chains = unvan_counts[unvan_counts > 10].index.tolist()
         
         if chains:
             chain_data = df[df['Unvan'].isin(chains)].copy()
@@ -742,7 +742,7 @@ def main():
             pivot_table = pivot_table.sort_values('TOPLAM', ascending=False)
             st.dataframe(pivot_table, use_container_width=True)
         else:
-            st.warning("Veritabanında 3'ten fazla istasyonu olan bir unvan bulunamadı.")
+            st.warning("Veritabanında 10'dan fazla istasyonu olan bir unvan bulunamadı.")
 
         st.markdown("---")
         
