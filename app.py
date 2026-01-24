@@ -150,8 +150,8 @@ st.markdown("""
         border-radius: 4px; font-size: 0.8em; font-weight: bold; vertical-align: middle;
     }
     .dealer-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dotted #eee; padding-bottom: 5px; }
-    .dealer-label { font-weight: bold; color: #7f8c8d; width: 140px; }
-    .dealer-value { color: #2c3e50; font-weight: 500; text-align: right; width: 100%; }
+    .dealer-label { font-weight: bold; color: #7f8c8d; min-width: 150px; }
+    .dealer-value { color: #2c3e50; font-weight: 500; text-align: right; width: 100%; word-break: break-word; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -541,7 +541,7 @@ def main():
                 
                 st.dataframe(table_df, use_container_width=True, hide_index=True)
         else:
-            st.warning("Veri yok.")
+            st.warning("Veritabanında 3'ten fazla istasyonu olan bir unvan bulunamadı.")
 
     # 5. ROTA PLANLAYICI
     with tabs[4]:
@@ -1095,16 +1095,20 @@ def main():
             dagitici = row.get('Dağıtım Şirketi', '-')
             il = row.get('İl', '-')
             ilce = row.get('İlçe', '-')
-            lisans_no = row.get('Lisans No', '-') # Varsa
             
             # Adres (Yoksa oluştur)
             # Adres sütunu bulma (Dinamik)
-            adres_col = 'Adres'
+            adres_col = None
             for c in df.columns:
-                if "ADRES" in c.upper().replace('İ','I'):
+                if "ADRES" in c.upper():
                     adres_col = c
                     break
-            adres = row.get(adres_col, f"{ilce} / {il}")
+            
+            if adres_col:
+                adres = row.get(adres_col, f"{ilce} / {il}")
+            else:
+                adres = f"{ilce} / {il}"
+                
             if pd.isna(adres) or str(adres) == 'nan': adres = f"{ilce} / {il}"
             
             # Vergi No
@@ -1116,7 +1120,7 @@ def main():
                     vergi_no = row[c]
                     break
             
-            # Tarihler
+            # Tarihler (Sadece bu satır için düzeltme)
             baslangic = row[start_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(start_date_col)) else "-"
             bitis = row[target_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(target_date_col)) else "-"
             kalan = int(row['Kalan_Gun']) if pd.notnull(row.get('Kalan_Gun')) else 0
@@ -1157,9 +1161,6 @@ def main():
             """
             
             st.markdown(card_html, unsafe_allow_html=True)
-            
-            # Harita Butonu
-            # Harita isteği kaldırıldı.
 
     # 14. HAM VERİ
     with tabs[13]:
