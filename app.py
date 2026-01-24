@@ -107,7 +107,7 @@ st.markdown("""
         animation: blinker-red 1.5s linear infinite;
     }
 
-    /* SARI GRUP: Robo-Yönetici(13) ve Vergi Zincir Haritası(14) */
+    /* SARI GRUP: Robo-Yönetici(13) ve Zincir Haritası(14) */
     button[data-testid="stTab"]:nth-child(13) p,
     button[data-testid="stTab"]:nth-child(14) p {
         color: #f1c40f !important; /* Gold Sarısı */
@@ -1043,7 +1043,11 @@ def main():
                 break
         
         if tax_col_name and not df_chain.empty:
-            # Sadece 8'den fazla istasyonu olanları filtrele
+            # 1. VERİ TEMİZLİĞİ: Vergi Numarasını Metne Çevir (Noktalı formatı temizle)
+            # Eğer 630407475.0 gibi okunduysa, .0 kısmını atıp metin yapalım
+            df_chain[tax_col_name] = df_chain[tax_col_name].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
+
+            # 2. SADECE 8'DEN FAZLA İSTASYONU OLANLARI FİLTRELE
             vkn_counts = df_chain[tax_col_name].value_counts()
             big_bosses = vkn_counts[vkn_counts > 8].index.tolist()
             
@@ -1060,17 +1064,18 @@ def main():
                 for boss in big_bosses:
                     group_df = df_chain[df_chain[tax_col_name] == boss]
                     
-                    # Merkez (Ortalama Koordinat) Hesapla
-                    if 'Enlem' in group_df.columns and 'Boylam' in group_df.columns:
+                    # Merkez (Ortalama Koordinat) Hesapla (DİNAMİK KOLON İSİMLERİYLE)
+                    # Ana fonksiyondaki lat_col/lon_col kullanılıyor (Simülasyon varsa o gelir)
+                    if lat_col in group_df.columns and lon_col in group_df.columns:
                         # Geçerli koordinatları al
-                        valid_coords = group_df.dropna(subset=['Enlem', 'Boylam'])
+                        valid_coords = group_df.dropna(subset=[lat_col, lon_col])
+                        
                         if not valid_coords.empty:
-                            center_lat = valid_coords['Enlem'].mean()
-                            center_lon = valid_coords['Boylam'].mean()
+                            center_lat = valid_coords[lat_col].mean()
+                            center_lon = valid_coords[lon_col].mean()
                             
-                            # Grup Adı (Genelde ilk unvanın bir kısmı veya VKN kendisi)
+                            # Grup Adı
                             group_name = f"GRUP {boss}" 
-                            # Eğer unvanlar benzerse ortak kelimeyi bulmaya çalışabiliriz ama şimdilik VKN yeterli.
                             
                             # Merkez Noktası Ekle
                             chain_map_data.append({
@@ -1087,8 +1092,8 @@ def main():
                             for idx, row in valid_coords.iterrows():
                                 # İstasyon Noktası
                                 chain_map_data.append({
-                                    'lat': row['Enlem'],
-                                    'lon': row['Boylam'],
+                                    'lat': row[lat_col],
+                                    'lon': row[lon_col],
                                     'type': 'İSTASYON',
                                     'name': row['Unvan'],
                                     'desc': f"{row['Dağıtım Şirketi']} - {row['İl']}",
@@ -1099,8 +1104,8 @@ def main():
                                 # Çizgi (Merkez -> İstasyon)
                                 line_data.append(go.Scattermapbox(
                                     mode="lines",
-                                    lon=[center_lon, row['Boylam']],
-                                    lat=[center_lat, row['Enlem']],
+                                    lon=[center_lon, row[lon_col]],
+                                    lat=[center_lat, row[lat_col]],
                                     line=dict(width=1, color='gray'),
                                     hoverinfo='none'
                                 ))
@@ -1148,10 +1153,10 @@ def main():
                     
                     # --- MATRİKS TABLO ---
                     st.markdown("### 📋 Grup Detay Matriksi")
-                    st.info("Aşağıdaki tabloda, haritada gösterilen 8+ istasyonlu gruıpların detayları yer almaktadır.")
+                    st.info("Aşağıdaki tabloda, haritada gösterilen 8+ istasyonlu grupların detayları yer almaktadır.")
                     
                     matrix_df = pd.DataFrame(detailed_list)
-                    # Gruplama yaparak gösterelim (Pivot gibi değil, hiyerarşik daha iyi)
+                    # Gruplama yaparak gösterelim
                     st.dataframe(matrix_df, use_container_width=True)
                     
                 else:
