@@ -86,38 +86,46 @@ st.markdown("""
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
     
-    /* --- SADE KIRMIZI YANIP SÖNME EFEKTİ --- */
+    /* --- YANIP SÖNME EFEKTİ --- */
     @keyframes blinker-red {
-        50% { opacity: 0.5; color: #ff2b2b; }
+        50% { opacity: 0.6; color: #ff2b2b; text-shadow: 0px 0px 2px rgba(255,0,0,0.2); }
     }
+
+    /* --- SEKME TASARIMI (PATRON MODU) --- */
     
-    /* İLK 5 TAB (YENİLER) İÇİN ÖZEL STİL */
-    /* İlk 5 tabın yazısını kırmızı ve yanıp sönen yap */
+    /* Sekme Konteynerini Ortala ve Sığmayanları Aşağı At (Wrap) */
+    div[data-testid="stTabs"] > div {
+        justify-content: center !important; /* ORTALA */
+        flex-wrap: wrap !important; /* SIĞMAZSA AŞAĞI AT */
+    }
+
+    /* İLK 5 TAB (YENİLER - KIRMIZI) */
+    /* Bunları yukarı kaldır (transform) ve belirgin yap */
+    button[data-testid="stTab"]:nth-child(-n+5) {
+        transform: translateY(-6px) !important; /* YUKARI KALDIR */
+        border-top: 4px solid #ff2b2b !important;
+        background-color: #fffafa !important;
+        margin: 2px !important;
+        box-shadow: 0 -2px 5px rgba(255,0,0,0.15) !important;
+        z-index: 10 !important;
+    }
+
     button[data-testid="stTab"]:nth-child(-n+5) p {
         color: #ff2b2b !important;
         font-weight: 900 !important;
-        font-size: 1.1em !important;
+        font-size: 1.05em !important;
         animation: blinker-red 1.5s linear infinite;
     }
 
-    /* İlk 5 tabı biraz yukarı kaldır ve üstüne kırmızı çizgi çek */
-    button[data-testid="stTab"]:nth-child(-n+5) {
-        transform: translateY(-6px) !important; /* 6px Yukarı */
-        border-top: 4px solid #ff2b2b !important;
-        background-color: #fffafa !important; /* Hafif kırmızımsı arka plan */
-        z-index: 10 !important;
-        border-radius: 8px 8px 0 0 !important;
-        box-shadow: 0 -2px 5px rgba(255,0,0,0.1) !important;
-    }
-
-    /* ESKİLER (6. TAB VE SONRASI) */
-    /* Onları biraz daha sönük ve aşağıda tut */
+    /* DİĞER TABLAR (ESKİLER - MAVİ/STANDART) */
+    /* Bunlar biraz daha sönük dursun */
     button[data-testid="stTab"]:nth-child(n+6) {
         border-top: 2px solid #bdc3c7 !important;
-        background-color: #f8f9fa !important;
+        margin: 2px !important;
+        opacity: 0.9;
     }
 
-    /* Robo Kartları (Sade Tasarım) */
+    /* Kart Tasarımları */
     .dealer-card, .robo-card {
         background: white;
         border: 2px solid #e0e0e0;
@@ -389,7 +397,7 @@ def main():
         "📡 Sözleşme Radar", 
         "📍 İlçe Penetrasyonu",
         "📄 İl Karnesi",
-        "📋 Ham Veri" # İsteğe bağlı, kaldırmış olabilirsin ama listede dursun
+        "📋 Ham Veri" # İsteğe bağlı
     ])
 
     # 1. YARIÇAP ANALİZİ [NEW]
@@ -867,9 +875,12 @@ def main():
                 st.divider()
                 st.success("📜 **Lisans Durumu:** AKTİF")
 
+    st.divider()
+
     # =======================================================
-    # ESKİ (STANDART) ANALİZLER
+    # 📊📊📊 2. KATMAN: STANDART ANALİZLER (MAVİ/NORMAL)
     # =======================================================
+    st.markdown("### 📊 GENEL PAZAR ANALİZLERİ")
 
     # 6. BÖLGESEL
     with tabs[5]:
@@ -995,17 +1006,12 @@ def main():
             total_stations = len(city_df)
             st.metric("🏙️ Toplam Pazar", total_stations)
             st.dataframe(city_df, use_container_width=True)
-
-    # 14. HAM VERİ
+            
+    # 14. HAM VERİ (TAB GÖRÜNÜMÜNDEN ÇIKARILDI AMA KODDA DURUYOR Kİ HATA VERMESİN)
     with tabs[13]:
-        st.subheader("📋 Ham Veri")
-        df_raw = create_tab_filters(df, "tab10")
-        buffer = io.BytesIO()
-        try:
-            with pd.ExcelWriter(buffer, engine='xlsxwriter') as w: df_raw.to_excel(w, index=False)
-            st.download_button("📥 İndir", buffer.getvalue(), "Data.xlsx", "application/vnd.ms-excel")
-        except: pass
-        st.dataframe(df_raw.head(PREVIEW_ROW_LIMIT), use_container_width=True)
+         st.subheader("📋 Ham Veri")
+         df_raw = create_tab_filters(df, "tab10")
+         st.dataframe(df_raw.head(100), use_container_width=True)
 
 if __name__ == "__main__":
     main()
