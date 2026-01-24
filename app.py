@@ -8,7 +8,7 @@ import io
 import time
 import math
 from datetime import datetime, timedelta, date
-import networkx as nx  # YENİ EKLENEN: Ağ grafikleri için
+import networkx as nx 
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -107,7 +107,7 @@ st.markdown("""
         animation: blinker-red 1.5s linear infinite;
     }
 
-    /* SARI GRUP: Robo-Yönetici(13) ve Zincir Ağı(14) */
+    /* SARI GRUP: Robo-Yönetici(13) ve Vergi Zincir Haritası(14) */
     button[data-testid="stTab"]:nth-child(13) p,
     button[data-testid="stTab"]:nth-child(14) p {
         color: #f1c40f !important; /* Gold Sarısı */
@@ -371,7 +371,7 @@ def main():
         "📝 CRM",
         "🧠 Stratejik Analiz [NEW]", 
         "🤖 Robo-Yönetici [NEW]", 
-        "🕸️ Zincir Ağı [NEW]",  # YENİ EKLENEN
+        "💸 Vergi Zincir Haritası [NEW]", # YENİ EKLENEN
         "📋 Ham Veri"
     ])
 
@@ -521,7 +521,7 @@ def main():
                 
                 st.dataframe(table_df, use_container_width=True, hide_index=True)
         else:
-            st.warning("Veri yok.")
+            st.warning("Veritabanında 3'ten fazla istasyonu olan bir unvan bulunamadı.")
 
     # 5. ROTA PLANLAYICI
     with tabs[4]:
@@ -1024,110 +1024,144 @@ def main():
         else:
             st.warning("Rapor oluşturmak için lütfen yukarıdan en az bir filtre seçimi yapın.")
 
-    # 14. ZİNCİR AĞI (NETWORK GRAPH)
+    # 14. VERGİ ZİNCİR HARİTASI (GEOSPATIAL HOLDING ANALYSIS)
     with tabs[13]:
-        st.subheader("🕸️ Zincir Ağı Haritası (Network Graph)")
-        st.info("💡 Bu grafik, Bayi (Unvan) ve Dağıtıcı arasındaki ilişkileri örümcek ağı gibi gösterir. Üzerine gelerek sözleşme detaylarını görebilirsiniz.")
+        st.subheader("💸 Vergi Zincir Haritası (Holding/Grup Analizi)")
+        st.info("💡 Bu harita, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları gösterir. Her grubun merkezi ve istasyonları haritada işaretlenir.")
         
-        # Filtreleme
-        df_net = create_tab_filters(df, "tab_network")
+        df_chain = create_tab_filters(df, "tab_tax_chain")
         
-        # Node Limiti Kontrolü (Hata 200'den 750'ye Çıkarıldı)
-        if len(df_net) > 750:
-            st.warning(f"⚠️ Seçili filtrede **{len(df_net)}** bayi var. Ağ grafiğinin performanslı çalışması için lütfen filtreleri kullanarak bayi sayısını **750'nin altına** düşürün.")
-        elif df_net.empty:
-            st.warning("Veri yok.")
-        else:
-            import networkx as nx
-
-            # Grafiği Oluştur
-            G = nx.Graph()
+        # VERGİ NO SÜTUNUNU BULMA
+        cols_upper = [c.upper().replace('İ','I') for c in df_chain.columns]
+        tax_col_name = None
+        possible_names = ["VERGI", "VKN", "TCKN", "VERGI KIMLIK", "VERGI NO"]
+        
+        for col in df_chain.columns:
+            u_col = col.upper().replace('İ','I')
+            if any(p in u_col for p in possible_names):
+                tax_col_name = col
+                break
+        
+        if tax_col_name and not df_chain.empty:
+            # Sadece 8'den fazla istasyonu olanları filtrele
+            vkn_counts = df_chain[tax_col_name].value_counts()
+            big_bosses = vkn_counts[vkn_counts > 8].index.tolist()
             
-            # Veriyi Hazırla
-            for index, row in df_net.iterrows():
-                distributor = str(row['Dağıtım Şirketi']).strip()
-                dealer = str(row['Unvan']).strip()
+            if not big_bosses:
+                st.warning("⚠️ Seçilen filtrede **8'den fazla** istasyona sahip bir Vergi Grubu bulunamadı.")
+            else:
+                # Harita Verilerini Hazırla
+                chain_map_data = []
+                line_data = []
                 
-                # Metadata
-                city_dist = f"{row.get('İl', '')} / {row.get('İlçe', '')}"
-                start_date = row[start_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(start_date_col)) else "-"
-                end_date = row[target_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(target_date_col)) else "-"
-                
-                # Dağıtıcı Düğümü
-                G.add_node(distributor, type='distributor', size=20, color='#e74c3c') # Kırmızı
-                
-                # Bayi Düğümü
-                hover_text = f"<b>{dealer}</b><br>📍 {city_dist}<br>📅 Başlangıç: {start_date}<br>⏳ Bitiş: {end_date}"
-                G.add_node(dealer, type='dealer', size=10, color='#3498db', hover=hover_text) # Mavi
-                
-                # Bağlantı
-                G.add_edge(distributor, dealer)
+                # Detaylı tablo için liste
+                detailed_list = []
 
-            # Pozisyonları Hesapla
-            pos = nx.spring_layout(G, seed=42)
+                for boss in big_bosses:
+                    group_df = df_chain[df_chain[tax_col_name] == boss]
+                    
+                    # Merkez (Ortalama Koordinat) Hesapla
+                    if 'Enlem' in group_df.columns and 'Boylam' in group_df.columns:
+                        # Geçerli koordinatları al
+                        valid_coords = group_df.dropna(subset=['Enlem', 'Boylam'])
+                        if not valid_coords.empty:
+                            center_lat = valid_coords['Enlem'].mean()
+                            center_lon = valid_coords['Boylam'].mean()
+                            
+                            # Grup Adı (Genelde ilk unvanın bir kısmı veya VKN kendisi)
+                            group_name = f"GRUP {boss}" 
+                            # Eğer unvanlar benzerse ortak kelimeyi bulmaya çalışabiliriz ama şimdilik VKN yeterli.
+                            
+                            # Merkez Noktası Ekle
+                            chain_map_data.append({
+                                'lat': center_lat,
+                                'lon': center_lon,
+                                'type': 'MERKEZ',
+                                'name': f"👑 {group_name}",
+                                'desc': f"Toplam {len(group_df)} İstasyon",
+                                'color': 'red',
+                                'size': 20
+                            })
+                            
+                            # İstasyonları Ekle ve Çizgi Çek
+                            for idx, row in valid_coords.iterrows():
+                                # İstasyon Noktası
+                                chain_map_data.append({
+                                    'lat': row['Enlem'],
+                                    'lon': row['Boylam'],
+                                    'type': 'İSTASYON',
+                                    'name': row['Unvan'],
+                                    'desc': f"{row['Dağıtım Şirketi']} - {row['İl']}",
+                                    'color': 'blue',
+                                    'size': 10
+                                })
+                                
+                                # Çizgi (Merkez -> İstasyon)
+                                line_data.append(go.Scattermapbox(
+                                    mode="lines",
+                                    lon=[center_lon, row['Boylam']],
+                                    lat=[center_lat, row['Enlem']],
+                                    line=dict(width=1, color='gray'),
+                                    hoverinfo='none'
+                                ))
+                                
+                                # Tablo verisi
+                                detailed_list.append({
+                                    'Vergi No / Grup': boss,
+                                    'Unvan': row['Unvan'],
+                                    'Dağıtıcı': row['Dağıtım Şirketi'],
+                                    'İl': row['İl'],
+                                    'İlçe': row['İlçe']
+                                })
 
-            # --- PLOTLY İLE ÇİZİM ---
-            edge_x = []
-            edge_y = []
-            for edge in G.edges():
-                x0, y0 = pos[edge[0]]
-                x1, y1 = pos[edge[1]]
-                edge_x.extend([x0, x1, None])
-                edge_y.extend([y0, y1, None])
-
-            edge_trace = go.Scatter(
-                x=edge_x, y=edge_y,
-                line=dict(width=0.5, color='#888'),
-                hoverinfo='none',
-                mode='lines')
-
-            node_x = []
-            node_y = []
-            node_text = []
-            node_color = []
-            node_size = []
-            
-            for node in G.nodes():
-                x, y = pos[node]
-                node_x.append(x)
-                node_y.append(y)
-                
-                node_type = G.nodes[node]['type']
-                if node_type == 'distributor':
-                    node_text.append(f"🏭 <b>DAĞITICI:</b> {node}")
-                    node_color.append('#e74c3c')
-                    node_size.append(25)
+                # --- HARİTA ÇİZİMİ ---
+                if chain_map_data:
+                    map_df = pd.DataFrame(chain_map_data)
+                    
+                    # Noktalar (Merkez ve İstasyonlar)
+                    scatter_trace = go.Scattermapbox(
+                        lat=map_df['lat'],
+                        lon=map_df['lon'],
+                        mode='markers+text',
+                        marker=go.scattermapbox.Marker(
+                            size=map_df['size'],
+                            color=map_df['color']
+                        ),
+                        text=map_df['name'], # İsimleri göster
+                        textposition="top right",
+                        hovertext=map_df['desc']
+                    )
+                    
+                    # Harita Layout
+                    layout = go.Layout(
+                        mapbox_style="open-street-map",
+                        margin={"r":0,"t":0,"l":0,"b":0},
+                        showlegend=False,
+                        mapbox=dict(
+                            center=dict(lat=39.0, lon=35.0), # Türkiye Ortası
+                            zoom=5
+                        )
+                    )
+                    
+                    fig = go.Figure(data=line_data + [scatter_trace], layout=layout)
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # --- MATRİKS TABLO ---
+                    st.markdown("### 📋 Grup Detay Matriksi")
+                    st.info("Aşağıdaki tabloda, haritada gösterilen 8+ istasyonlu gruıpların detayları yer almaktadır.")
+                    
+                    matrix_df = pd.DataFrame(detailed_list)
+                    # Gruplama yaparak gösterelim (Pivot gibi değil, hiyerarşik daha iyi)
+                    st.dataframe(matrix_df, use_container_width=True)
+                    
                 else:
-                    node_text.append(G.nodes[node]['hover'])
-                    node_color.append('#3498db')
-                    node_size.append(10)
-
-            node_trace = go.Scatter(
-                x=node_x, y=node_y,
-                mode='markers',
-                hoverinfo='text',
-                marker=dict(
-                    showscale=False,
-                    color=node_color,
-                    size=node_size,
-                    line_width=2))
-
-            node_trace.text = node_text
-
-            fig_net = go.Figure(data=[edge_trace, node_trace],
-                         layout=go.Layout(
-                            title=dict(text='⛓️ Bayi - Dağıtıcı İlişki Ağı', font=dict(size=16)),
-                            showlegend=False,
-                            hovermode='closest',
-                            margin=dict(b=20,l=5,r=5,t=40),
-                            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
-                            )
-            
-            st.plotly_chart(fig_net, use_container_width=True)
-            
-            st.markdown("#### 🔍 Ağ Detayları")
-            st.dataframe(df_net[['Unvan', 'Dağıtım Şirketi', 'İl', 'İlçe', target_date_col]], use_container_width=True)
+                    st.warning("Seçilen gruplar için geçerli koordinat verisi bulunamadı.")
+                    
+        else:
+            if not tax_col_name:
+                st.error("Excel dosyasında 'Vergi No', 'VKN' veya benzeri bir sütun bulunamadı.")
+            else:
+                st.warning("Veri yok.")
 
     # 15. HAM VERİ
     with tabs[14]:
