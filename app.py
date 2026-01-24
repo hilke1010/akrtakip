@@ -85,84 +85,47 @@ st.markdown("""
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
     
-    /* YANIP SÖNME EFEKTİ (BLINK) - TAB İÇİN */
-    @keyframes blinker {
-        50% { opacity: 0.3; color: #ff2b2b; }
+    /* --- TAB BAŞLIKLARI İÇİN ÖZEL ANİMASYON (NEON YEŞİL & RENKLİ) --- */
+    @keyframes neon-pulse {
+        0% { color: #00ff00; text-shadow: 0 0 5px #00ff00; transform: scale(1); }
+        50% { color: #adff2f; text-shadow: 0 0 20px #00ff00, 0 0 10px #ffff00; transform: scale(1.05); }
+        100% { color: #00ff00; text-shadow: 0 0 5px #00ff00; transform: scale(1); }
     }
     
-    /* NEW Olan Tablar İçin Seçiciler */
+    /* Sadece [NEW] olan Tabların Başlıklarını Hedefle */
+    /* 4: Yarıçap, 5: Rota, 12: Stratejik, 13: Robo-Yönetici */
     button[data-testid="stTab"]:nth-child(4) p,
     button[data-testid="stTab"]:nth-child(5) p,
     button[data-testid="stTab"]:nth-child(12) p,
     button[data-testid="stTab"]:nth-child(13) p {
-        color: #d62728 !important;
-        font-weight: 800 !important;
-        animation: blinker 1.5s linear infinite;
+        font-weight: 900 !important;
+        font-size: 1.1em !important;
+        animation: neon-pulse 1.2s infinite alternate !important;
     }
 
-    /* --- ROBO YÖNETİCİ ÖZEL CSS (CAFCAFLI KISIM) --- */
-    
-    @keyframes border-rainbow {
-        0% { border-color: #ff0000; box-shadow: 0 0 10px #ff0000; }
-        25% { border-color: #ff00ff; box-shadow: 0 0 10px #ff00ff; }
-        50% { border-color: #0000ff; box-shadow: 0 0 10px #0000ff; }
-        75% { border-color: #00ff00; box-shadow: 0 0 10px #00ff00; }
-        100% { border-color: #ff0000; box-shadow: 0 0 10px #ff0000; }
-    }
-
-    @keyframes text-glow {
-        0% { text-shadow: 0 0 5px rgba(0,0,0,0.2); }
-        50% { text-shadow: 0 0 20px rgba(255, 165, 0, 0.8), 0 0 10px rgba(255, 165, 0, 0.6); color: #d35400; }
-        100% { text-shadow: 0 0 5px rgba(0,0,0,0.2); }
-    }
-
+    /* --- ROBO YÖNETİCİ KART TASARIMI --- */
     .robo-card {
         background: linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%);
-        border: 3px solid #3498db;
+        border: 2px solid #2ecc71; /* Yeşil Kenarlık */
         border-radius: 15px;
         padding: 20px;
         margin-bottom: 20px;
-        animation: border-rainbow 8s linear infinite;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         transition: transform 0.3s;
     }
-    
-    .robo-card:hover {
-        transform: scale(1.02);
-    }
-
+    .robo-card:hover { transform: scale(1.02); }
     .robo-header {
-        font-size: 1.4em;
-        font-weight: 900;
-        margin-bottom: 15px;
-        text-transform: uppercase;
-        border-bottom: 2px solid #ddd;
-        padding-bottom: 10px;
-        animation: text-glow 3s infinite;
+        font-size: 1.4em; font-weight: 900; margin-bottom: 15px;
+        text-transform: uppercase; border-bottom: 2px solid #ddd; padding-bottom: 10px;
+        color: #27ae60;
     }
-
-    .robo-list {
-        list-style-type: none; /* Standart madde işaretini kaldır */
-        padding: 0;
-        margin: 0;
-    }
-
+    .robo-list { list-style-type: none; padding: 0; margin: 0; }
     .robo-list li {
-        margin-bottom: 10px;
-        font-size: 1.05em;
-        padding-left: 5px;
+        margin-bottom: 10px; font-size: 1.05em; padding-left: 10px;
         border-left: 4px solid #ddd;
-        padding-left: 10px;
     }
-    
-    .robo-list li:hover {
-        border-left-color: #e67e22;
-        background-color: #fff8e1;
-    }
-
-    .robo-highlight {
-        font-weight: bold;
-        color: #c0392b;
-    }
+    .robo-list li:hover { border-left-color: #e67e22; background-color: #fff8e1; }
+    .robo-highlight { font-weight: bold; color: #c0392b; }
 </style>
 """, unsafe_allow_html=True)
 
