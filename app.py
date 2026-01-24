@@ -86,46 +86,50 @@ st.markdown("""
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
     
-    /* --- YANIP SÖNME EFEKTİ --- */
+    /* --- SADE KIRMIZI YANIP SÖNME EFEKTİ --- */
     @keyframes blinker-red {
-        50% { opacity: 0.6; color: #ff2b2b; text-shadow: 0px 0px 2px rgba(255,0,0,0.2); }
+        50% { opacity: 0.5; color: #ff2b2b; }
     }
 
-    /* --- SEKME TASARIMI (PATRON MODU) --- */
-    
-    /* Sekme Konteynerini Ortala ve Sığmayanları Aşağı At (Wrap) */
+    /* --- SEKME YERLEŞİMİ (ZORLA SARMA - WRAP) --- */
+    /* Sekmelerin bulunduğu ana kapsayıcıyı seç ve sığmayanları aşağı at */
     div[data-testid="stTabs"] > div {
-        justify-content: center !important; /* ORTALA */
-        flex-wrap: wrap !important; /* SIĞMAZSA AŞAĞI AT */
+        flex-wrap: wrap !important; 
+        justify-content: center !important; /* Ortala */
+        gap: 8px !important; /* Sekmeler arası boşluk */
     }
 
-    /* İLK 5 TAB (YENİLER - KIRMIZI) */
-    /* Bunları yukarı kaldır (transform) ve belirgin yap */
+    /* GENEL BUTON AYARI */
+    button[data-testid="stTab"] {
+        flex: 1 0 auto !important; /* Esnek genişlik */
+        min-width: 100px !important;
+        padding: 5px 10px !important;
+    }
+
+    /* --- ÜST KAT: YENİLER (İLK 5 SEKME) --- */
     button[data-testid="stTab"]:nth-child(-n+5) {
-        transform: translateY(-6px) !important; /* YUKARI KALDIR */
-        border-top: 4px solid #ff2b2b !important;
-        background-color: #fffafa !important;
-        margin: 2px !important;
-        box-shadow: 0 -2px 5px rgba(255,0,0,0.15) !important;
-        z-index: 10 !important;
+        border-top: 4px solid #ff2b2b !important; /* Kırmızı Çizgi */
+        background-color: #fff0f0 !important; /* Hafif kırmızı fon */
+        order: 1; /* Sıralamada en başta */
+        margin-bottom: 10px !important; /* Alt katla araya mesafe koy */
+        transform: translateY(-2px); /* Hafif yukarı kalkık */
+        box-shadow: 0 2px 4px rgba(255,0,0,0.15); /* Gölge efekti */
     }
 
     button[data-testid="stTab"]:nth-child(-n+5) p {
         color: #ff2b2b !important;
-        font-weight: 900 !important;
-        font-size: 1.05em !important;
+        font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
     }
 
-    /* DİĞER TABLAR (ESKİLER - MAVİ/STANDART) */
-    /* Bunlar biraz daha sönük dursun */
+    /* --- ALT KAT: ESKİLER (6. VE SONRASI) --- */
     button[data-testid="stTab"]:nth-child(n+6) {
-        border-top: 2px solid #bdc3c7 !important;
-        margin: 2px !important;
-        opacity: 0.9;
+        order: 2; /* Sıralamada sonra */
+        border-top: 3px solid #95a5a6 !important; /* Gri Çizgi */
+        background-color: #f8f9fa !important;
     }
 
-    /* Kart Tasarımları */
+    /* KART TASARIMLARI */
     .dealer-card, .robo-card {
         background: white;
         border: 2px solid #e0e0e0;
@@ -1006,7 +1010,7 @@ def main():
             total_stations = len(city_df)
             st.metric("🏙️ Toplam Pazar", total_stations)
             st.dataframe(city_df, use_container_width=True)
-            
+
     # 14. HAM VERİ (TAB GÖRÜNÜMÜNDEN ÇIKARILDI AMA KODDA DURUYOR Kİ HATA VERMESİN)
     with tabs[13]:
          st.subheader("📋 Ham Veri")
