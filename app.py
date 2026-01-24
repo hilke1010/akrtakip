@@ -91,14 +91,26 @@ st.markdown("""
         50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* Yarıçap(4), Rota(5), Robo(11), Vergi(12) */
+    /* --- SADE SARI YANIP SÖNME EFEKTİ --- */
+    @keyframes blinker-yellow {
+        50% { opacity: 0.5; color: #f1c40f; }
+    }
+    
+    /* KIRMIZI GRUP: Yarıçap(4), Rota(5), Arama(13) */
     button[data-testid="stTab"]:nth-child(4) p,
     button[data-testid="stTab"]:nth-child(5) p,
-    button[data-testid="stTab"]:nth-child(11) p,
-    button[data-testid="stTab"]:nth-child(12) p {
+    button[data-testid="stTab"]:nth-child(13) p {
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
+    }
+
+    /* SARI GRUP: Robo-Yönetici(11), Vergi(12) */
+    button[data-testid="stTab"]:nth-child(11) p,
+    button[data-testid="stTab"]:nth-child(12) p {
+        color: #f1c40f !important; /* Gold Sarısı */
+        font-weight: 800 !important;
+        animation: blinker-yellow 1.5s linear infinite;
     }
 
     /* Robo Kartları (Sade Tasarım) */
@@ -342,7 +354,7 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER (GÜNCELLENDİ) ---
+    # --- SEKMELER (GÜNCELLENDİ: CRM VE STRATEJİK KALKTI, ARAMA EKLENDİ) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
         "⚡ Hızlı Analiz",      
@@ -355,7 +367,8 @@ def main():
         "📍 İlçe Penetrasyonu",
         "📄 İl Karnesi", 
         "🤖 Robo-Yönetici [NEW]", 
-        "💸 Vergi Zincir Haritası [NEW]", 
+        "💸 Vergi Zincir Analizi [NEW]", 
+        "🔍 Detaylı Arama [NEW]", # YENİ EKLENEN
         "📋 Ham Veri"
     ])
 
@@ -943,10 +956,10 @@ def main():
         else:
             st.warning("Rapor oluşturmak için lütfen yukarıdan en az bir filtre seçimi yapın.")
 
-    # 12. VERGİ ZİNCİR HARİTASI (GEOSPATIAL HOLDING ANALYSIS)
+    # 12. VERGİ ZİNCİR ANALİZİ (TABLO MODU)
     with tabs[11]:
-        st.subheader("💸 Vergi Zincir Haritası (Holding/Grup Analizi)")
-        st.info("💡 Bu ekran, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları listeler.")
+        st.subheader("💸 Vergi Zincir Analizi (Holding/Grup Tablosu)")
+        st.info("💡 Bu bölüm, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları listeler.")
         
         df_chain = create_tab_filters(df, "tab_tax_chain")
         
@@ -962,7 +975,7 @@ def main():
                 break
         
         if tax_col_name and not df_chain.empty:
-            # 1. VERİ TEMİZLİĞİ: Vergi Numarasını Metne Çevir (Noktalı formatı temizle)
+            # 1. VERİ TEMİZLİĞİ
             df_chain[tax_col_name] = df_chain[tax_col_name].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
 
             # 2. SADECE 8'DEN FAZLA İSTASYONU OLANLARI FİLTRELE
@@ -975,7 +988,6 @@ def main():
                 # --- ÖZET TABLO OLUŞTURMA (GROUPBY) ---
                 st.markdown("### 🏆 Grup Liderleri (Özet)")
                 
-                # Aggregation logic: Add 'Ana_Unvan'
                 summary_df = df_chain[df_chain[tax_col_name].isin(big_bosses)].groupby(tax_col_name).agg(
                     Ana_Unvan=('Unvan', lambda x: x.mode()[0] if not x.mode().empty else x.iloc[0]), # En çok geçen unvanı al
                     Toplam_İstasyon=('Unvan', 'count'),
@@ -1022,8 +1034,36 @@ def main():
             else:
                 st.warning("Veri yok.")
 
-    # 13. HAM VERİ
+    # 13. DETAYLI ARAMA (GOOGLE MODE)
     with tabs[12]:
+        st.subheader("🔍 Detaylı Arama Motoru")
+        st.info("💡 Buraya herhangi bir kelime (Şehir, İlçe, Bayi Adı, Vergi No vb.) yazın, tüm veritabanında arayalım.")
+        
+        search_term = st.text_input("Anahtar Kelime Girin:", placeholder="Örn: YILDIZ PETROL veya 0630...")
+        
+        if search_term:
+            # Tüm string kolonlarda arama yap (Büyük/Küçük harf duyarsız)
+            mask = df.astype(str).apply(lambda x: x.str.contains(search_term, case=False, na=False)).any(axis=1)
+            results = df[mask]
+            
+            if not results.empty:
+                st.success(f"✅ Toplam **{len(results)}** sonuç bulundu.")
+                
+                # Sonuçları göster
+                disp_cols = ['Unvan', 'Dağıtım Şirketi', 'İl', 'İlçe', target_date_col, 'Kalan_Gun']
+                final_cols = [c for c in disp_cols if c in results.columns]
+                
+                # Tarih formatı
+                if target_date_col in results.columns:
+                    try: results[target_date_col] = pd.to_datetime(results[target_date_col]).dt.strftime('%d.%m.%Y')
+                    except: pass
+                
+                st.dataframe(results[final_cols], use_container_width=True, hide_index=True)
+            else:
+                st.warning("❌ Hiçbir sonuç bulunamadı.")
+
+    # 14. HAM VERİ
+    with tabs[13]:
         st.subheader("📋 Ham Veri")
         df_raw = create_tab_filters(df, "tab10")
         buffer = io.BytesIO()
