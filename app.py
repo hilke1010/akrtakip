@@ -91,8 +91,8 @@ st.markdown("""
         50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* KIRMIZI GRUP: Yarıçap(4), Rota(5), Robo(6), Vergi(7), Arama(8) */
-    /* 1'den başladığı için CSS indexleri: 4,5,6,7,8 */
+    /* [NEW] YAZAN SEKMELERİN YAZISINI KIRMIZI VE HAREKETLİ YAP */
+    /* Indexler: 4(Yarıçap), 5(Rota), 6(Robo), 7(Vergi), 8(Arama) */
     button[data-testid="stTab"]:nth-child(4) p,
     button[data-testid="stTab"]:nth-child(5) p,
     button[data-testid="stTab"]:nth-child(6) p,
@@ -101,6 +101,20 @@ st.markdown("""
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
+    }
+
+    /* [NEW] YAZAN SEKMELERİ YUKARI KALDIR (ELEVATION) */
+    button[data-testid="stTab"]:nth-child(4),
+    button[data-testid="stTab"]:nth-child(5),
+    button[data-testid="stTab"]:nth-child(6),
+    button[data-testid="stTab"]:nth-child(7),
+    button[data-testid="stTab"]:nth-child(8) {
+        transform: translateY(-4px) !important; /* 4 Piksel Yukarı */
+        border-top: 3px solid #ff2b2b !important; /* Üste Kırmızı Çizgi */
+        border-radius: 5px 5px 0 0 !important;
+        background-color: #fff !important;
+        z-index: 99 !important; /* En üstte görünsün */
+        box-shadow: 0 -2px 5px rgba(255, 0, 0, 0.1); /* Hafif gölge */
     }
 
     /* Robo Kartları (Sade Tasarım) */
