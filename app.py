@@ -899,18 +899,22 @@ def main():
                 if hero_count > 0:
                     status_emoji = "🥇" if hero_rank == 1 else "🥈" if hero_rank == 2 else "🥉" if hero_rank == 3 else "📊"
                     st.markdown(f"""
-                    1.  **Sıralama:** Şu anki filtrede pazarın **{hero_rank}. oyuncusuyuz** {status_emoji}.
-                    2.  **Toplam İstasyon:** Portföyümüzde **{hero_count}** aktif istasyon var.
-                    3.  **Pazar Payı:** Toplam pastanın **%{hero_share:.1f}**'ine sahibiz.
-                    4.  **Liderle Fark:** Lider **{leader_brand}** ile aramızda **{gap_to_leader}** istasyon makası var.
-                    5.  **Takipçi Riski:** Ensemizdeki **{nearest_follower}** ile fark sadece **{follower_gap}** istasyon.
-                    6.  **🏰 İL KALESİ:** En güçlü olduğumuz şehir **{top_hero_city}**. Orada **{top_hero_city_cnt}** istasyonla pazarın **%{share_in_top_city:.1f}**'ine hakimiz.
-                    7.  **🏘️ İLÇE KALESİ:** En yoğunlaştığımız nokta **{top_hero_dist}**. Sadece bu ilçede **{top_hero_dist_cnt}** istasyonumuz var (Pay: %{share_in_top_dist:.1f}).
-                    8.  **Ortalama Ömür:** İstasyonlarımızın ortalama sözleşme süresi **{int(hero_df['Kalan_Gun'].mean()) if 'Kalan_Gun' in hero_df.columns and not hero_df.empty else 0}** gün.
-                    9.  **Coğrafi Yayılım:** Seçili bölgedeki **{df_robo['İl'].nunique()}** ilin **{hero_df['İl'].nunique()}** tanesinde bayrağımız dalgalanıyor.
-                    10. **Operasyonel Odak:** Tüm istasyonlarımızın %{int(hero_city_counts.head(1).sum()/hero_count*100) if hero_count>0 else 0}'i tek bir ilde ({top_hero_city}) toplanmış.
-                    11. **Şehir İçi Güç:** "MERKEZ" ilçelerinde toplam **{len(hero_df[hero_df['Tam_Konum'].str.contains('MERKEZ')])}** istasyonumuz var.
-                    """)
+                    <div class="robo-card">
+                    <ul class="robo-list">
+                    <li><b>Sıralama:</b> Şu anki filtrede pazarın <span class="robo-highlight">{hero_rank}. oyuncusuyuz</span> {status_emoji}.</li>
+                    <li><b>Toplam İstasyon:</b> Portföyümüzde <span class="robo-highlight">{hero_count}</span> aktif istasyon var.</li>
+                    <li><b>Pazar Payı:</b> Toplam pastanın <span class="robo-highlight">%{hero_share:.1f}</span>'ine sahibiz.</li>
+                    <li><b>Liderle Fark:</b> Lider <b>{leader_brand}</b> ile aramızda <b>{gap_to_leader}</b> istasyon makası var.</li>
+                    <li><b>Takipçi Riski:</b> Ensemizdeki <b>{nearest_follower}</b> ile fark sadece <b>{follower_gap}</b> istasyon.</li>
+                    <li><b>🏰 İL KALESİ:</b> En güçlü olduğumuz şehir <span class="robo-highlight">{top_hero_city}</span>. Orada <b>{top_hero_city_cnt}</b> istasyonla pazarın <b>%{share_in_top_city:.1f}</b>'ine hakimiz.</li>
+                    <li><b>🏘️ İLÇE KALESİ:</b> En yoğunlaştığımız nokta <span class="robo-highlight">{top_hero_dist}</span>. Sadece bu ilçede <b>{top_hero_dist_cnt}</b> istasyonumuz var (Pay: %{share_in_top_dist:.1f}).</li>
+                    <li><b>Ortalama Ömür:</b> İstasyonlarımızın ortalama sözleşme süresi <b>{int(hero_df['Kalan_Gun'].mean()) if 'Kalan_Gun' in hero_df.columns and not hero_df.empty else 0}</b> gün.</li>
+                    <li><b>Coğrafi Yayılım:</b> Seçili bölgedeki <b>{df_robo['İl'].nunique()}</b> ilin <b>{hero_df['İl'].nunique()}</b> tanesinde bayrağımız dalgalanıyor.</li>
+                    <li><b>Operasyonel Odak:</b> Tüm istasyonlarımızın %{int(hero_city_counts.head(1).sum()/hero_count*100) if hero_count>0 else 0}'i tek bir ilde ({top_hero_city}) toplanmış.</li>
+                    <li><b>Şehir İçi Güç:</b> "MERKEZ" ilçelerinde toplam <b>{len(hero_df[hero_df['Tam_Konum'].str.contains('MERKEZ')])}</b> istasyonumuz var.</li>
+                    </ul>
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
                     st.warning("⚠️ **Kritik:** Bu filtrede GÜZEL ENERJİ'ye ait hiç istasyon yok!")
 
@@ -918,18 +922,22 @@ def main():
             with c2:
                 st.markdown("#### ⚔️ 2. Rakip & Pazar Derinlik Analizi")
                 st.markdown(f"""
-                1.  **Pazar Hacmi:** Toplam **{total_stations}** istasyonluk bir arenadayız.
-                2.  **Oyuncu Sayısı:** Bu alanda toplam **{len(brand_counts)}** farklı marka rekabet ediyor.
-                3.  **Liderin Gücü:** Lider marka pazarın **%{(leader_count/total_stations*100):.1f}**'ine hükmediyor.
-                4.  **Pazarın Kalbi (İlçe):** En yoğun rekabet **{market_top_districts.index[0]}** bölgesinde dönüyor ({market_top_districts.iloc[0]} istasyon).
-                5.  **Pazarın Kalbi (İl):** En büyük hacim **{market_top_city}** ilinde.
-                6.  **Rakip Kalesi:** Rakiplerin en yoğun olduğu bölge **{competitor_strongholds[0] if competitor_strongholds else 'Yok'}**.
-                7.  **Konsolidasyon:** İlk 3 büyük marka pazarın **%{int(brand_counts.head(3).sum()/total_stations*100)}**'ini domine ediyor.
-                8.  **Küçük Oyuncular:** Pazarın %{int(brand_counts[brand_counts < 10].sum()/total_stations*100)}'lik kısmı yerel oyuncularda.
-                9.  **Büyüme Alanı:** Henüz doymamış, rekabetin düşük olduğu **{len(df_robo['Tam_Konum'].unique()) - len(market_top_districts)}** farklı nokta var.
-                10. **Liderin Zayıf Karnı:** Lider markanın hiç olmadığı **{len(df_robo[df_robo['Dağıtım Şirketi'] != leader_brand]['Tam_Konum'].unique())}** farklı lokasyon tespit edildi.
-                11. **Genel Trend:** Pazar yapısı {("Lidere Endeksli" if (leader_count/total_stations) > 0.3 else "Parçalı ve Rekabetçi")}.
-                """)
+                <div class="robo-card">
+                <ul class="robo-list">
+                <li><b>Pazar Hacmi:</b> Toplam <span class="robo-highlight">{total_stations}</span> istasyonluk bir arenadayız.</li>
+                <li><b>Oyuncu Sayısı:</b> Bu alanda <span class="robo-highlight">{len(brand_counts)}</span> farklı marka rekabet ediyor.</li>
+                <li><b>Liderin Gücü:</b> Lider marka pazarın <b>%{(leader_count/total_stations*100):.1f}</b>'ine hükmediyor.</li>
+                <li><b>Pazarın Kalbi (İlçe):</b> En yoğun rekabet <b>{market_top_districts.index[0]}</b> bölgesinde dönüyor ({market_top_districts.iloc[0]} istasyon).</li>
+                <li><b>Pazarın Kalbi (İl):</b> En büyük hacim <b>{market_top_city}</b> ilinde.</li>
+                <li><b>Rakip Kalesi:</b> Rakiplerin en yoğun olduğu bölge <b>{competitor_strongholds[0] if competitor_strongholds else 'Yok'}</b>.</li>
+                <li><b>Konsolidasyon:</b> İlk 3 büyük marka pazarın <b>%{int(brand_counts.head(3).sum()/total_stations*100)}</b>'ini domine ediyor.</li>
+                <li><b>Küçük Oyuncular:</b> Pazarın %{int(brand_counts[brand_counts < 10].sum()/total_stations*100)}'lik kısmı yerel oyuncularda.</li>
+                <li><b>Büyüme Alanı:</b> Henüz doymamış, rekabetin düşük olduğu <b>{len(df_robo['Tam_Konum'].unique()) - len(market_top_districts)}</b> farklı nokta var.</li>
+                <li><b>Liderin Zayıf Karnı:</b> Lider markanın hiç olmadığı <b>{len(df_robo[df_robo['Dağıtım Şirketi'] != leader_brand]['Tam_Konum'].unique())}</b> farklı lokasyon tespit edildi.</li>
+                <li><b>Genel Trend:</b> Pazar yapısı {("Lidere Endeksli" if (leader_count/total_stations) > 0.3 else "Parçalı ve Rekabetçi")}.</li>
+                </ul>
+                </div>
+                """, unsafe_allow_html=True)
 
             st.markdown("---")
             c3, c4 = st.columns(2)
@@ -961,12 +969,16 @@ def main():
                                 ghost_zones.append(f"{loc} ({market_count} İstasyon)")
                     
                     st.markdown(f"""
-                    1.  **Dominant Bölgeler (>%25 Pay):** **{', '.join(strong_presence[:5]) if strong_presence else 'Yok'}**.
-                    2.  **Hayalet Bölgeler (Biz Yokuz!):** Rakiplerin cirit attığı ama bizim olmadığımız yerler: **{', '.join(ghost_zones[:5]) if ghost_zones else 'Yok'}**.
-                    3.  **Saldırı Altındaki Kale:** En güçlü ilçemiz **{top_hero_dist}** bölgesinde toplam **{market_avgs.get(top_hero_dist, 0)}** rakip var.
-                    4.  **Bölge Verimliliği:** Bulunduğumuz ilçelerde ortalama pazar payımız **%{int(hero_df.groupby('Tam_Konum').size().mean() / df_robo.groupby('Tam_Konum').size().mean() * 100)}**.
-                    5.  **Riskli Bölge:** En az istasyonumuzun olduğu (1 adet) **{len(hero_df[hero_df.groupby('Tam_Konum')['Tam_Konum'].transform('count') == 1])}** farklı ilçe var. Buralarda varlığımız pamuk ipliğine bağlı.
-                    """)
+                    <div class="robo-card">
+                    <ul class="robo-list">
+                    <li><b>Dominant Bölgeler (>%25 Pay):</b> <b>{', '.join(strong_presence[:5]) if strong_presence else 'Yok'}</b>.</li>
+                    <li><b>Hayalet Bölgeler (Biz Yokuz!):</b> Rakiplerin cirit attığı ama bizim olmadığımız yerler: <b>{', '.join(ghost_zones[:5]) if ghost_zones else 'Yok'}</b>.</li>
+                    <li><b>Saldırı Altındaki Kale:</b> En güçlü ilçemiz <b>{top_hero_dist}</b> bölgesinde toplam <b>{market_avgs.get(top_hero_dist, 0)}</b> rakip var.</li>
+                    <li><b>Bölge Verimliliği:</b> Bulunduğumuz ilçelerde ortalama pazar payımız <b>%{int(hero_df.groupby('Tam_Konum').size().mean() / df_robo.groupby('Tam_Konum').size().mean() * 100)}</b>.</li>
+                    <li><b>Riskli Bölge:</b> En az istasyonumuzun olduğu (1 adet) <b>{len(hero_df[hero_df.groupby('Tam_Konum')['Tam_Konum'].transform('count') == 1])}</b> farklı ilçe var. Buralarda varlığımız pamuk ipliğine bağlı.</li>
+                    </ul>
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
                     st.info("Coğrafi analiz için veri yetersiz.")
 
@@ -999,9 +1011,13 @@ def main():
                     hero_peak = max(future_years_hero, key=future_years_hero.get) if future_years_hero else "Yok"
                     
                     st.markdown(f"""
-                    * **En Hareketli Yıl:** Pazar için **{int(peak_year)}**, Bizim için **{int(hero_peak) if hero_peak!='Yok' else 'Yok'}**.
-                    * **Stratejik Hedef:** **{int(peak_year)}** yılında boşa çıkacak **{future_years_market[peak_year]}** bayi için şimdiden aksiyon alınmalı.
-                    """)
+                    <div class="robo-card">
+                    <ul class="robo-list">
+                    <li><b>En Hareketli Yıl:</b> Pazar için <b>{int(peak_year)}</b>, Bizim için <b>{int(hero_peak) if hero_peak!='Yok' else 'Yok'}</b>.</li>
+                    <li><b>Stratejik Hedef:</b> <b>{int(peak_year)}</b> yılında boşa çıkacak <b>{future_years_market[peak_year]}</b> bayi için şimdiden aksiyon alınmalı.</li>
+                    </ul>
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
                     st.info("İleri tarihli sözleşme verisi bulunamadı.")
 
@@ -1016,9 +1032,9 @@ def main():
         # Filtreleme
         df_net = create_tab_filters(df, "tab_network")
         
-        # Node Limiti Kontrolü
-        if len(df_net) > 200:
-            st.warning(f"⚠️ Seçili filtrede **{len(df_net)}** bayi var. Ağ grafiğinin performanslı çalışması için lütfen filtreleri kullanarak bayi sayısını **200'ün altına** düşürün.")
+        # Node Limiti Kontrolü (Hata 200'den 750'ye Çıkarıldı)
+        if len(df_net) > 750:
+            st.warning(f"⚠️ Seçili filtrede **{len(df_net)}** bayi var. Ağ grafiğinin performanslı çalışması için lütfen filtreleri kullanarak bayi sayısını **750'nin altına** düşürün.")
         elif df_net.empty:
             st.warning("Veri yok.")
         else:
@@ -1100,8 +1116,7 @@ def main():
 
             fig_net = go.Figure(data=[edge_trace, node_trace],
                          layout=go.Layout(
-                            title='⛓️ Bayi - Dağıtıcı İlişki Ağı',
-                            titlefont_size=16,
+                            title=dict(text='⛓️ Bayi - Dağıtıcı İlişki Ağı', font=dict(size=16)),
                             showlegend=False,
                             hovermode='closest',
                             margin=dict(b=20,l=5,r=5,t=40),
