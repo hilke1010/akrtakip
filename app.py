@@ -391,7 +391,7 @@ def main():
         "📄 İl Karnesi", 
         "🤖 Robo-Yönetici [NEW]", 
         "💸 Vergi Zincir Analizi [NEW]", 
-        "🔍 Detaylı Arama [NEW]", # GÜÇLENDİRİLMİŞ
+        "🔍 Detaylı Arama [NEW]", 
         "📋 Ham Veri"
     ])
 
@@ -541,7 +541,7 @@ def main():
                 
                 st.dataframe(table_df, use_container_width=True, hide_index=True)
         else:
-            st.warning("Veri yok.")
+            st.warning("Veritabanında 3'ten fazla istasyonu olan bir unvan bulunamadı.")
 
     # 5. ROTA PLANLAYICI
     with tabs[4]:
@@ -1098,7 +1098,13 @@ def main():
             lisans_no = row.get('Lisans No', '-') # Varsa
             
             # Adres (Yoksa oluştur)
-            adres = row.get('Adres', f"{ilce} / {il} (Tam adres verisi yok)")
+            # Adres sütunu bulma (Dinamik)
+            adres_col = 'Adres'
+            for c in df.columns:
+                if "ADRES" in c.upper():
+                    adres_col = c
+                    break
+            adres = row.get(adres_col, f"{ilce} / {il}")
             if pd.isna(adres) or str(adres) == 'nan': adres = f"{ilce} / {il}"
             
             # Vergi No
@@ -1111,7 +1117,7 @@ def main():
                     break
             
             # Tarihler
-            baslangic = row[start_col].strftime('%d.%m.%Y') if pd.notnull(row.get(start_col)) else "-"
+            baslangic = row[start_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(start_date_col)) else "-"
             bitis = row[target_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(target_date_col)) else "-"
             kalan = int(row['Kalan_Gun']) if pd.notnull(row.get('Kalan_Gun')) else 0
             
