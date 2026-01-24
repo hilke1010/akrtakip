@@ -7,15 +7,15 @@ import os
 import io
 import time
 import math
+import networkx as nx
 from datetime import datetime, timedelta, date
-import networkx as nx 
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
     page_title="EPDK Akaryakıt Pazar Analizi",
     page_icon="⛽",
     layout="wide",
-    initial_sidebar_state="collapsed" 
+    initial_sidebar_state="collapsed"
 )
 
 # --- HAVERSINE (MESAFE HESAPLAMA) FONKSİYONU ---
@@ -48,7 +48,7 @@ def show_intro_animation():
     if st.session_state['intro_played']: return
     placeholder = st.empty()
     with placeholder.container():
-       st.markdown("""
+        st.markdown("""
 <div class='insight-box-danger'>
     <div style="font-size:1.1em; font-weight:bold; margin-bottom:10px;">
         ⚠️ Kritik Yenileme Dönemleri
@@ -61,13 +61,13 @@ def show_intro_animation():
     </ul>
 </div>
 """, unsafe_allow_html=True)
-       time.sleep(1.5)
+        time.sleep(1.5)
     placeholder.empty()
     st.session_state['intro_played'] = True
 
 # --- AYARLAR VE CSS ---
-MAX_ROW_DISPLAY = 1000  
-MAX_MAP_POINTS = 50000 
+MAX_ROW_DISPLAY = 1000
+MAX_MAP_POINTS = 50000
 PREVIEW_ROW_LIMIT = 100
 SABIT_DOSYA_ADI = "asatis.xlsx"
 
@@ -86,70 +86,21 @@ st.markdown("""
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
     
-    /* --- SEKMELERİ DÜZENLEME (SIĞDIRMA AYARLARI) --- */
+    /* --- SADE KIRMIZI YANIP SÖNME EFEKTİ --- */
+    @keyframes blinker-red {
+        50% { opacity: 0.5; color: #ff2b2b; }
+    }
     
-    /* 1. Tab Konteynerı: Sığmayanları alt satıra at (Wrap) */
-    div[data-testid="stTabItemContainer"] {
-        display: flex;
-        flex-wrap: wrap; /* Taşarsa alta geç */
-        gap: 4px; /* Tablar arası boşluğu küçült */
-    }
-
-    /* 2. Tüm Tab Butonları İçin Genel Ayar (Küçültme) */
-    button[data-testid="stTab"] {
-        padding: 4px 10px !important; /* İç boşluğu daralt */
-        height: auto !important;
-        min-height: 40px !important;
-        flex: 1 1 auto; /* Esnek genişlik */
-    }
-
-    /* Tab içindeki yazı boyutu */
-    button[data-testid="stTab"] p {
-        font-size: 13px !important; /* Fontu biraz küçült ki sığsın */
-        margin: 0 !important;
-    }
-
-    /* 3. KIRMIZI GRUP ÖNCELİĞİ VE SABİT STİLİ 
-       Indexler: 4(Yarıçap), 5(Rota), 6(Robo), 7(Vergi), 8(Arama)
-    */
-    button[data-testid="stTab"]:nth-child(4),
-    button[data-testid="stTab"]:nth-child(5),
-    button[data-testid="stTab"]:nth-child(6),
-    button[data-testid="stTab"]:nth-child(7),
-    button[data-testid="stTab"]:nth-child(8) {
-        order: -1 !important; /* En başa taşı */
-        background-color: #ffebee !important; /* Çok açık kırmızı arka plan */
-        border: 1px solid #ffcdd2 !important; /* İnce kırmızı çerçeve */
-        border-radius: 6px !important;
-    }
-
-    /* Kırmızı grup içindeki yazı stili (Koyu Kırmızı ve Kalın) */
+    /* KIRMIZI GRUP: Yarıçap(4), Rota(5), Robo(6), Vergi(7), Arama(8) */
+    /* 1'den başladığı için CSS indexleri: 4,5,6,7,8 */
     button[data-testid="stTab"]:nth-child(4) p,
     button[data-testid="stTab"]:nth-child(5) p,
     button[data-testid="stTab"]:nth-child(6) p,
     button[data-testid="stTab"]:nth-child(7) p,
     button[data-testid="stTab"]:nth-child(8) p {
-        color: #c62828 !important; /* Koyu kırmızı yazı */
-        font-weight: 800 !important; /* Kalın */
-        opacity: 1 !important;
-    }
-
-    /* Seçili olduklarında stiller */
-    button[data-testid="stTab"][aria-selected="true"]:nth-child(4),
-    button[data-testid="stTab"][aria-selected="true"]:nth-child(5),
-    button[data-testid="stTab"][aria-selected="true"]:nth-child(6),
-    button[data-testid="stTab"][aria-selected="true"]:nth-child(7),
-    button[data-testid="stTab"][aria-selected="true"]:nth-child(8) {
-        background-color: #e53935 !important;
-        border-color: #b71c1c !important;
-    }
-
-    button[data-testid="stTab"][aria-selected="true"]:nth-child(4) p,
-    button[data-testid="stTab"][aria-selected="true"]:nth-child(5) p,
-    button[data-testid="stTab"][aria-selected="true"]:nth-child(6) p,
-    button[data-testid="stTab"][aria-selected="true"]:nth-child(7) p,
-    button[data-testid="stTab"][aria-selected="true"]:nth-child(8) p {
-        color: white !important;
+        color: #ff2b2b !important;
+        font-weight: 800 !important;
+        animation: blinker-red 1.5s linear infinite;
     }
 
     /* Robo Kartları (Sade Tasarım) */
@@ -336,7 +287,7 @@ def create_tab_filters(df, key_prefix):
     if sel_reg != "Tümü": filtered = filtered[filtered['İl'].isin(BOLGE_TANIMLARI[sel_reg])]
         
     with c2:
-        city_opts = sorted(filtered['İl'].unique().tolist()) if 'İlçe' in filtered.columns else []
+        city_opts = sorted(filtered['İl'].unique().tolist())
         sel_city = st.multiselect("🏢 İl", city_opts, key=f"{key_prefix}_city")
 
     if sel_city: filtered = filtered[filtered['İl'].isin(sel_city)]
@@ -417,7 +368,7 @@ def main():
         "🤖 Robo-Yönetici [NEW]",
         "💸 Vergi Zincir Analizi [NEW]", 
         "🔍 Detaylı Arama [NEW]", 
-        "🔮 Simülasyon",          
+        "🔮 Simülasyon",           
         "📅 Takvim",
         "📡 Sözleşme Radar", 
         "📍 İlçe Penetrasyonu",
