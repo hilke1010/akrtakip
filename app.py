@@ -541,7 +541,7 @@ def main():
                 
                 st.dataframe(table_df, use_container_width=True, hide_index=True)
         else:
-            st.warning("Veritabanında 3'ten fazla istasyonu olan bir unvan bulunamadı.")
+            st.warning("Veri yok.")
 
     # 5. ROTA PLANLAYICI
     with tabs[4]:
@@ -1101,7 +1101,7 @@ def main():
             # Adres sütunu bulma (Dinamik)
             adres_col = 'Adres'
             for c in df.columns:
-                if "ADRES" in c.upper():
+                if "ADRES" in c.upper().replace('İ','I'):
                     adres_col = c
                     break
             adres = row.get(adres_col, f"{ilce} / {il}")
@@ -1159,13 +1159,7 @@ def main():
             st.markdown(card_html, unsafe_allow_html=True)
             
             # Harita Butonu
-            if 'Enlem' in df.columns and pd.notnull(row.get('Enlem')):
-                 st.write("")
-                 st.markdown(f"**🗺️ Konum:** {row['Enlem']}, {row['Boylam']}")
-                 map_df = pd.DataFrame([{'lat': row['Enlem'], 'lon': row['Boylam']}])
-                 st.map(map_df, zoom=14)
-            else:
-                 st.info("⚠️ Bu bayinin harita koordinat bilgisi bulunmuyor.")
+            # Harita isteği kaldırıldı.
 
     # 14. HAM VERİ
     with tabs[13]:
