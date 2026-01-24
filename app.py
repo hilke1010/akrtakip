@@ -8,6 +8,7 @@ import io
 import time
 import math
 from datetime import datetime, timedelta, date
+# Networkx artık lazım değil ama kod yapısı bozulmasın diye importu tutuyorum, zarar gelmez.
 import networkx as nx 
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
@@ -86,33 +87,19 @@ st.markdown("""
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
     
-    /* --- SADE YANIP SÖNME EFEKTLERİ --- */
-    
-    /* Kırmızı Yanıp Sönme */
+    /* --- KIRMIZI YANIP SÖNME EFEKTİ (HEPSİ İÇİN) --- */
     @keyframes blinker-red {
         50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* Sarı Yanıp Sönme (Robo ve Zincir İçin) */
-    @keyframes blinker-yellow {
-        50% { opacity: 0.5; color: #f1c40f; }
-    }
-    
-    /* KIRMIZI GRUP: Yarıçap(4), Rota(5), Stratejik(12) */
+    /* Yarıçap(4), Rota(5), Robo(11), Vergi(12) -- Indexler kaydığı için güncellendi */
     button[data-testid="stTab"]:nth-child(4) p,
     button[data-testid="stTab"]:nth-child(5) p,
+    button[data-testid="stTab"]:nth-child(11) p,
     button[data-testid="stTab"]:nth-child(12) p {
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
-    }
-
-    /* SARI GRUP: Robo-Yönetici(13) ve Zincir Haritası(14) */
-    button[data-testid="stTab"]:nth-child(13) p,
-    button[data-testid="stTab"]:nth-child(14) p {
-        color: #f1c40f !important; /* Gold Sarısı */
-        font-weight: 800 !important;
-        animation: blinker-yellow 1.5s linear infinite;
     }
 
     /* Robo Kartları (Sade Tasarım) */
@@ -356,7 +343,7 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER (YENİ SEKME EKLENDİ) ---
+    # --- SEKMELER (GÜNCELLENDİ) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
         "⚡ Hızlı Analiz",      
@@ -368,10 +355,8 @@ def main():
         "📡 Sözleşme Radar", 
         "📍 İlçe Penetrasyonu",
         "📄 İl Karnesi", 
-        "📝 CRM",
-        "🧠 Stratejik Analiz [NEW]", 
         "🤖 Robo-Yönetici [NEW]", 
-        "💸 Vergi Zincir Haritası [NEW]", # YENİ EKLENEN
+        "💸 Vergi Zincir Analizi [NEW]", 
         "📋 Ham Veri"
     ])
 
@@ -521,7 +506,7 @@ def main():
                 
                 st.dataframe(table_df, use_container_width=True, hide_index=True)
         else:
-            st.warning("Veritabanında 3'ten fazla istasyonu olan bir unvan bulunamadı.")
+            st.warning("Veri yok.")
 
     # 5. ROTA PLANLAYICI
     with tabs[4]:
@@ -742,73 +727,8 @@ def main():
                         
                     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    # 11. CRM
+    # 11. ROBO-YÖNETİCİ (TAM DETAYLI + İL/İLÇE KALESİ + ÇİFT KALE ANALİZİ)
     with tabs[10]:
-        st.subheader("📝 CRM")
-        df_crm = create_tab_filters(df, "tab9")
-        bayi = st.selectbox("Bayi", df_crm['Unvan'].unique())
-        note = st.text_area("Not")
-        if st.button("Kaydet"):
-            ts = datetime.now().strftime("%d.%m %H:%M")
-            if bayi not in st.session_state.crm_notes: st.session_state.crm_notes[bayi] = []
-            st.session_state.crm_notes[bayi].append(f"[{ts}] {note}")
-            st.success("OK")
-        if st.session_state.crm_notes:
-            for b, n in st.session_state.crm_notes.items():
-                with st.expander(b):
-                    for i in n: st.write(i)
-
-    # 12. STRATEJİK ANALİZ (UPDATED: VERGİ NO & UNVAN ZİNCİRLERİ)
-    with tabs[11]:
-        st.subheader("🧠 Stratejik Analiz Paneli")
-        
-        st.markdown("#### 1. 🔗 Zincir Bayi Dedektifi (UNVAN Bazlı)")
-        st.info("💡 Veritabanında **10'dan fazla** istasyonu olan unvanlar otomatik olarak taranmış ve aşağıda listelenmiştir.")
-        
-        unvan_counts = df['Unvan'].value_counts()
-        chains = unvan_counts[unvan_counts > 10].index.tolist()
-        
-        if chains:
-            chain_data = df[df['Unvan'].isin(chains)].copy()
-            pivot_table = pd.pivot_table(chain_data, index='Unvan', columns='İl', values='Dağıtım Şirketi', aggfunc='count', fill_value=0)
-            pivot_table['TOPLAM'] = pivot_table.sum(axis=1)
-            pivot_table = pivot_table.sort_values('TOPLAM', ascending=False)
-            st.dataframe(pivot_table, use_container_width=True)
-        else:
-            st.warning("Veritabanında 10'dan fazla istasyonu olan bir unvan bulunamadı.")
-
-        st.markdown("---")
-        
-        st.markdown("#### 2. 🕵️ Zincir Bayi Dedektifi (VERGİ NO Bazlı)")
-        st.info("💡 Veritabanında **10'dan fazla** istasyonu olan **Vergi Numaraları** (Gizli Zincirler) taranmıştır.")
-        
-        # SÜTUNU BULMA (GELİŞMİŞ ARAMA)
-        all_cols = df.columns.tolist()
-        tax_col = None
-        for c in all_cols:
-            # Türkçe karakterleri temizleyip kontrol et
-            clean_c = c.upper().replace('İ', 'I').replace('Ğ', 'G').replace('Ü', 'U').replace('Ş', 'S').replace('Ö', 'O').replace('Ç', 'C')
-            if "VERGI" in clean_c or "VKN" in clean_c:
-                tax_col = c
-                break
-        
-        if tax_col:
-            vkn_counts = df[tax_col].value_counts()
-            big_whales = vkn_counts[vkn_counts > 10].index.tolist()
-            
-            if big_whales:
-                whale_data = df[df[tax_col].isin(big_whales)].copy()
-                pivot_vkn = pd.pivot_table(whale_data, index=tax_col, columns='İl', values='Dağıtım Şirketi', aggfunc='count', fill_value=0)
-                pivot_vkn['TOPLAM'] = pivot_vkn.sum(axis=1)
-                pivot_vkn = pivot_vkn.sort_values('TOPLAM', ascending=False)
-                st.dataframe(pivot_vkn, use_container_width=True)
-            else:
-                st.warning("10'dan fazla bayisi olan bir Vergi No grubu bulunamadı.")
-        else:
-            st.error("Veri setinde 'Vergi No' veya 'VKN' içeren bir sütun bulunamadı. Lütfen Excel dosyasını kontrol edin.")
-
-    # 13. ROBO-YÖNETİCİ (TAM DETAYLI + İL/İLÇE KALESİ + ÇİFT KALE ANALİZİ)
-    with tabs[12]:
         st.subheader("🤖 Robo-Yönetici: Stratejik İstihbarat Raporu (40+ Nokta)")
         st.info("💡 Bu rapor, seçili filtredeki pazar durumunu **GÜZEL ENERJİ AKARYAKIT A.Ş.** perspektifinden, İl ve İlçe kalelerini ayrıştırarak analiz eder.")
         
@@ -1024,10 +944,10 @@ def main():
         else:
             st.warning("Rapor oluşturmak için lütfen yukarıdan en az bir filtre seçimi yapın.")
 
-    # 14. VERGİ ZİNCİR HARİTASI (GEOSPATIAL HOLDING ANALYSIS)
-    with tabs[13]:
-        st.subheader("💸 Vergi Zincir Haritası (Holding/Grup Analizi)")
-        st.info("💡 Bu harita, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları gösterir. Her grubun merkezi ve istasyonları haritada işaretlenir.")
+    # 12. VERGİ ZİNCİR ANALİZİ (TABLO MODU)
+    with tabs[11]:
+        st.subheader("💸 Vergi Zincir Analizi (Holding/Grup Tablosu)")
+        st.info("💡 Bu bölüm, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları listeler.")
         
         df_chain = create_tab_filters(df, "tab_tax_chain")
         
@@ -1043,8 +963,7 @@ def main():
                 break
         
         if tax_col_name and not df_chain.empty:
-            # 1. VERİ TEMİZLİĞİ: Vergi Numarasını Metne Çevir (Noktalı formatı temizle)
-            # Eğer 630407475.0 gibi okunduysa, .0 kısmını atıp metin yapalım
+            # 1. VERİ TEMİZLİĞİ
             df_chain[tax_col_name] = df_chain[tax_col_name].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
 
             # 2. SADECE 8'DEN FAZLA İSTASYONU OLANLARI FİLTRELE
@@ -1054,113 +973,39 @@ def main():
             if not big_bosses:
                 st.warning("⚠️ Seçilen filtrede **8'den fazla** istasyona sahip bir Vergi Grubu bulunamadı.")
             else:
-                # Harita Verilerini Hazırla
-                chain_map_data = []
-                line_data = []
+                # --- ÖZET TABLO OLUŞTURMA (GROUPBY) ---
+                st.markdown("### 🏆 Grup Liderleri (Özet)")
                 
-                # Detaylı tablo için liste
-                detailed_list = []
+                summary_df = df_chain[df_chain[tax_col_name].isin(big_bosses)].groupby(tax_col_name).agg(
+                    Toplam_İstasyon=('Unvan', 'count'),
+                    En_Çok_Bulunan_İl=('İl', lambda x: x.mode()[0] if not x.mode().empty else '-')
+                ).reset_index().sort_values('Toplam_İstasyon', ascending=False)
+                
+                # Sütun isimlerini düzeltelim
+                summary_df.columns = ['Vergi No / Grup', 'Toplam İstasyon Sayısı', 'En Yoğun Olduğu İl']
+                st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
-                for boss in big_bosses:
-                    group_df = df_chain[df_chain[tax_col_name] == boss]
-                    
-                    # Merkez (Ortalama Koordinat) Hesapla (DİNAMİK KOLON İSİMLERİYLE)
-                    # Ana fonksiyondaki lat_col/lon_col kullanılıyor (Simülasyon varsa o gelir)
-                    if lat_col in group_df.columns and lon_col in group_df.columns:
-                        # Geçerli koordinatları al
-                        valid_coords = group_df.dropna(subset=[lat_col, lon_col])
-                        
-                        if not valid_coords.empty:
-                            center_lat = valid_coords[lat_col].mean()
-                            center_lon = valid_coords[lon_col].mean()
-                            
-                            # Grup Adı
-                            group_name = f"GRUP {boss}" 
-                            
-                            # Merkez Noktası Ekle
-                            chain_map_data.append({
-                                'lat': center_lat,
-                                'lon': center_lon,
-                                'type': 'MERKEZ',
-                                'name': f"👑 {group_name}",
-                                'desc': f"Toplam {len(group_df)} İstasyon",
-                                'color': 'red',
-                                'size': 20
-                            })
-                            
-                            # İstasyonları Ekle ve Çizgi Çek
-                            for idx, row in valid_coords.iterrows():
-                                # İstasyon Noktası
-                                chain_map_data.append({
-                                    'lat': row[lat_col],
-                                    'lon': row[lon_col],
-                                    'type': 'İSTASYON',
-                                    'name': row['Unvan'],
-                                    'desc': f"{row['Dağıtım Şirketi']} - {row['İl']}",
-                                    'color': 'blue',
-                                    'size': 10
-                                })
-                                
-                                # Çizgi (Merkez -> İstasyon)
-                                line_data.append(go.Scattermapbox(
-                                    mode="lines",
-                                    lon=[center_lon, row[lon_col]],
-                                    lat=[center_lat, row[lat_col]],
-                                    line=dict(width=1, color='gray'),
-                                    hoverinfo='none'
-                                ))
-                                
-                                # Tablo verisi
-                                detailed_list.append({
-                                    'Vergi No / Grup': boss,
-                                    'Unvan': row['Unvan'],
-                                    'Dağıtıcı': row['Dağıtım Şirketi'],
-                                    'İl': row['İl'],
-                                    'İlçe': row['İlçe']
-                                })
+                st.markdown("---")
 
-                # --- HARİTA ÇİZİMİ ---
-                if chain_map_data:
-                    map_df = pd.DataFrame(chain_map_data)
-                    
-                    # Noktalar (Merkez ve İstasyonlar)
-                    scatter_trace = go.Scattermapbox(
-                        lat=map_df['lat'],
-                        lon=map_df['lon'],
-                        mode='markers+text',
-                        marker=go.scattermapbox.Marker(
-                            size=map_df['size'],
-                            color=map_df['color']
-                        ),
-                        text=map_df['name'], # İsimleri göster
-                        textposition="top right",
-                        hovertext=map_df['desc']
-                    )
-                    
-                    # Harita Layout
-                    layout = go.Layout(
-                        mapbox_style="open-street-map",
-                        margin={"r":0,"t":0,"l":0,"b":0},
-                        showlegend=False,
-                        mapbox=dict(
-                            center=dict(lat=39.0, lon=35.0), # Türkiye Ortası
-                            zoom=5
-                        )
-                    )
-                    
-                    fig = go.Figure(data=line_data + [scatter_trace], layout=layout)
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    # --- MATRİKS TABLO ---
-                    st.markdown("### 📋 Grup Detay Matriksi")
-                    st.info("Aşağıdaki tabloda, haritada gösterilen 8+ istasyonlu grupların detayları yer almaktadır.")
-                    
-                    matrix_df = pd.DataFrame(detailed_list)
-                    # Gruplama yaparak gösterelim
-                    st.dataframe(matrix_df, use_container_width=True)
-                    
-                else:
-                    st.warning("Seçilen gruplar için geçerli koordinat verisi bulunamadı.")
+                # --- DETAYLI MATRİKS TABLO ---
+                st.markdown("### 📋 Tüm Grup Detayları (Matrix)")
+                
+                # Sadece büyük patronların verisini alalım
+                matrix_data = df_chain[df_chain[tax_col_name].isin(big_bosses)].copy()
+                
+                # İhtiyacımız olan sütunları seçelim
+                display_cols_matrix = [tax_col_name, 'Unvan', 'Dağıtım Şirketi', 'İl', 'İlçe', target_date_col]
+                # Varsa listeye ekle
+                final_matrix_cols = [c for c in display_cols_matrix if c in matrix_data.columns]
+                
+                matrix_df = matrix_data[final_matrix_cols].sort_values([tax_col_name, 'İl'])
+                
+                # Tarih formatı düzeltme
+                if target_date_col in matrix_df.columns:
+                     try: matrix_df[target_date_col] = pd.to_datetime(matrix_df[target_date_col]).dt.strftime('%d.%m.%Y')
+                     except: pass
+                
+                st.dataframe(matrix_df, use_container_width=True, hide_index=True)
                     
         else:
             if not tax_col_name:
@@ -1168,8 +1013,8 @@ def main():
             else:
                 st.warning("Veri yok.")
 
-    # 15. HAM VERİ
-    with tabs[14]:
+    # 13. HAM VERİ
+    with tabs[12]:
         st.subheader("📋 Ham Veri")
         df_raw = create_tab_filters(df, "tab10")
         buffer = io.BytesIO()
