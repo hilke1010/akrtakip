@@ -85,47 +85,50 @@ st.markdown("""
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
     
-    /* --- TAB BAŞLIKLARI İÇİN ÖZEL ANİMASYON (NEON YEŞİL & RENKLİ) --- */
-    @keyframes neon-pulse {
-        0% { color: #00ff00; text-shadow: 0 0 5px #00ff00; transform: scale(1); }
-        50% { color: #adff2f; text-shadow: 0 0 20px #00ff00, 0 0 10px #ffff00; transform: scale(1.05); }
-        100% { color: #00ff00; text-shadow: 0 0 5px #00ff00; transform: scale(1); }
+    /* --- SADE YANIP SÖNME EFEKTLERİ --- */
+    
+    /* Kırmızı Yanıp Sönme */
+    @keyframes blinker-red {
+        50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* Sadece [NEW] olan Tabların Başlıklarını Hedefle */
-    /* 4: Yarıçap, 5: Rota, 12: Stratejik, 13: Robo-Yönetici */
+    /* Sarı Yanıp Sönme (Robo İçin) */
+    @keyframes blinker-yellow {
+        50% { opacity: 0.5; color: #f1c40f; }
+    }
+    
+    /* KIRMIZI GRUP: Yarıçap(4), Rota(5), Stratejik(12) */
     button[data-testid="stTab"]:nth-child(4) p,
     button[data-testid="stTab"]:nth-child(5) p,
-    button[data-testid="stTab"]:nth-child(12) p,
-    button[data-testid="stTab"]:nth-child(13) p {
-        font-weight: 900 !important;
-        font-size: 1.1em !important;
-        animation: neon-pulse 1.2s infinite alternate !important;
+    button[data-testid="stTab"]:nth-child(12) p {
+        color: #ff2b2b !important;
+        font-weight: 800 !important;
+        animation: blinker-red 1.5s linear infinite;
     }
 
-    /* --- ROBO YÖNETİCİ KART TASARIMI --- */
-    .robo-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%);
-        border: 2px solid #2ecc71; /* Yeşil Kenarlık */
-        border-radius: 15px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        transition: transform 0.3s;
+    /* SARI GRUP: Robo-Yönetici(13) */
+    button[data-testid="stTab"]:nth-child(13) p {
+        color: #f1c40f !important; /* Gold Sarısı */
+        font-weight: 800 !important;
+        animation: blinker-yellow 1.5s linear infinite;
     }
-    .robo-card:hover { transform: scale(1.02); }
+
+    /* Robo Kartları (Sade Tasarım) */
+    .robo-card {
+        background-color: #f9f9f9;
+        border-left: 5px solid #3498db;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+    }
     .robo-header {
-        font-size: 1.4em; font-weight: 900; margin-bottom: 15px;
-        text-transform: uppercase; border-bottom: 2px solid #ddd; padding-bottom: 10px;
-        color: #27ae60;
+        font-size: 1.2em; font-weight: bold; margin-bottom: 10px; color: #2c3e50;
+        border-bottom: 1px solid #eee; padding-bottom: 5px;
     }
     .robo-list { list-style-type: none; padding: 0; margin: 0; }
-    .robo-list li {
-        margin-bottom: 10px; font-size: 1.05em; padding-left: 10px;
-        border-left: 4px solid #ddd;
-    }
-    .robo-list li:hover { border-left-color: #e67e22; background-color: #fff8e1; }
-    .robo-highlight { font-weight: bold; color: #c0392b; }
+    .robo-list li { margin-bottom: 8px; font-size: 1em; padding-left: 10px; border-left: 3px solid #eee; }
+    .robo-highlight { font-weight: bold; color: #d35400; }
 </style>
 """, unsafe_allow_html=True)
 
