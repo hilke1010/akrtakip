@@ -86,17 +86,30 @@ st.markdown("""
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
     
-    /* --- SEKMELERİ DÜZENLEME (FLEX & STATIC HIGHLIGHT) --- */
+    /* --- SEKMELERİ DÜZENLEME (SIĞDIRMA AYARLARI) --- */
     
-    /* 1. Sekmeleri Sığdırma (Alt satıra geçebilsinler) */
+    /* 1. Tab Konteynerı: Sığmayanları alt satıra at (Wrap) */
     div[data-testid="stTabItemContainer"] {
         display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
+        flex-wrap: wrap; /* Taşarsa alta geç */
+        gap: 4px; /* Tablar arası boşluğu küçült */
     }
 
-    /* 2. KIRMIZI GRUP ÖNCELİĞİ VE SABİT STİLİ 
-       Animasyon yok, sadece net bir vurgu var.
+    /* 2. Tüm Tab Butonları İçin Genel Ayar (Küçültme) */
+    button[data-testid="stTab"] {
+        padding: 4px 10px !important; /* İç boşluğu daralt */
+        height: auto !important;
+        min-height: 40px !important;
+        flex: 1 1 auto; /* Esnek genişlik */
+    }
+
+    /* Tab içindeki yazı boyutu */
+    button[data-testid="stTab"] p {
+        font-size: 13px !important; /* Fontu biraz küçült ki sığsın */
+        margin: 0 !important;
+    }
+
+    /* 3. KIRMIZI GRUP ÖNCELİĞİ VE SABİT STİLİ 
        Indexler: 4(Yarıçap), 5(Rota), 6(Robo), 7(Vergi), 8(Arama)
     */
     button[data-testid="stTab"]:nth-child(4),
@@ -108,7 +121,6 @@ st.markdown("""
         background-color: #ffebee !important; /* Çok açık kırmızı arka plan */
         border: 1px solid #ffcdd2 !important; /* İnce kırmızı çerçeve */
         border-radius: 6px !important;
-        margin-bottom: 4px !important;
     }
 
     /* Kırmızı grup içindeki yazı stili (Koyu Kırmızı ve Kalın) */
@@ -118,17 +130,17 @@ st.markdown("""
     button[data-testid="stTab"]:nth-child(7) p,
     button[data-testid="stTab"]:nth-child(8) p {
         color: #c62828 !important; /* Koyu kırmızı yazı */
-        font-weight: 900 !important; /* Ekstra kalın */
-        opacity: 1 !important; /* Yanıp sönme yok, net görüntü */
+        font-weight: 800 !important; /* Kalın */
+        opacity: 1 !important;
     }
 
-    /* Seçili olduklarında daha belirgin olsunlar */
+    /* Seçili olduklarında stiller */
     button[data-testid="stTab"][aria-selected="true"]:nth-child(4),
     button[data-testid="stTab"][aria-selected="true"]:nth-child(5),
     button[data-testid="stTab"][aria-selected="true"]:nth-child(6),
     button[data-testid="stTab"][aria-selected="true"]:nth-child(7),
     button[data-testid="stTab"][aria-selected="true"]:nth-child(8) {
-        background-color: #e53935 !important; /* Seçilince tam kırmızı ol */
+        background-color: #e53935 !important;
         border-color: #b71c1c !important;
     }
 
@@ -137,7 +149,7 @@ st.markdown("""
     button[data-testid="stTab"][aria-selected="true"]:nth-child(6) p,
     button[data-testid="stTab"][aria-selected="true"]:nth-child(7) p,
     button[data-testid="stTab"][aria-selected="true"]:nth-child(8) p {
-        color: white !important; /* Seçilince yazı beyaz olsun */
+        color: white !important;
     }
 
     /* Robo Kartları (Sade Tasarım) */
