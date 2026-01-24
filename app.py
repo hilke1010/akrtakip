@@ -129,6 +129,29 @@ st.markdown("""
     .robo-list { list-style-type: none; padding: 0; margin: 0; }
     .robo-list li { margin-bottom: 8px; font-size: 1em; padding-left: 10px; border-left: 3px solid #eee; }
     .robo-highlight { font-weight: bold; color: #d35400; }
+
+    /* --- YENİ BAYİ KİMLİK KARTI TASARIMI --- */
+    .dealer-card {
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        font-family: sans-serif;
+    }
+    .dealer-header {
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+    }
+    .dealer-title { font-size: 1.5em; font-weight: bold; color: #2c3e50; }
+    .dealer-badge { 
+        background-color: #3498db; color: white; padding: 4px 8px; 
+        border-radius: 4px; font-size: 0.8em; font-weight: bold; vertical-align: middle;
+    }
+    .dealer-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dotted #eee; padding-bottom: 5px; }
+    .dealer-label { font-weight: bold; color: #7f8c8d; width: 140px; }
+    .dealer-value { color: #2c3e50; font-weight: 500; text-align: right; width: 100%; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -959,7 +982,7 @@ def main():
     # 12. VERGİ ZİNCİR HARİTASI (GEOSPATIAL HOLDING ANALYSIS)
     with tabs[11]:
         st.subheader("💸 Vergi Zincir Haritası (Holding/Grup Analizi)")
-        st.info("💡 Bu harita, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları gösterir. Her grubun merkezi ve istasyonları haritada işaretlenir.")
+        st.info("💡 Bu ekran, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları listeler.")
         
         df_chain = create_tab_filters(df, "tab_tax_chain")
         
@@ -976,7 +999,6 @@ def main():
         
         if tax_col_name and not df_chain.empty:
             # 1. VERİ TEMİZLİĞİ: Vergi Numarasını Metne Çevir (Noktalı formatı temizle)
-            # Eğer 630407475.0 gibi okunduysa, .0 kısmını atıp metin yapalım
             df_chain[tax_col_name] = df_chain[tax_col_name].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
 
             # 2. SADECE 8'DEN FAZLA İSTASYONU OLANLARI FİLTRELE
@@ -1038,96 +1060,106 @@ def main():
 
     # 13. DETAYLI ARAMA (CANLI ARAMA + 360 DERECE BAYİ ANALİZİ)
     with tabs[12]:
-        st.subheader("🔍 Detaylı Arama & Bayi Röntgeni")
-        st.info("💡 Aşağıdaki kutuya bayi adını yazmaya başlayın, sistem otomatik tamamlasın. Seçim yapınca detaylı analiz (KPI) kartları açılır.")
+        st.subheader("🔍 Detaylı Arama & Bayi Kimlik Kartı")
+        st.info("💡 Aşağıdaki kutudan bayi seçimi yapın, sistem tüm bilgileri sizin için derlesin.")
         
-        # 1. CANLI ARAMA KUTUSU (SELECTBOX ile Autocomplete Hissi)
-        # Tüm olası arama terimlerini (Unvan, İl, İlçe) tek listede toplayalım
-        search_source = df['Unvan'].dropna().unique().tolist()
+        # 1. AKILLI ARAMA LİSTESİ OLUŞTURMA
+        # Unvan + İl/İlçe + Dağıtıcı bilgisini birleştirip tek bir "Etiket" yapıyoruz.
+        # Böylece aynı isimdeki bayiler karışmaz.
         
-        # Arama kutusu
-        selected_station = st.selectbox(
-            "🔎 Bayi Adı Ara:",
-            options=[""] + search_source, # Boş seçenek ekle
+        # Geçici bir sütun oluşturalım (Sadece bu sekme için)
+        if 'Dağıtım Şirketi' in df.columns:
+            dist_col = 'Dağıtım Şirketi'
+        else:
+            dist_col = df.columns[0] # Fallback
+            
+        df['Arama_Etiketi'] = df['Unvan'].astype(str) + " | " + df['İl'].astype(str) + " - " + df.get('İlçe', '').astype(str) + " (" + df[dist_col].astype(str) + ")"
+        
+        search_options = sorted(df['Arama_Etiketi'].unique().tolist())
+        
+        # Arama kutusu (Selectbox - Autocomplete özellikli)
+        selected_label = st.selectbox(
+            "🔎 Bayi Seçin (Yazmaya başlayın...):",
+            options=[""] + search_options, # Boş seçenek ekle
             index=0,
-            placeholder="Yazmaya başlayın... (Örn: YILDIZ PETROL)"
+            placeholder="Örn: YILDIZ PETROL"
         )
         
-        # 2. BAYİ RÖNTGENİ (SEÇİM YAPILINCA ÇALIŞIR)
-        if selected_station:
-            # Seçilen bayinin verisini çek
-            bayi_data = df[df['Unvan'] == selected_station].iloc[0]
+        # 2. BAYİ KİMLİK KARTI (SEÇİM YAPILINCA ÇALIŞIR)
+        if selected_label:
+            # Seçilen bayinin satırını bul
+            row = df[df['Arama_Etiketi'] == selected_label].iloc[0]
             
-            st.divider()
-            st.markdown(f"### 🏥 Bayi Karnesi: {selected_station}")
+            # Verileri Çek
+            unvan = row['Unvan']
+            dagitici = row.get('Dağıtım Şirketi', '-')
+            il = row.get('İl', '-')
+            ilce = row.get('İlçe', '-')
+            lisans_no = row.get('Lisans No', '-') # Varsa
             
-            # --- KPI HESAPLAMALARI ---
+            # Adres (Yoksa oluştur)
+            adres = row.get('Adres', f"{ilce} / {il} (Tam adres verisi yok)")
+            if pd.isna(adres) or str(adres) == 'nan': adres = f"{ilce} / {il}"
             
-            # Temel Bilgiler
-            il = bayi_data.get('İl', '-')
-            ilce = bayi_data.get('İlçe', '-')
-            dagitici = bayi_data.get('Dağıtım Şirketi', '-')
+            # Vergi No
+            vergi_no = '-'
+            # Vergi sütunu bulma mantığını burda da kullanalım
+            cols_upper = [c.upper().replace('İ','I') for c in df.columns]
+            for c in df.columns:
+                if "VERGI" in c.upper().replace('İ','I') or "VKN" in c.upper():
+                    vergi_no = row[c]
+                    break
             
-            # İlçe Analizi
-            ilce_total = len(df[(df['İl'] == il) & (df['İlçe'] == ilce)])
-            ilce_siralama = "Veri Yok"
+            # Tarihler
+            baslangic = row[start_col].strftime('%d.%m.%Y') if pd.notnull(row.get(start_col)) else "-"
+            bitis = row[target_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(target_date_col)) else "-"
+            kalan = int(row['Kalan_Gun']) if pd.notnull(row.get('Kalan_Gun')) else 0
             
-            # Tarih/Süre Analizi
-            kalan_gun = int(bayi_data['Kalan_Gun']) if 'Kalan_Gun' in df.columns and pd.notnull(bayi_data['Kalan_Gun']) else 0
-            bitis_tarihi = bayi_data[target_date_col].strftime('%d.%m.%Y') if pd.notnull(bayi_data.get(target_date_col)) else "-"
+            # HTML Kart Tasarımı
+            card_html = f"""
+            <div class="dealer-card">
+                <div class="dealer-header">
+                    <div class="dealer-title">⛽ {unvan}</div>
+                    <div style="color: #7f8c8d; font-size: 0.9em; margin-top: 5px;">
+                        <span class="dealer-badge">{dagitici}</span> &nbsp; {il} / {ilce}
+                    </div>
+                </div>
+                
+                <div class="dealer-row">
+                    <span class="dealer-label">📍 Adres:</span>
+                    <span class="dealer-value">{adres}</span>
+                </div>
+                <div class="dealer-row">
+                    <span class="dealer-label">🆔 Vergi / TC No:</span>
+                    <span class="dealer-value">{vergi_no}</span>
+                </div>
+                <div class="dealer-row">
+                    <span class="dealer-label">📅 Sözleşme Başlangıç:</span>
+                    <span class="dealer-value">{baslangic}</span>
+                </div>
+                <div class="dealer-row">
+                    <span class="dealer-label">⏳ Sözleşme Bitiş:</span>
+                    <span class="dealer-value" style="color: {'red' if kalan < 90 else 'green'}; font-weight: bold;">
+                        {bitis} ({kalan} Gün Kaldı)
+                    </span>
+                </div>
+                 <div class="dealer-row" style="border-bottom: none;">
+                    <span class="dealer-label">📜 Lisans Durumu:</span>
+                    <span class="dealer-value">AKTİF</span>
+                </div>
+            </div>
+            """
             
-            # Rekabet Analizi (Mesafe Varsa)
-            en_yakin_rakip = "Konum Yok"
-            rakip_mesafe = "Bilinmiyor"
+            st.markdown(card_html, unsafe_allow_html=True)
             
-            if 'Enlem' in df.columns and pd.notnull(bayi_data.get('Enlem')):
-                # Kendisi hariç diğerleri
-                others = df[df.index != bayi_data.name].copy()
-                others['dist'] = others.apply(lambda r: haversine(bayi_data['Enlem'], bayi_data['Boylam'], r['Enlem'], r['Boylam']), axis=1)
-                nearest = others.sort_values('dist').iloc[0]
-                en_yakin_rakip = nearest['Dağıtım Şirketi']
-                rakip_mesafe = f"{nearest['dist']:.2f} km"
-
-            # Bölge Lideri
-            bolge_df = df[(df['İl'] == il) & (df['İlçe'] == ilce)]
-            lider_marka = bolge_df['Dağıtım Şirketi'].value_counts().idxmax() if not bolge_df.empty else "-"
-            
-            # --- KPI KARTLARI (3x5 = 15 TANE) ---
-            
-            k1, k2, k3, k4, k5 = st.columns(5)
-            k1.metric("📍 İl / İlçe", f"{il}", f"{ilce}")
-            k2.metric("⛽ Dağıtıcı", f"{dagitici}")
-            k3.metric("📅 Bitiş Tarihi", f"{bitis_tarihi}")
-            k4.metric("⏳ Kalan Gün", f"{kalan_gun}", delta_color="inverse" if kalan_gun < 90 else "normal")
-            k5.metric("🏙️ İlçe Toplam Bayi", ilce_total)
-            
-            st.write("") # Boşluk
-            
-            k6, k7, k8, k9, k10 = st.columns(5)
-            k6.metric("⚔️ En Yakın Rakip", en_yakin_rakip)
-            k7.metric("📏 Rakip Mesafe", rakip_mesafe)
-            k8.metric("👑 İlçe Lideri", lider_marka)
-            k9.metric("📊 İlçedeki Payı", f"%{(1/ilce_total*100):.1f}" if ilce_total > 0 else "-")
-            k10.metric("🏢 Şehir Sıralaması", "İlk 50" if ilce_total > 50 else "Butik") # Dummy logic
-            
-            st.write("") # Boşluk
-            
-            k11, k12, k13, k14, k15 = st.columns(5)
-            k11.metric("🚦 Risk Durumu", "YÜKSEK" if kalan_gun < 90 else "NORMAL")
-            k12.metric("📈 Pazar Trendi", "Doygun" if ilce_total > 20 else "Fırsat")
-            k13.metric("🗺️ Koordinat", "VAR" if rakip_mesafe != "Bilinmiyor" else "YOK")
-            k14.metric("🆔 Vergi No", str(bayi_data.get('Vergi No', '-'))[:10])
-            k15.metric("🔎 Veri Kaynağı", "EPDK Lisans")
-
-            # Haritada Göster (Varsa)
-            if rakip_mesafe != "Bilinmiyor":
-                st.markdown("##### 🗺️ Konum")
-                map_df = pd.DataFrame([
-                    {'lat': bayi_data['Enlem'], 'lon': bayi_data['Boylam'], 'color': 'blue', 'size': 15}
-                ])
-                st.map(map_df, color='color', size='size')
+            # Harita Butonu
+            if 'Enlem' in df.columns and pd.notnull(row.get('Enlem')):
+                 st.write("")
+                 st.markdown(f"**🗺️ Konum:** {row['Enlem']}, {row['Boylam']}")
+                 map_df = pd.DataFrame([{'lat': row['Enlem'], 'lon': row['Boylam']}])
+                 st.map(map_df, zoom=14)
             else:
-                st.warning("⚠️ Bu bayinin koordinat verisi eksik olduğu için harita gösterilemiyor.")
+                 st.info("⚠️ Bu bayinin harita koordinat bilgisi bulunmuyor.")
 
     # 14. HAM VERİ
     with tabs[13]:
