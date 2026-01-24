@@ -91,45 +91,51 @@ st.markdown("""
         50% { opacity: 0.5; color: #ff2b2b; }
     }
 
-    /* --- SEKME YERLEŞİMİ (ZORLA SARMA - WRAP) --- */
-    /* Sekmelerin bulunduğu ana kapsayıcıyı seç ve sığmayanları aşağı at */
+    /* --- SEKME YERLEŞİMİ (SİHİRLİ DOKUNUŞ) --- */
+    /* Sekmeleri sarmala (Wrap) ve ortala */
     div[data-testid="stTabs"] > div {
-        flex-wrap: wrap !important; 
-        justify-content: center !important; /* Ortala */
-        gap: 8px !important; /* Sekmeler arası boşluk */
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+        gap: 5px !important;
     }
 
-    /* GENEL BUTON AYARI */
+    /* Genel Tab Butonu Ayarı */
     button[data-testid="stTab"] {
-        flex: 1 0 auto !important; /* Esnek genişlik */
-        min-width: 100px !important;
-        padding: 5px 10px !important;
+        flex: 1 1 auto !important; /* Esnek genişlik */
+        min-width: 120px !important;
+        padding: 8px 12px !important;
     }
-
-    /* --- ÜST KAT: YENİLER (İLK 5 SEKME) --- */
-    button[data-testid="stTab"]:nth-child(-n+5) {
-        border-top: 4px solid #ff2b2b !important; /* Kırmızı Çizgi */
-        background-color: #fff0f0 !important; /* Hafif kırmızı fon */
-        order: 1; /* Sıralamada en başta */
-        margin-bottom: 10px !important; /* Alt katla araya mesafe koy */
-        transform: translateY(-2px); /* Hafif yukarı kalkık */
-        box-shadow: 0 2px 4px rgba(255,0,0,0.15); /* Gölge efekti */
-    }
-
+    
+    /* KIRMIZI GRUP (YENİLER - İLK 5 SEKME) */
+    /* 1'den başladığı için CSS indexleri: 1,2,3,4,5 */
+    /* Yarıçap(1), Rota(2), Robo(3), Vergi(4), Arama(5) */
+    
+    /* Metin Rengi ve Animasyon */
     button[data-testid="stTab"]:nth-child(-n+5) p {
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
     }
 
-    /* --- ALT KAT: ESKİLER (6. VE SONRASI) --- */
-    button[data-testid="stTab"]:nth-child(n+6) {
-        order: 2; /* Sıralamada sonra */
-        border-top: 3px solid #95a5a6 !important; /* Gri Çizgi */
-        background-color: #f8f9fa !important;
+    /* Kutu Stili (Yukarı Kalkık ve Kırmızı Çizgili) */
+    button[data-testid="stTab"]:nth-child(-n+5) {
+        border-top: 4px solid #ff2b2b !important;
+        background-color: #fff5f5 !important; /* Hafif kırmızımsı arka plan */
+        transform: translateY(-5px) !important; /* 5px Yukarı kaldır */
+        z-index: 10 !important; /* Üstte dursun */
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
+        border-radius: 5px 5px 0 0 !important;
     }
 
-    /* KART TASARIMLARI */
+    /* ESKİLER (6. VE SONRASI) */
+    /* Biraz daha sönük ve aşağıda */
+    button[data-testid="stTab"]:nth-child(n+6) {
+        border-top: 3px solid #bdc3c7 !important; /* Gri Çizgi */
+        background-color: #f8f9fa !important;
+        opacity: 0.95;
+    }
+
+    /* Robo Kartları (Sade Tasarım) */
     .dealer-card, .robo-card {
         background: white;
         border: 2px solid #e0e0e0;
@@ -1010,7 +1016,7 @@ def main():
             total_stations = len(city_df)
             st.metric("🏙️ Toplam Pazar", total_stations)
             st.dataframe(city_df, use_container_width=True)
-
+            
     # 14. HAM VERİ (TAB GÖRÜNÜMÜNDEN ÇIKARILDI AMA KODDA DURUYOR Kİ HATA VERMESİN)
     with tabs[13]:
          st.subheader("📋 Ham Veri")
