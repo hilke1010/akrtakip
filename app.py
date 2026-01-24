@@ -8,7 +8,6 @@ import io
 import time
 import math
 from datetime import datetime, timedelta, date
-# Networkx artık lazım değil ama kod yapısı bozulmasın diye importu tutuyorum, zarar gelmez.
 import networkx as nx 
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
@@ -87,12 +86,12 @@ st.markdown("""
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
     
-    /* --- KIRMIZI YANIP SÖNME EFEKTİ (HEPSİ İÇİN) --- */
+    /* --- SADE KIRMIZI YANIP SÖNME EFEKTİ --- */
     @keyframes blinker-red {
         50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* Yarıçap(4), Rota(5), Robo(11), Vergi(12) -- Indexler kaydığı için güncellendi */
+    /* Yarıçap(4), Rota(5), Robo(11), Vergi(12) */
     button[data-testid="stTab"]:nth-child(4) p,
     button[data-testid="stTab"]:nth-child(5) p,
     button[data-testid="stTab"]:nth-child(11) p,
@@ -356,7 +355,7 @@ def main():
         "📍 İlçe Penetrasyonu",
         "📄 İl Karnesi", 
         "🤖 Robo-Yönetici [NEW]", 
-        "💸 Vergi Zincir Analizi [NEW]", 
+        "💸 Vergi Zincir Haritası [NEW]", 
         "📋 Ham Veri"
     ])
 
@@ -944,10 +943,10 @@ def main():
         else:
             st.warning("Rapor oluşturmak için lütfen yukarıdan en az bir filtre seçimi yapın.")
 
-    # 12. VERGİ ZİNCİR ANALİZİ (TABLO MODU)
+    # 12. VERGİ ZİNCİR HARİTASI (GEOSPATIAL HOLDING ANALYSIS)
     with tabs[11]:
-        st.subheader("💸 Vergi Zincir Analizi (Holding/Grup Tablosu)")
-        st.info("💡 Bu bölüm, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları listeler.")
+        st.subheader("💸 Vergi Zincir Haritası (Holding/Grup Analizi)")
+        st.info("💡 Bu ekran, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları listeler.")
         
         df_chain = create_tab_filters(df, "tab_tax_chain")
         
@@ -963,7 +962,7 @@ def main():
                 break
         
         if tax_col_name and not df_chain.empty:
-            # 1. VERİ TEMİZLİĞİ
+            # 1. VERİ TEMİZLİĞİ: Vergi Numarasını Metne Çevir (Noktalı formatı temizle)
             df_chain[tax_col_name] = df_chain[tax_col_name].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
 
             # 2. SADECE 8'DEN FAZLA İSTASYONU OLANLARI FİLTRELE
@@ -976,36 +975,46 @@ def main():
                 # --- ÖZET TABLO OLUŞTURMA (GROUPBY) ---
                 st.markdown("### 🏆 Grup Liderleri (Özet)")
                 
+                # Aggregation logic: Add 'Ana_Unvan'
                 summary_df = df_chain[df_chain[tax_col_name].isin(big_bosses)].groupby(tax_col_name).agg(
+                    Ana_Unvan=('Unvan', lambda x: x.mode()[0] if not x.mode().empty else x.iloc[0]), # En çok geçen unvanı al
                     Toplam_İstasyon=('Unvan', 'count'),
                     En_Çok_Bulunan_İl=('İl', lambda x: x.mode()[0] if not x.mode().empty else '-')
                 ).reset_index().sort_values('Toplam_İstasyon', ascending=False)
+
+                # Sütun isimlerini ve sırasını düzeltelim
+                summary_df = summary_df[[tax_col_name, 'Ana_Unvan', 'Toplam_İstasyon', 'En_Çok_Bulunan_İl']] # Sıralama
+                summary_df.columns = ['Vergi No / Grup', 'Ana Firma Unvanı (Temsili)', 'Toplam İstasyon', 'En Yoğun İl']
                 
-                # Sütun isimlerini düzeltelim
-                summary_df.columns = ['Vergi No / Grup', 'Toplam İstasyon Sayısı', 'En Yoğun Olduğu İl']
                 st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
                 st.markdown("---")
 
-                # --- DETAYLI MATRİKS TABLO ---
-                st.markdown("### 📋 Tüm Grup Detayları (Matrix)")
+                # --- DETAYLI LİSTE (EXPANDER İLE) ---
+                st.markdown("### 📂 Grup Detayları (Tıklayıp Açınız)")
                 
-                # Sadece büyük patronların verisini alalım
+                # Bu kısım kullanıcının "içine tıklayınca görsün" isteğini karşılar
                 matrix_data = df_chain[df_chain[tax_col_name].isin(big_bosses)].copy()
                 
-                # İhtiyacımız olan sütunları seçelim
-                display_cols_matrix = [tax_col_name, 'Unvan', 'Dağıtım Şirketi', 'İl', 'İlçe', target_date_col]
-                # Varsa listeye ekle
-                final_matrix_cols = [c for c in display_cols_matrix if c in matrix_data.columns]
-                
-                matrix_df = matrix_data[final_matrix_cols].sort_values([tax_col_name, 'İl'])
-                
-                # Tarih formatı düzeltme
-                if target_date_col in matrix_df.columns:
-                     try: matrix_df[target_date_col] = pd.to_datetime(matrix_df[target_date_col]).dt.strftime('%d.%m.%Y')
-                     except: pass
-                
-                st.dataframe(matrix_df, use_container_width=True, hide_index=True)
+                # Sırayla her patron için bir kutu açalım
+                for index, row in summary_df.iterrows():
+                    vkn = row['Vergi No / Grup']
+                    unvan = row['Ana Firma Unvanı (Temsili)']
+                    count = row['Toplam İstasyon']
+                    
+                    with st.expander(f"🔻 {vkn} - {unvan} ({count} İstasyon)"):
+                        # O gruba ait veriyi süz
+                        sub_df = matrix_data[matrix_data[tax_col_name] == vkn]
+                        # Gösterilecek kolonlar
+                        disp_cols = ['Unvan', 'Dağıtım Şirketi', 'İl', 'İlçe', target_date_col]
+                        final_cols = [c for c in disp_cols if c in sub_df.columns]
+                        
+                        # Tarih düzeltme
+                        if target_date_col in sub_df.columns:
+                             try: sub_df[target_date_col] = pd.to_datetime(sub_df[target_date_col]).dt.strftime('%d.%m.%Y')
+                             except: pass
+                        
+                        st.dataframe(sub_df[final_cols], use_container_width=True, hide_index=True)
                     
         else:
             if not tax_col_name:
