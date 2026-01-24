@@ -8,6 +8,7 @@ import io
 import time
 import math
 from datetime import datetime, timedelta, date
+import networkx as nx  # YENİ EKLENEN: Ağ grafikleri için
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -85,20 +86,51 @@ st.markdown("""
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
     
-    /* YANIP SÖNME EFEKTİ (BLINK) */
-    @keyframes blinker {
-        50% { opacity: 0.3; color: #ff2b2b; }
+    /* --- SADE YANIP SÖNME EFEKTLERİ --- */
+    
+    /* Kırmızı Yanıp Sönme */
+    @keyframes blinker-red {
+        50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* NEW Olan Tablar İçin Seçiciler */
+    /* Sarı Yanıp Sönme (Robo ve Zincir İçin) */
+    @keyframes blinker-yellow {
+        50% { opacity: 0.5; color: #f1c40f; }
+    }
+    
+    /* KIRMIZI GRUP: Yarıçap(4), Rota(5), Stratejik(12) */
     button[data-testid="stTab"]:nth-child(4) p,
     button[data-testid="stTab"]:nth-child(5) p,
-    button[data-testid="stTab"]:nth-child(12) p,
-    button[data-testid="stTab"]:nth-child(13) p {
-        color: #d62728 !important;
+    button[data-testid="stTab"]:nth-child(12) p {
+        color: #ff2b2b !important;
         font-weight: 800 !important;
-        animation: blinker 1.5s linear infinite;
+        animation: blinker-red 1.5s linear infinite;
     }
+
+    /* SARI GRUP: Robo-Yönetici(13) ve Zincir Ağı(14) */
+    button[data-testid="stTab"]:nth-child(13) p,
+    button[data-testid="stTab"]:nth-child(14) p {
+        color: #f1c40f !important; /* Gold Sarısı */
+        font-weight: 800 !important;
+        animation: blinker-yellow 1.5s linear infinite;
+    }
+
+    /* Robo Kartları (Sade Tasarım) */
+    .robo-card {
+        background-color: #f9f9f9;
+        border-left: 5px solid #3498db;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+    }
+    .robo-header {
+        font-size: 1.2em; font-weight: bold; margin-bottom: 10px; color: #2c3e50;
+        border-bottom: 1px solid #eee; padding-bottom: 5px;
+    }
+    .robo-list { list-style-type: none; padding: 0; margin: 0; }
+    .robo-list li { margin-bottom: 8px; font-size: 1em; padding-left: 10px; border-left: 3px solid #eee; }
+    .robo-highlight { font-weight: bold; color: #d35400; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -339,6 +371,7 @@ def main():
         "📝 CRM",
         "🧠 Stratejik Analiz [NEW]", 
         "🤖 Robo-Yönetici [NEW]", 
+        "🕸️ Zincir Ağı [NEW]",  # YENİ EKLENEN
         "📋 Ham Veri"
     ])
 
@@ -975,8 +1008,114 @@ def main():
         else:
             st.warning("Rapor oluşturmak için lütfen yukarıdan en az bir filtre seçimi yapın.")
 
-    # 14. HAM VERİ
+    # 14. ZİNCİR AĞI (NETWORK GRAPH)
     with tabs[13]:
+        st.subheader("🕸️ Zincir Ağı Haritası (Network Graph)")
+        st.info("💡 Bu grafik, Bayi (Unvan) ve Dağıtıcı arasındaki ilişkileri örümcek ağı gibi gösterir. Üzerine gelerek sözleşme detaylarını görebilirsiniz.")
+        
+        # Filtreleme
+        df_net = create_tab_filters(df, "tab_network")
+        
+        # Node Limiti Kontrolü
+        if len(df_net) > 200:
+            st.warning(f"⚠️ Seçili filtrede **{len(df_net)}** bayi var. Ağ grafiğinin performanslı çalışması için lütfen filtreleri kullanarak bayi sayısını **200'ün altına** düşürün.")
+        elif df_net.empty:
+            st.warning("Veri yok.")
+        else:
+            import networkx as nx
+
+            # Grafiği Oluştur
+            G = nx.Graph()
+            
+            # Veriyi Hazırla
+            for index, row in df_net.iterrows():
+                distributor = str(row['Dağıtım Şirketi']).strip()
+                dealer = str(row['Unvan']).strip()
+                
+                # Metadata
+                city_dist = f"{row.get('İl', '')} / {row.get('İlçe', '')}"
+                start_date = row[start_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(start_date_col)) else "-"
+                end_date = row[target_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(target_date_col)) else "-"
+                
+                # Dağıtıcı Düğümü
+                G.add_node(distributor, type='distributor', size=20, color='#e74c3c') # Kırmızı
+                
+                # Bayi Düğümü
+                hover_text = f"<b>{dealer}</b><br>📍 {city_dist}<br>📅 Başlangıç: {start_date}<br>⏳ Bitiş: {end_date}"
+                G.add_node(dealer, type='dealer', size=10, color='#3498db', hover=hover_text) # Mavi
+                
+                # Bağlantı
+                G.add_edge(distributor, dealer)
+
+            # Pozisyonları Hesapla
+            pos = nx.spring_layout(G, seed=42)
+
+            # --- PLOTLY İLE ÇİZİM ---
+            edge_x = []
+            edge_y = []
+            for edge in G.edges():
+                x0, y0 = pos[edge[0]]
+                x1, y1 = pos[edge[1]]
+                edge_x.extend([x0, x1, None])
+                edge_y.extend([y0, y1, None])
+
+            edge_trace = go.Scatter(
+                x=edge_x, y=edge_y,
+                line=dict(width=0.5, color='#888'),
+                hoverinfo='none',
+                mode='lines')
+
+            node_x = []
+            node_y = []
+            node_text = []
+            node_color = []
+            node_size = []
+            
+            for node in G.nodes():
+                x, y = pos[node]
+                node_x.append(x)
+                node_y.append(y)
+                
+                node_type = G.nodes[node]['type']
+                if node_type == 'distributor':
+                    node_text.append(f"🏭 <b>DAĞITICI:</b> {node}")
+                    node_color.append('#e74c3c')
+                    node_size.append(25)
+                else:
+                    node_text.append(G.nodes[node]['hover'])
+                    node_color.append('#3498db')
+                    node_size.append(10)
+
+            node_trace = go.Scatter(
+                x=node_x, y=node_y,
+                mode='markers',
+                hoverinfo='text',
+                marker=dict(
+                    showscale=False,
+                    color=node_color,
+                    size=node_size,
+                    line_width=2))
+
+            node_trace.text = node_text
+
+            fig_net = go.Figure(data=[edge_trace, node_trace],
+                         layout=go.Layout(
+                            title='⛓️ Bayi - Dağıtıcı İlişki Ağı',
+                            titlefont_size=16,
+                            showlegend=False,
+                            hovermode='closest',
+                            margin=dict(b=20,l=5,r=5,t=40),
+                            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
+                            )
+            
+            st.plotly_chart(fig_net, use_container_width=True)
+            
+            st.markdown("#### 🔍 Ağ Detayları")
+            st.dataframe(df_net[['Unvan', 'Dağıtım Şirketi', 'İl', 'İlçe', target_date_col]], use_container_width=True)
+
+    # 15. HAM VERİ
+    with tabs[14]:
         st.subheader("📋 Ham Veri")
         df_raw = create_tab_filters(df, "tab10")
         buffer = io.BytesIO()
