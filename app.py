@@ -129,29 +129,6 @@ st.markdown("""
     .robo-list { list-style-type: none; padding: 0; margin: 0; }
     .robo-list li { margin-bottom: 8px; font-size: 1em; padding-left: 10px; border-left: 3px solid #eee; }
     .robo-highlight { font-weight: bold; color: #d35400; }
-
-    /* --- YENİ BAYİ KİMLİK KARTI TASARIMI --- */
-    .dealer-card {
-        background: white;
-        border: 2px solid #e0e0e0;
-        border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        font-family: sans-serif;
-    }
-    .dealer-header {
-        border-bottom: 2px solid #3498db;
-        padding-bottom: 10px;
-        margin-bottom: 15px;
-    }
-    .dealer-title { font-size: 1.5em; font-weight: bold; color: #2c3e50; }
-    .dealer-badge { 
-        background-color: #3498db; color: white; padding: 4px 8px; 
-        border-radius: 4px; font-size: 0.8em; font-weight: bold; vertical-align: middle;
-    }
-    .dealer-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dotted #eee; padding-bottom: 5px; }
-    .dealer-label { font-weight: bold; color: #7f8c8d; min-width: 150px; }
-    .dealer-value { color: #2c3e50; font-weight: 500; text-align: right; width: 100%; word-break: break-word; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1064,10 +1041,6 @@ def main():
         st.info("💡 Aşağıdaki kutudan bayi seçimi yapın, sistem tüm bilgileri sizin için derlesin.")
         
         # 1. AKILLI ARAMA LİSTESİ OLUŞTURMA
-        # Unvan + İl/İlçe + Dağıtıcı bilgisini birleştirip tek bir "Etiket" yapıyoruz.
-        # Böylece aynı isimdeki bayiler karışmaz.
-        
-        # Geçici bir sütun oluşturalım (Sadece bu sekme için)
         if 'Dağıtım Şirketi' in df.columns:
             dist_col = 'Dağıtım Şirketi'
         else:
@@ -1077,17 +1050,16 @@ def main():
         
         search_options = sorted(df['Arama_Etiketi'].unique().tolist())
         
-        # Arama kutusu (Selectbox - Autocomplete özellikli)
+        # Arama kutusu
         selected_label = st.selectbox(
             "🔎 Bayi Seçin (Yazmaya başlayın...):",
-            options=[""] + search_options, # Boş seçenek ekle
+            options=[""] + search_options,
             index=0,
             placeholder="Örn: YILDIZ PETROL"
         )
         
-        # 2. BAYİ KİMLİK KARTI (SEÇİM YAPILINCA ÇALIŞIR)
+        # 2. BAYİ KİMLİK KARTI (GÜVENLİ NATIVE KART)
         if selected_label:
-            # Seçilen bayinin satırını bul
             row = df[df['Arama_Etiketi'] == selected_label].iloc[0]
             
             # Verileri Çek
@@ -1096,8 +1068,7 @@ def main():
             il = row.get('İl', '-')
             ilce = row.get('İlçe', '-')
             
-            # Adres (Yoksa oluştur)
-            # Adres sütunu bulma (Dinamik)
+            # Akıllı Adres Bulucu
             adres_col = None
             for c in df.columns:
                 if "ADRES" in c.upper():
@@ -1105,62 +1076,54 @@ def main():
                     break
             
             if adres_col:
-                adres = row.get(adres_col, f"{ilce} / {il}")
+                adres = row.get(adres_col)
+                if pd.isna(adres) or str(adres).lower() == 'nan':
+                    adres = f"{ilce} / {il} (Detay Yok)"
             else:
                 adres = f"{ilce} / {il}"
-                
-            if pd.isna(adres) or str(adres) == 'nan': adres = f"{ilce} / {il}"
-            
-            # Vergi No
+
+            # Vergi No Bulucu
             vergi_no = '-'
-            # Vergi sütunu bulma mantığını burda da kullanalım
-            cols_upper = [c.upper().replace('İ','I') for c in df.columns]
             for c in df.columns:
-                if "VERGI" in c.upper().replace('İ','I') or "VKN" in c.upper():
+                clean_c = c.upper().replace('İ','I')
+                if "VERGI" in clean_c or "VKN" in clean_c:
                     vergi_no = row[c]
                     break
             
-            # Tarihler (Sadece bu satır için düzeltme)
+            # Tarihler (Hata veren yer burasıydı, düzeltildi)
             baslangic = row[start_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(start_date_col)) else "-"
             bitis = row[target_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(target_date_col)) else "-"
             kalan = int(row['Kalan_Gun']) if pd.notnull(row.get('Kalan_Gun')) else 0
             
-            # HTML Kart Tasarımı
-            card_html = f"""
-            <div class="dealer-card">
-                <div class="dealer-header">
-                    <div class="dealer-title">⛽ {unvan}</div>
-                    <div style="color: #7f8c8d; font-size: 0.9em; margin-top: 5px;">
-                        <span class="dealer-badge">{dagitici}</span> &nbsp; {il} / {ilce}
-                    </div>
-                </div>
+            # --- NATIVE STREAMLIT KART TASARIMI ---
+            # HTML yerine native kullanarak hatayı önlüyoruz
+            with st.container(border=True):
+                c_header1, c_header2 = st.columns([3, 1])
+                with c_header1:
+                    st.subheader(f"⛽ {unvan}")
+                    st.caption(f"📍 {il} / {ilce}")
+                with c_header2:
+                    st.info(f"{dagitici}")
+
+                st.divider()
                 
-                <div class="dealer-row">
-                    <span class="dealer-label">📍 Adres:</span>
-                    <span class="dealer-value">{adres}</span>
-                </div>
-                <div class="dealer-row">
-                    <span class="dealer-label">🆔 Vergi / TC No:</span>
-                    <span class="dealer-value">{vergi_no}</span>
-                </div>
-                <div class="dealer-row">
-                    <span class="dealer-label">📅 Sözleşme Başlangıç:</span>
-                    <span class="dealer-value">{baslangic}</span>
-                </div>
-                <div class="dealer-row">
-                    <span class="dealer-label">⏳ Sözleşme Bitiş:</span>
-                    <span class="dealer-value" style="color: {'red' if kalan < 90 else 'green'}; font-weight: bold;">
-                        {bitis} ({kalan} Gün Kaldı)
-                    </span>
-                </div>
-                 <div class="dealer-row" style="border-bottom: none;">
-                    <span class="dealer-label">📜 Lisans Durumu:</span>
-                    <span class="dealer-value">AKTİF</span>
-                </div>
-            </div>
-            """
-            
-            st.markdown(card_html, unsafe_allow_html=True)
+                c_info1, c_info2 = st.columns(2)
+                
+                with c_info1:
+                    st.markdown(f"**📍 Adres:** \n{adres}")
+                    st.write("") # Boşluk
+                    st.markdown(f"**🆔 Vergi / TC No:** \n`{vergi_no}`")
+                
+                with c_info2:
+                    st.markdown(f"**📅 Sözleşme Başlangıç:** \n{baslangic}")
+                    st.write("") # Boşluk
+                    
+                    # Renkli ve vurgulu bitiş tarihi
+                    kalan_renk = "red" if kalan < 90 else "green"
+                    st.markdown(f"**⏳ Sözleşme Bitiş:** \n{bitis} (:{kalan_renk}[**{kalan} Gün Kaldı**])")
+                
+                st.divider()
+                st.success("📜 **Lisans Durumu:** AKTİF")
 
     # 14. HAM VERİ
     with tabs[13]:
