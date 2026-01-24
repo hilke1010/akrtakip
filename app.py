@@ -91,7 +91,6 @@ st.markdown("""
     }
     
     /* NEW Olan Tablar İçin Seçiciler */
-    /* 4: Yarıçap, 5: Rota, 12: Stratejik, 13: Robo-Yönetici */
     button[data-testid="stTab"]:nth-child(4) p,
     button[data-testid="stTab"]:nth-child(5) p,
     button[data-testid="stTab"]:nth-child(12) p,
@@ -339,7 +338,7 @@ def main():
         "📄 İl Karnesi", 
         "📝 CRM",
         "🧠 Stratejik Analiz [NEW]", 
-        "🤖 Robo-Yönetici [NEW]", # GÜZEL ENERJİ ODAKLI
+        "🤖 Robo-Yönetici [NEW]", 
         "📋 Ham Veri"
     ])
 
@@ -775,10 +774,10 @@ def main():
         else:
             st.error("Veri setinde 'Vergi No' veya 'VKN' içeren bir sütun bulunamadı. Lütfen Excel dosyasını kontrol edin.")
 
-    # 13. ROBO-YÖNETİCİ (GELİŞMİŞ & DETAYLI & HER ŞEY DAHİL)
+    # 13. ROBO-YÖNETİCİ (TAM DETAYLI + İL/İLÇE KALESİ + ÇİFT KALE ANALİZİ)
     with tabs[12]:
         st.subheader("🤖 Robo-Yönetici: Stratejik İstihbarat Raporu (40+ Nokta)")
-        st.info("💡 Bu rapor, seçili filtredeki pazar durumunu **GÜZEL ENERJİ AKARYAKIT A.Ş.** perspektifinden, 'Merkez' ilçelerini netleştirerek detaylıca analiz eder.")
+        st.info("💡 Bu rapor, seçili filtredeki pazar durumunu **GÜZEL ENERJİ AKARYAKIT A.Ş.** perspektifinden, İl ve İlçe kalelerini ayrıştırarak analiz eder.")
         
         df_robo = create_tab_filters(df, "tab_robo")
         
@@ -814,7 +813,8 @@ def main():
 
             # Sözleşme Yılları (TÜM YILLAR - PAZAR vs HERO)
             current_year = datetime.now().year
-            future_years = {}
+            future_years_market = {}
+            future_years_hero = {}
             if 'Bitis_Yili' in df_robo.columns:
                 future_df = df_robo[df_robo['Bitis_Yili'] >= current_year]
                 future_years_market = future_df['Bitis_Yili'].value_counts().sort_index().to_dict()
@@ -822,10 +822,37 @@ def main():
                 hero_future_df = future_df[future_df['Dağıtım Şirketi'] == HERO_COMPANY]
                 future_years_hero = hero_future_df['Bitis_Yili'].value_counts().sort_index().to_dict()
 
-            # İlçe Hakimiyeti (TAM KONUM KULLANARAK)
+            # İLÇE HAKİMİYETİ (TAM KONUM KULLANARAK)
             hero_df = df_robo[df_robo['Dağıtım Şirketi'] == HERO_COMPANY]
-            hero_districts = hero_df['Tam_Konum'].value_counts().head(5).to_dict()
+            
+            # 1. İL KALESİ (ŞEHİR)
+            hero_city_counts = hero_df['İl'].value_counts()
+            if not hero_city_counts.empty:
+                top_hero_city = hero_city_counts.idxmax()
+                top_hero_city_cnt = hero_city_counts.max()
+                # O ildeki toplam istasyon (Pay hesaplamak için)
+                total_in_top_city = len(df_robo[df_robo['İl'] == top_hero_city])
+                share_in_top_city = (top_hero_city_cnt / total_in_top_city) * 100
+            else:
+                top_hero_city = "Yok"
+                top_hero_city_cnt = 0
+                share_in_top_city = 0
+
+            # 2. İLÇE KALESİ (MAHALLE)
+            hero_dist_counts = hero_df['Tam_Konum'].value_counts()
+            if not hero_dist_counts.empty:
+                top_hero_dist = hero_dist_counts.idxmax()
+                top_hero_dist_cnt = hero_dist_counts.max()
+                total_in_top_dist = len(df_robo[df_robo['Tam_Konum'] == top_hero_dist])
+                share_in_top_dist = (top_hero_dist_cnt / total_in_top_dist) * 100
+            else:
+                top_hero_dist = "Yok"
+                top_hero_dist_cnt = 0
+                share_in_top_dist = 0
+
+            # Market Genel Kaleleri
             market_top_districts = df_robo['Tam_Konum'].value_counts().head(5)
+            market_top_city = df_robo['İl'].value_counts().idxmax()
 
             # Rakipler nerde güçlü?
             competitor_strongholds = df_robo[df_robo['Dağıtım Şirketi'] != HERO_COMPANY]['Tam_Konum'].value_counts().head(3).index.tolist()
@@ -841,14 +868,15 @@ def main():
                     st.markdown(f"""
                     1.  **Sıralama:** Şu anki filtrede pazarın **{hero_rank}. oyuncusuyuz** {status_emoji}.
                     2.  **Toplam İstasyon:** Portföyümüzde **{hero_count}** aktif istasyon var.
-                    3.  **Pazar Payı:** Pastadan aldığımız dilim **%{hero_share:.1f}**.
-                    4.  **Liderle Fark:** Lider **{leader_brand}** ile aramızda **{gap_to_leader}** istasyon var.
+                    3.  **Pazar Payı:** Toplam pastanın **%{hero_share:.1f}**'ine sahibiz.
+                    4.  **Liderle Fark:** Lider **{leader_brand}** ile aramızda **{gap_to_leader}** istasyon makası var.
                     5.  **Takipçi Riski:** Ensemizdeki **{nearest_follower}** ile fark sadece **{follower_gap}** istasyon.
-                    6.  **En Güçlü Kale:** En çok istasyonumuz **{list(hero_districts.keys())[0] if hero_districts else 'Yok'}** bölgesinde ({list(hero_districts.values())[0] if hero_districts else 0} adet).
-                    7.  **İkinci Kale:** Onu **{list(hero_districts.keys())[1] if len(hero_districts)>1 else 'Yok'}** takip ediyor.
+                    6.  **🏰 İL KALESİ:** En güçlü olduğumuz şehir **{top_hero_city}**. Orada **{top_hero_city_cnt}** istasyonla pazarın **%{share_in_top_city:.1f}**'ine hakimiz.
+                    7.  **🏘️ İLÇE KALESİ:** En yoğunlaştığımız nokta **{top_hero_dist}**. Sadece bu ilçede **{top_hero_dist_cnt}** istasyonumuz var (Pay: %{share_in_top_dist:.1f}).
                     8.  **Ortalama Ömür:** İstasyonlarımızın ortalama sözleşme süresi **{int(hero_df['Kalan_Gun'].mean()) if 'Kalan_Gun' in hero_df.columns and not hero_df.empty else 0}** gün.
-                    9.  **Varlık Oranı:** Seçili bölgedeki toplam {len(df_robo['Tam_Konum'].unique())} farklı lokasyonun **{len(hero_df['Tam_Konum'].unique())}** tanesinde varız.
-                    10. **Operasyonel Yoğunluk:** İstasyonlarımızın %{int(hero_df['Tam_Konum'].value_counts().head(3).sum()/hero_count*100) if hero_count>0 else 0}'ü ilk 3 bölgemizde toplanmış.
+                    9.  **Coğrafi Yayılım:** Seçili bölgedeki **{df_robo['İl'].nunique()}** ilin **{hero_df['İl'].nunique()}** tanesinde bayrağımız dalgalanıyor.
+                    10. **Operasyonel Odak:** Tüm istasyonlarımızın %{int(hero_city_counts.head(1).sum()/hero_count*100) if hero_count>0 else 0}'i tek bir ilde ({top_hero_city}) toplanmış.
+                    11. **Şehir İçi Güç:** "MERKEZ" ilçelerinde toplam **{len(hero_df[hero_df['Tam_Konum'].str.contains('MERKEZ')])}** istasyonumuz var.
                     """)
                 else:
                     st.warning("⚠️ **Kritik:** Bu filtrede GÜZEL ENERJİ'ye ait hiç istasyon yok!")
@@ -858,15 +886,16 @@ def main():
                 st.markdown("#### ⚔️ 2. Rakip & Pazar Derinlik Analizi")
                 st.markdown(f"""
                 1.  **Pazar Hacmi:** Toplam **{total_stations}** istasyonluk bir arenadayız.
-                2.  **Oyuncu Sayısı:** Bu alanda **{len(brand_counts)}** farklı marka rekabet ediyor.
+                2.  **Oyuncu Sayısı:** Bu alanda toplam **{len(brand_counts)}** farklı marka rekabet ediyor.
                 3.  **Liderin Gücü:** Lider marka pazarın **%{(leader_count/total_stations*100):.1f}**'ine hükmediyor.
-                4.  **Pazarın Kalbi:** En yoğun rekabet **{market_top_districts.index[0]}** bölgesinde ({market_top_districts.iloc[0]} istasyon).
-                5.  **İkinci Saha:** İkinci en yoğun bölge **{market_top_districts.index[1] if len(market_top_districts)>1 else 'Yok'}**.
+                4.  **Pazarın Kalbi (İlçe):** En yoğun rekabet **{market_top_districts.index[0]}** bölgesinde dönüyor ({market_top_districts.iloc[0]} istasyon).
+                5.  **Pazarın Kalbi (İl):** En büyük hacim **{market_top_city}** ilinde.
                 6.  **Rakip Kalesi:** Rakiplerin en yoğun olduğu bölge **{competitor_strongholds[0] if competitor_strongholds else 'Yok'}**.
                 7.  **Konsolidasyon:** İlk 3 büyük marka pazarın **%{int(brand_counts.head(3).sum()/total_stations*100)}**'ini domine ediyor.
-                8.  **Küçük Oyuncular:** Pazarın %{int(brand_counts[brand_counts < 10].sum()/total_stations*100)}'lik kısmı 10'dan az istasyonu olan yerel oyuncularda.
+                8.  **Küçük Oyuncular:** Pazarın %{int(brand_counts[brand_counts < 10].sum()/total_stations*100)}'lik kısmı yerel oyuncularda.
                 9.  **Büyüme Alanı:** Henüz doymamış, rekabetin düşük olduğu **{len(df_robo['Tam_Konum'].unique()) - len(market_top_districts)}** farklı nokta var.
-                10. **Genel Trend:** Pazar yapısı {("Lidere Endeksli" if (leader_count/total_stations) > 0.3 else "Parçalı ve Rekabetçi")}.
+                10. **Liderin Zayıf Karnı:** Lider markanın hiç olmadığı **{len(df_robo[df_robo['Dağıtım Şirketi'] != leader_brand]['Tam_Konum'].unique())}** farklı lokasyon tespit edildi.
+                11. **Genel Trend:** Pazar yapısı {("Lidere Endeksli" if (leader_count/total_stations) > 0.3 else "Parçalı ve Rekabetçi")}.
                 """)
 
             st.markdown("---")
@@ -874,51 +903,72 @@ def main():
 
             # --- 3. COĞRAFİ HAKİMİYET ---
             with c3:
-                st.markdown("#### 🗺️ 3. Coğrafi Hakimiyet (Tam Konum)")
+                st.markdown("#### 🗺️ 3. Coğrafi Hakimiyet (Detaylı)")
                 # Bizim Olup Rakiplerin Az Olduğu (Mavi Okyanus)
                 if not hero_df.empty:
                     market_avgs = df_robo.groupby('Tam_Konum').size()
                     my_locs = hero_df['Tam_Konum'].unique()
                     strong_presence = []
+                    ghost_zones = [] # Bizim olmadığımız ama pazarın olduğu
+                    
+                    # Güçlü olduğumuz yerler
                     for loc in my_locs:
                         market_count = market_avgs.get(loc, 0)
                         my_c = len(hero_df[hero_df['Tam_Konum'] == loc])
                         share = my_c / market_count
-                        if share > 0.3: # %30'dan fazla payımız varsa
+                        if share > 0.25: # %25'ten fazla payımız varsa
                             strong_presence.append(f"{loc} (%{int(share*100)})")
+                            
+                    # Hayalet Bölgeler (Biz yokuz, pazar var)
+                    all_market_locs = df_robo['Tam_Konum'].unique()
+                    for loc in all_market_locs:
+                        if loc not in my_locs:
+                            market_count = market_avgs.get(loc, 0)
+                            if market_count > 5: # En az 5 istasyon olan yerler
+                                ghost_zones.append(f"{loc} ({market_count} İstasyon)")
                     
                     st.markdown(f"""
-                    1.  **Dominant Bölgeler:** Şu bölgelerde %30 üzeri pazar payımız var: **{', '.join(strong_presence[:5]) if strong_presence else 'Yok'}**.
-                    2.  **Saldırı Altındaki Kaleler:** En çok istasyonumuzun olduğu **{list(hero_districts.keys())[0] if hero_districts else 'X'}** bölgesinde toplam **{market_avgs.get(list(hero_districts.keys())[0], 0) if hero_districts else 0}** rakip var.
-                    3.  **Fırsat (Hayalet) Bölgeler:** Pazarın yoğun olduğu ama bizim olmadığımız yerler: **{', '.join([x for x in market_top_districts.index if x not in my_locs][:3])}**.
-                    4.  **Bölgesel Dağılım:** İstasyonlarımız **{df_robo[df_robo['Dağıtım Şirketi']==HERO_COMPANY]['İl'].nunique()}** farklı ilde yayılmış durumda.
-                    5.  **Şehir İçi/Dışı:** "Merkez" ibaresi geçen istasyon sayımız **{len(hero_df[hero_df['Tam_Konum'].str.contains('MERKEZ')])}**.
+                    1.  **Dominant Bölgeler (>%25 Pay):** **{', '.join(strong_presence[:5]) if strong_presence else 'Yok'}**.
+                    2.  **Hayalet Bölgeler (Biz Yokuz!):** Rakiplerin cirit attığı ama bizim olmadığımız yerler: **{', '.join(ghost_zones[:5]) if ghost_zones else 'Yok'}**.
+                    3.  **Saldırı Altındaki Kale:** En güçlü ilçemiz **{top_hero_dist}** bölgesinde toplam **{market_avgs.get(top_hero_dist, 0)}** rakip var.
+                    4.  **Bölge Verimliliği:** Bulunduğumuz ilçelerde ortalama pazar payımız **%{int(hero_df.groupby('Tam_Konum').size().mean() / df_robo.groupby('Tam_Konum').size().mean() * 100)}**.
+                    5.  **Riskli Bölge:** En az istasyonumuzun olduğu (1 adet) **{len(hero_df[hero_df.groupby('Tam_Konum')['Tam_Konum'].transform('count') == 1])}** farklı ilçe var. Buralarda varlığımız pamuk ipliğine bağlı.
                     """)
                 else:
                     st.info("Coğrafi analiz için veri yetersiz.")
 
             # --- 4. SÖZLEŞME PROJEKSİYONU ---
             with c4:
-                st.markdown("#### 📅 4. Sözleşme Projeksiyonu (Tüm Yıllar)")
+                st.markdown("#### 📅 4. Gelecek Projeksiyonu (Yıl Yıl)")
                 
                 if 'Bitis_Yili' in df_robo.columns and future_years_market:
                     years_list = sorted(list(future_years_market.keys()))
-                    st.write("Önümüzdeki yıllarda pazar geneli ve GÜZEL ENERJİ sözleşme bitişleri:")
                     
-                    details = []
+                    st.write("**Pazar Geneli vs. GÜZEL ENERJİ Sözleşme Bitişleri:**")
+                    
+                    # Tablo verisi hazırlayalım
+                    proj_data = []
                     for y in years_list:
                         m_val = future_years_market.get(y, 0)
                         h_val = future_years_hero.get(y, 0)
                         share_potential = (h_val / m_val * 100) if m_val > 0 else 0
-                        details.append(f"**{int(y)}:** Pazar **{m_val}** - Biz **{h_val}** (Payımız: %{share_potential:.1f})")
+                        proj_data.append({
+                            "Yıl": int(y),
+                            "Toplam Pazar (Adet)": m_val,
+                            "Güzel Enerji (Adet)": h_val,
+                            "Payımız (%)": f"%{share_potential:.1f}"
+                        })
                     
-                    # İlk 10 yılı gösterelim
-                    for d in details[:10]:
-                        st.markdown(f"- {d}")
+                    st.dataframe(pd.DataFrame(proj_data), use_container_width=True, hide_index=True)
                         
                     # Yorum
                     peak_year = max(future_years_market, key=future_years_market.get)
-                    st.markdown(f"**💡 Yorum:** En büyük hareketlilik **{int(peak_year)}** yılında olacak (Toplam {future_years_market[peak_year]} bayi boşa çıkıyor).")
+                    hero_peak = max(future_years_hero, key=future_years_hero.get) if future_years_hero else "Yok"
+                    
+                    st.markdown(f"""
+                    * **En Hareketli Yıl:** Pazar için **{int(peak_year)}**, Bizim için **{int(hero_peak) if hero_peak!='Yok' else 'Yok'}**.
+                    * **Stratejik Hedef:** **{int(peak_year)}** yılında boşa çıkacak **{future_years_market[peak_year]}** bayi için şimdiden aksiyon alınmalı.
+                    """)
                 else:
                     st.info("İleri tarihli sözleşme verisi bulunamadı.")
 
