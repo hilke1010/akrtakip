@@ -68,7 +68,10 @@ def show_intro_animation():
 MAX_ROW_DISPLAY = 1000  
 MAX_MAP_POINTS = 50000 
 PREVIEW_ROW_LIMIT = 100
-SABIT_DOSYA_ADI = "asatis.xlsx"
+
+# !!! GÜNCELLENEN DOSYA İSİMLERİ !!!
+SABIT_DOSYA_ADI = "gsatis.xlsx"  # GÜNCEL (ANA DOSYA)
+PASIF_DOSYA_ADI = "psatis.xlsx"  # PASİF (ESKİ DOSYA)
 
 st.markdown("""
 <style>
@@ -91,11 +94,13 @@ st.markdown("""
     }
     
     /* NEW Olan Tablar İçin Seçiciler */
-    /* 4: Yarıçap, 5: Rota, 12: Stratejik, 13: Pazar Doygunluk */
+    /* 4: Yarıçap, 5: Rota, 12: Stratejik, 13: Değişim Analizi, 14: Pazar Doygunluk */
+    /* Not: Python index + 1 */
     button[data-testid="stTab"]:nth-child(4) p,
     button[data-testid="stTab"]:nth-child(5) p,
     button[data-testid="stTab"]:nth-child(12) p,
-    button[data-testid="stTab"]:nth-child(13) p {
+    button[data-testid="stTab"]:nth-child(13) p,
+    button[data-testid="stTab"]:nth-child(14) p {
         color: #d62728 !important;
         font-weight: 800 !important;
         animation: blinker 1.5s linear infinite;
@@ -279,7 +284,7 @@ def main():
     show_intro_animation()
     data_result = load_data(SABIT_DOSYA_ADI)
     if data_result is None or data_result[0] is None:
-        st.error(f"⚠️ Hata: {data_result[1] if data_result else 'Veri Yüklenemedi'}")
+        st.error(f"⚠️ Hata: {data_result[1] if data_result else 'GSATIS (Güncel) Dosyası Yüklenemedi! Lütfen dosya adını kontrol edin.'}")
         st.stop()
     df, target_date_col, start_date_col = data_result
     
@@ -303,7 +308,7 @@ def main():
     col_info1, col_info2, col_info3 = st.columns([1, 1, 1])
     
     with col_info1:
-        st.success(f"🔄 **Veri Güncelleme:**\n\n{file_date_str}")
+        st.success(f"🔄 **Güncel Veri (gsatis):**\n\n{file_date_str}")
     with col_info2:
         st.info(f"📧 **İletişim:**\n\nkerim.aksu@milangaz.com.tr")
     with col_info3:
@@ -339,7 +344,8 @@ def main():
         "📄 İl Karnesi", 
         "📝 CRM",
         "🧠 Stratejik Analiz [NEW]", 
-        "📉 Pazar Doygunluk [NEW]", # YENİ SEKME
+        "🔄 Değişim Analizi [NEW]", # OTOMATİK OLAN
+        "📉 Pazar Doygunluk [NEW]",
         "📋 Ham Veri"
     ])
 
@@ -775,26 +781,122 @@ def main():
         else:
             st.error("Veri setinde 'Vergi No' veya 'VKN' içeren bir sütun bulunamadı. Lütfen Excel dosyasını kontrol edin.")
 
-    # 13. PAZAR DOYGUNLUK (BLUE OCEAN - YENİ SEKME)
+    # 13. DEĞİŞİM ANALİZİ (OTOMATİK - YENİ SEKME)
     with tabs[12]:
+        st.subheader("🔄 Günlük Değişim Analizi (Giriş/Çıkış Takibi)")
+        
+        # Pasif dosyayı kontrol et ve yükle
+        pasif_exists = os.path.exists(PASIF_DOSYA_ADI)
+        guncel_date = get_file_last_modified(SABIT_DOSYA_ADI)
+        
+        if pasif_exists:
+            pasif_date = get_file_last_modified(PASIF_DOSYA_ADI)
+            
+            st.markdown(f"""
+            <div class='insight-box-info'>
+                <b>📊 Analiz Edilen Dönem:</b> {pasif_date} ➡️ {guncel_date}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            try:
+                df_pasif = pd.read_excel(PASIF_DOSYA_ADI)
+                # Sütun temizliği
+                df_pasif.columns = [str(c).strip() for c in df_pasif.columns]
+                if 'Dağıtıcı' in df_pasif.columns: df_pasif.rename(columns={'Dağıtıcı': 'Dağıtım Şirketi'}, inplace=True)
+                
+                if 'Unvan' in df.columns and 'Unvan' in df_pasif.columns:
+                    old_unvans = set(df_pasif['Unvan'].dropna())
+                    new_unvans = set(df['Unvan'].dropna())
+                    
+                    # 1. YENİ GİRENLER (New Entrants)
+                    added_unvans = new_unvans - old_unvans
+                    
+                    # 2. ÇIKANLAR (Exits)
+                    lost_unvans = old_unvans - new_unvans
+                    
+                    # İstatistikler
+                    c_new, c_lost, c_total = st.columns(3)
+                    c_new.metric("🆕 Yeni Eklenen Bayi", len(added_unvans), delta=len(added_unvans))
+                    c_lost.metric("❌ Listeden Çıkan Bayi", len(lost_unvans), delta=-len(lost_unvans))
+                    c_total.metric("📊 Güncel Toplam Bayi", len(df))
+                    
+                    st.divider()
+                    
+                    col_added, col_lost = st.columns(2)
+                    
+                    with col_added:
+                        st.markdown("##### 🆕 Yeni Giren Bayiler")
+                        if added_unvans:
+                            added_df = df[df['Unvan'].isin(added_unvans)]
+                            cols_show = ['Unvan', 'İl', 'İlçe', 'Dağıtım Şirketi']
+                            cols_final = [c for c in cols_show if c in added_df.columns]
+                            st.dataframe(added_df[cols_final], use_container_width=True, hide_index=True)
+                        else:
+                            st.info("Yeni eklenen bayi yok.")
+                            
+                    with col_lost:
+                        st.markdown("##### ❌ Listeden Düşenler (Kapanan/Lisans Biten)")
+                        if lost_unvans:
+                            lost_df = df_pasif[df_pasif['Unvan'].isin(lost_unvans)]
+                            cols_show = ['Unvan', 'İl', 'İlçe', 'Dağıtım Şirketi']
+                            cols_final = [c for c in cols_show if c in lost_df.columns]
+                            st.dataframe(lost_df[cols_final], use_container_width=True, hide_index=True)
+                        else:
+                            st.info("Listeden düşen bayi yok.")
+                            
+                    # 3. TRANSFERLER
+                    st.markdown("---")
+                    st.markdown("##### 🔄 Dağıtıcı Değiştirenler (Transferler)")
+                    
+                    common_unvans = old_unvans.intersection(new_unvans)
+                    
+                    # Veri setlerini unvan indeksli hale getir
+                    df_old_indexed = df_pasif.set_index('Unvan')
+                    df_new_indexed = df.set_index('Unvan')
+                    
+                    transfers = []
+                    for u in common_unvans:
+                        try:
+                            old_dist = df_old_indexed.loc[u, 'Dağıtım Şirketi']
+                            if isinstance(old_dist, pd.Series): old_dist = old_dist.iloc[0]
+                            
+                            new_dist = df_new_indexed.loc[u, 'Dağıtım Şirketi']
+                            if isinstance(new_dist, pd.Series): new_dist = new_dist.iloc[0]
+                            
+                            if str(old_dist) != str(new_dist):
+                                transfers.append({
+                                    'Unvan': u,
+                                    'Eski Dağıtıcı': old_dist,
+                                    'Yeni Dağıtıcı': new_dist,
+                                    'İl': df_new_indexed.loc[u, 'İl'] if 'İl' in df_new_indexed.columns else ''
+                                })
+                        except: pass
+                        
+                    if transfers:
+                        st.dataframe(pd.DataFrame(transfers), use_container_width=True)
+                    else:
+                        st.success("Dağıtıcı değiştiren bayi bulunamadı.")
+                else:
+                    st.error("Hata: Dosyalarda 'Unvan' sütunu bulunamadı.")
+            except Exception as e:
+                st.error(f"Pasif dosya okunurken hata oluştu: {e}")
+        else:
+            st.warning(f"⚠️ Karşılaştırma için `{PASIF_DOSYA_ADI}` dosyası bulunamadı. Lütfen klasöre ekleyin.")
+
+    # 14. PAZAR DOYGUNLUK (BLUE OCEAN - YENİ SEKME)
+    with tabs[13]:
         st.subheader("📉 Pazar Doygunluk Endeksi (Blue Ocean)")
         st.info("💡 Bu analiz, seçilen ildeki **istasyon yoğunluğunu** hesaplar. Ortalamanın çok üstünde istasyon olan ilçeler **'Kızıl Okyanus' (Doygun)**, altında olanlar **'Mavi Okyanus' (Fırsat)** olarak değerlendirilir.")
         
-        # Sadece İl seçimi yaptıralım (İlçe filtresi mantıksız olur, kıyaslama yapıyoruz)
         all_cities = sorted(df['İl'].unique().tolist())
         sel_sat_city = st.selectbox("Analiz Edilecek İl:", all_cities, key="sat_city_sel")
         
         if sel_sat_city:
             sat_df = df[df['İl'] == sel_sat_city]
-            
-            # İlçe bazlı sayılar
             district_stats = sat_df['İlçe'].value_counts().reset_index()
             district_stats.columns = ['İlçe', 'İstasyon_Sayısı']
-            
-            # Ortalama hesapla
             avg_stations = district_stats['İstasyon_Sayısı'].mean()
             
-            # Kategorize et
             def classify_ocean(count):
                 if count > avg_stations * 1.5: return "🔥 KIZIL OKYANUS (Çok Yoğun)"
                 elif count < avg_stations * 0.5: return "💧 MAVİ OKYANUS (Fırsat!)"
@@ -802,14 +904,12 @@ def main():
                 
             district_stats['Durum'] = district_stats['İstasyon_Sayısı'].apply(classify_ocean)
             
-            # Renk haritası
             color_map = {
                 "🔥 KIZIL OKYANUS (Çok Yoğun)": "red",
                 "💧 MAVİ OKYANUS (Fırsat!)": "blue",
                 "⚖️ DENGELİ": "gray"
             }
             
-            # Grafik
             fig_sat = px.bar(
                 district_stats, 
                 x='İstasyon_Sayısı', 
@@ -823,17 +923,15 @@ def main():
             fig_sat.add_vline(x=avg_stations, line_dash="dash", line_color="black", annotation_text=f"Ort: {int(avg_stations)}")
             st.plotly_chart(fig_sat, use_container_width=True)
             
-            # Mavi Okyanus Listesi
             blues = district_stats[district_stats['Durum'].str.contains("MAVİ")]
             if not blues.empty:
                 st.success(f"💎 **Fırsat İlçeleri (Ortalamanın Altında):** {', '.join(blues['İlçe'].tolist())}")
             else:
                 st.info("Bu ilde bariz bir boşluk (Mavi Okyanus) görünmüyor.")
-                
             st.dataframe(district_stats, use_container_width=True)
 
-    # 14. HAM VERİ
-    with tabs[13]:
+    # 15. HAM VERİ
+    with tabs[14]:
         st.subheader("📋 Ham Veri")
         df_raw = create_tab_filters(df, "tab10")
         buffer = io.BytesIO()
