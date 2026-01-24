@@ -361,18 +361,20 @@ def main():
     # --- SEKMELER (GÜNCELLENDİ) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
+        "📅 Takvim",
         "⚡ Hızlı Analiz",      
         "⚔️ Karşılaştırma", 
+        "📄 İl Karnesi"
+        "📍 İlçe Penetrasyonu",
         "📍 Yarıçap (Radar) [NEW]", 
         "🚗 Rota Planlayıcı [NEW]",
         "🤖 Robo-Yönetici [NEW]",
         "💸 Vergi Zincir Analizi [NEW]", 
         "🔍 Detaylı Arama [NEW]", 
         "🔮 Simülasyon",           
-        "📅 Takvim",
         "📡 Sözleşme Radar", 
-        "📍 İlçe Penetrasyonu",
-        "📄 İl Karnesi"
+        
+        
     ])
 
     # 1. BÖLGESEL
@@ -1130,3 +1132,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
