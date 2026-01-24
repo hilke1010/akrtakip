@@ -91,7 +91,7 @@ st.markdown("""
     }
     
     /* NEW Olan Tablar İçin Seçiciler */
-    /* 4: Yarıçap, 5: Rota, 12: Stratejik, 13: Gantt */
+    /* 4: Yarıçap, 5: Rota, 12: Stratejik, 13: Pazar Doygunluk */
     button[data-testid="stTab"]:nth-child(4) p,
     button[data-testid="stTab"]:nth-child(5) p,
     button[data-testid="stTab"]:nth-child(12) p,
@@ -339,7 +339,7 @@ def main():
         "📄 İl Karnesi", 
         "📝 CRM",
         "🧠 Stratejik Analiz [NEW]", 
-        "⏳ Sözleşme Gantt [NEW]", # YENİ SEKME
+        "📉 Pazar Doygunluk [NEW]", # YENİ SEKME
         "📋 Ham Veri"
     ])
 
@@ -775,46 +775,64 @@ def main():
         else:
             st.error("Veri setinde 'Vergi No' veya 'VKN' içeren bir sütun bulunamadı. Lütfen Excel dosyasını kontrol edin.")
 
-    # 13. SÖZLEŞME GANTT (YENİ EKLEDİĞİMİZ SEKME)
+    # 13. PAZAR DOYGUNLUK (BLUE OCEAN - YENİ SEKME)
     with tabs[12]:
-        st.subheader("⏳ Sözleşme Ömür Çizgisi (Gantt)")
-        st.info("💡 Bu grafik, seçilen filtredeki bayilerin sözleşme başlangıç ve bitiş tarihlerini zaman çizelgesi üzerinde gösterir. **Risk durumuna göre renklendirilmiştir.**")
+        st.subheader("📉 Pazar Doygunluk Endeksi (Blue Ocean)")
+        st.info("💡 Bu analiz, seçilen ildeki **istasyon yoğunluğunu** hesaplar. Ortalamanın çok üstünde istasyon olan ilçeler **'Kızıl Okyanus' (Doygun)**, altında olanlar **'Mavi Okyanus' (Fırsat)** olarak değerlendirilir.")
         
-        df_gantt = create_tab_filters(df, "tab_gantt")
+        # Sadece İl seçimi yaptıralım (İlçe filtresi mantıksız olur, kıyaslama yapıyoruz)
+        all_cities = sorted(df['İl'].unique().tolist())
+        sel_sat_city = st.selectbox("Analiz Edilecek İl:", all_cities, key="sat_city_sel")
         
-        # Tarih kolonlarının varlığını kontrol et
-        if start_date_col in df_gantt.columns and target_date_col in df_gantt.columns:
-            # Geçerli tarihi olanları al
-            plot_df = df_gantt.dropna(subset=[start_date_col, target_date_col]).copy()
+        if sel_sat_city:
+            sat_df = df[df['İl'] == sel_sat_city]
             
-            if not plot_df.empty:
-                # Kalan güne göre sırala (en kritikler üstte olsun)
-                plot_df = plot_df.sort_values('Kalan_Gun', ascending=True)
+            # İlçe bazlı sayılar
+            district_stats = sat_df['İlçe'].value_counts().reset_index()
+            district_stats.columns = ['İlçe', 'İstasyon_Sayısı']
+            
+            # Ortalama hesapla
+            avg_stations = district_stats['İstasyon_Sayısı'].mean()
+            
+            # Kategorize et
+            def classify_ocean(count):
+                if count > avg_stations * 1.5: return "🔥 KIZIL OKYANUS (Çok Yoğun)"
+                elif count < avg_stations * 0.5: return "💧 MAVİ OKYANUS (Fırsat!)"
+                else: return "⚖️ DENGELİ"
                 
-                # Performans için ilk 50 kaydı göster (Gantt çok veriyle yavaşlar)
-                if len(plot_df) > 50:
-                    st.warning(f"⚠️ Performans için en kritik (sözleşmesi en yakın biten) **50** bayi gösteriliyor. Daha fazlası için filtreleri daraltın.")
-                    plot_df = plot_df.head(50)
-                
-                fig_gantt = px.timeline(
-                    plot_df, 
-                    x_start=start_date_col, 
-                    x_end=target_date_col, 
-                    y='Unvan', 
-                    color='Risk_Durumu',
-                    hover_data=['İl', 'İlçe', 'Dağıtım Şirketi', 'Kalan_Gun'],
-                    color_discrete_map={"KRİTİK": "red", "GÜVENLİ": "green"},
-                    title="Sözleşme Süreçleri"
-                )
-                # Y eksenini düzenle (Unvanlar karışmasın)
-                fig_gantt.update_yaxes(autorange="reversed") 
-                st.plotly_chart(fig_gantt, use_container_width=True)
+            district_stats['Durum'] = district_stats['İstasyon_Sayısı'].apply(classify_ocean)
+            
+            # Renk haritası
+            color_map = {
+                "🔥 KIZIL OKYANUS (Çok Yoğun)": "red",
+                "💧 MAVİ OKYANUS (Fırsat!)": "blue",
+                "⚖️ DENGELİ": "gray"
+            }
+            
+            # Grafik
+            fig_sat = px.bar(
+                district_stats, 
+                x='İstasyon_Sayısı', 
+                y='İlçe', 
+                color='Durum',
+                orientation='h',
+                color_discrete_map=color_map,
+                text='İstasyon_Sayısı',
+                title=f"{sel_sat_city} İli Pazar Doygunluk Haritası"
+            )
+            fig_sat.add_vline(x=avg_stations, line_dash="dash", line_color="black", annotation_text=f"Ort: {int(avg_stations)}")
+            st.plotly_chart(fig_sat, use_container_width=True)
+            
+            # Mavi Okyanus Listesi
+            blues = district_stats[district_stats['Durum'].str.contains("MAVİ")]
+            if not blues.empty:
+                st.success(f"💎 **Fırsat İlçeleri (Ortalamanın Altında):** {', '.join(blues['İlçe'].tolist())}")
             else:
-                st.warning("Seçilen kriterlerde tarih verisi uygun kayıt bulunamadı.")
-        else:
-            st.error("Gantt şeması için gerekli Başlangıç/Bitiş tarih sütunları bulunamadı.")
+                st.info("Bu ilde bariz bir boşluk (Mavi Okyanus) görünmüyor.")
+                
+            st.dataframe(district_stats, use_container_width=True)
 
-    # 14. HAM VERİ (İNDİSİ KAYDI)
+    # 14. HAM VERİ
     with tabs[13]:
         st.subheader("📋 Ham Veri")
         df_raw = create_tab_filters(df, "tab10")
