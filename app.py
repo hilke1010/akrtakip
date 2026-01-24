@@ -924,7 +924,6 @@ def main():
                     <div class="robo-card">
                     <ul class="robo-list">
                     <li><b>En Hareketli Yıl:</b> Pazar için <b>{int(peak_year)}</b>, Bizim için <b>{int(hero_peak) if hero_peak!='Yok' else 'Yok'}</b>.</li>
-                    <li><b>Stratejik Hedef:</b> <b>{int(peak_year)}</b> yılında boşa çıkacak <b>{future_years_market[peak_year]}</b> bayi için şimdiden aksiyon alınmalı.</li>
                     </ul>
                     </div>
                     """, unsafe_allow_html=True)
@@ -1131,3 +1130,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
