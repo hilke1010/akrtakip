@@ -65,7 +65,7 @@ def show_intro_animation():
     placeholder.empty()
     st.session_state['intro_played'] = True
 
-# --- AYARLAR VE CSS ---
+# --- AYARLAR VE TASARIM (YENİ MODERN CSS) ---
 MAX_ROW_DISPLAY = 1000
 MAX_MAP_POINTS = 50000
 PREVIEW_ROW_LIMIT = 100
@@ -73,67 +73,114 @@ SABIT_DOSYA_ADI = "asatis.xlsx"
 
 st.markdown("""
 <style>
-    .stMetric { background-color: #f0f2f6; border-left: 5px solid #2980b9; padding: 15px; border-radius: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
-    .crm-box { background-color: #fff9c4; padding: 10px; border-radius: 5px; border: 1px solid #fbc02d; margin-bottom: 10px; }
-    .warning-box { padding: 1rem; background-color: #ffeba0; border-left: 6px solid #ffa500; color: #5c3a00; border-radius: 4px; font-weight: bold; }
-    .year-box { background-color: #e8f4f8; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #b3e5fc; margin-bottom: 5px; }
-    .year-title { font-weight: bold; color: #0277bd; font-size: 1.1em; }
-    .year-count { font-size: 1.5em; font-weight: bold; color: #01579b; }
-    .insight-box-success { padding: 15px; border-radius: 8px; background-color: #d4edda; border-left: 5px solid #28a745; color: #155724; margin-bottom: 10px; }
-    .insight-box-warning { padding: 15px; border-radius: 8px; background-color: #fff3cd; border-left: 5px solid #ffc107; color: #856404; margin-bottom: 10px; }
-    .insight-box-danger { padding: 15px; border-radius: 8px; background-color: #f8d7da; border-left: 5px solid #dc3545; color: #721c24; margin-bottom: 10px; }
-    .insight-box-info { padding: 15px; border-radius: 8px; background-color: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460; margin-bottom: 10px; }
-    .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
-    .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
+    /* 1. Google Font (Inter) - Çok daha temiz ve modern */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
     
-    /* --- SADE KIRMIZI YANIP SÖNME EFEKTİ --- */
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* 2. Arka Plan - Hafif ve Modern Degrade */
+    .stApp {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+
+    /* 3. Kart Tasarımları (Glassmorphism Effect) */
+    /* Metrikler, Filtre Kutuları, Özel Kartlar ve Expanderlar için */
+    .stMetric, .robo-card, .dealer-card, .filter-container, div[data-testid="stExpander"], .crm-box, .insight-box-danger, .insight-box-success, .insight-box-warning, .insight-box-info {
+        background: rgba(255, 255, 255, 0.65) !important; /* Yarı saydam beyaz */
+        backdrop-filter: blur(12px); /* Buzlu cam efekti */
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 15px; /* Yuvarlak köşeler */
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05); /* Yumuşak gölge */
+        padding: 15px;
+        margin-bottom: 15px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    /* Kartların üzerine gelince hafif yükselme efekti */
+    .stMetric:hover, .robo-card:hover, .dealer-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+        border-color: rgba(255,255,255, 0.8);
+    }
+    
+    /* Metrik içi düzenleme */
+    .stMetric label { color: #57606f !important; font-weight: 600 !important; }
+    .stMetric div[data-testid="stMetricValue"] { color: #2f3542 !important; font-weight: 700 !important; }
+
+    /* 4. Tab (Sekme) Tasarımı */
+    button[data-testid="stTab"] {
+        background-color: transparent;
+        border-radius: 20px;
+        margin-right: 5px;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+    
+    /* Aktif Sekme */
+    button[data-testid="stTab"][aria-selected="true"] {
+        background-color: #ffffff;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        color: #2980b9 !important;
+        font-weight: 800;
+        border-bottom: 2px solid #2980b9;
+    }
+
+    /* 5. Özel Animasyon ve Renkler */
     @keyframes blinker-red {
         50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* YENİ SIRALAMAYA GÖRE KIRMIZI YANIP SÖNECEK SEKMELER [NEW Olanlar] */
-    /* 1 tabanlı indeksleme: 7, 8, 9, 10, 11. sekmeler */
-    
-    button[data-testid="stTab"]:nth-child(7) p, /* Yarıçap */
-    button[data-testid="stTab"]:nth-child(8) p, /* Rota */
-    button[data-testid="stTab"]:nth-child(9) p, /* Robo */
-    button[data-testid="stTab"]:nth-child(10) p, /* Vergi */
-    button[data-testid="stTab"]:nth-child(11) p { /* Detaylı Arama */
-        color: #ff2b2b !important;
+    /* NEW etiketli sekmeler için yanıp sönme */
+    button[data-testid="stTab"]:nth-child(7) p, 
+    button[data-testid="stTab"]:nth-child(8) p, 
+    button[data-testid="stTab"]:nth-child(9) p, 
+    button[data-testid="stTab"]:nth-child(10) p, 
+    button[data-testid="stTab"]:nth-child(11) p { 
+        color: #e74c3c !important;
         font-weight: 800 !important;
-        animation: blinker-red 1.5s linear infinite;
+        animation: blinker-red 2s linear infinite;
     }
 
-    /* Robo Kartları (Sade Tasarım) */
-    .dealer-card, .robo-card {
-        background: white;
-        border: 2px solid #e0e0e0;
-        border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        font-family: sans-serif;
-    }
-    .dealer-header {
-        border-bottom: 2px solid #3498db;
+    /* 6. İçerik ve Liste Tasarımları */
+    .dealer-header, .robo-header {
+        border-bottom: 2px solid rgba(41, 128, 185, 0.3);
         padding-bottom: 10px;
         margin-bottom: 15px;
     }
-    .dealer-title { font-size: 1.5em; font-weight: bold; color: #2c3e50; }
-    .dealer-badge { 
-        background-color: #3498db; color: white; padding: 4px 8px; 
-        border-radius: 4px; font-size: 0.8em; font-weight: bold; vertical-align: middle;
-    }
-    .dealer-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dotted #eee; padding-bottom: 5px; }
-    .dealer-label { font-weight: bold; color: #7f8c8d; min-width: 150px; }
-    .dealer-value { color: #2c3e50; font-weight: 500; text-align: right; width: 100%; word-break: break-word; }
+    .dealer-title { font-size: 1.4em; font-weight: 800; color: #2c3e50; }
     
-    .robo-header {
-        font-size: 1.2em; font-weight: bold; margin-bottom: 10px; color: #2c3e50;
-        border-bottom: 1px solid #eee; padding-bottom: 5px;
-    }
     .robo-list { list-style-type: none; padding: 0; margin: 0; }
-    .robo-list li { margin-bottom: 8px; font-size: 1em; padding-left: 10px; border-left: 3px solid #eee; }
-    .robo-highlight { font-weight: bold; color: #d35400; }
+    .robo-list li { 
+        margin-bottom: 8px; 
+        font-size: 0.95em; 
+        padding-left: 10px; 
+        border-left: 3px solid #3498db; 
+        color: #34495e;
+    }
+    .robo-highlight { font-weight: 800; color: #d35400; }
+    
+    /* Chip (Etiket) Tasarımı */
+    .district-chip { 
+        display: inline-block; 
+        background-color: #ffffff; 
+        color: #2c3e50;
+        padding: 5px 12px; 
+        margin: 3px; 
+        border-radius: 20px; 
+        font-size: 0.85em; 
+        border: 1px solid #dfe6e9; 
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        font-weight: 600;
+    }
+    
+    /* Başlıklar */
+    h1, h2, h3, h4 {
+        color: #2c3e50;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -277,6 +324,7 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
 # ==========================================
 def create_tab_filters(df, key_prefix):
     st.markdown(f"#### 🔍 Filtre Paneli")
+    # Filtre paneli için özel tasarım class kullanımı (modern css'te tanımlandı)
     st.markdown(f"<div class='filter-container'>", unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     
@@ -397,7 +445,11 @@ def main():
                     hover_name="İl", size_max=35, zoom=5, 
                     mapbox_style="open-street-map", color_continuous_scale=px.colors.sequential.Bluered
                 )
-                fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+                fig_map.update_layout(
+                    margin={"r":0,"t":0,"l":0,"b":0},
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)'
+                )
                 st.plotly_chart(fig_map, use_container_width=True)
 
         st.divider()
@@ -407,11 +459,13 @@ def main():
             city_pie = df_tab1['İl'].value_counts().reset_index()
             city_pie.columns = ['İl', 'Adet']
             fig_cp = px.pie(city_pie, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı")
+            fig_cp.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_cp, use_container_width=True)
         with col_pie2:
             dist_pie = df_tab1['Dağıtım Şirketi'].value_counts().reset_index()
             dist_pie.columns = ['Dağıtım Şirketi', 'Adet']
             fig_dp = px.pie(dist_pie, values='Adet', names='Dağıtım Şirketi', hole=0.4, title="Pazar Payı")
+            fig_dp.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_dp, use_container_width=True)
         
         show_details_table(df_tab1, target_date_col)
@@ -432,7 +486,7 @@ def main():
                 mon_counts = mon_counts.sort_values('Bitis_Ayi_No')
                 
                 fig_cal = px.bar(mon_counts, x='Bitis_Ayi', y='Adet', text='Adet', title=f"{sel_yr} Yılı Sözleşme Bitiş Dağılımı")
-                fig_cal.update_layout(xaxis_title="Ay", yaxis_title="Sözleşme Sayısı")
+                fig_cal.update_layout(xaxis_title="Ay", yaxis_title="Sözleşme Sayısı", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 
                 selection = st.plotly_chart(fig_cal, use_container_width=True, on_select="rerun")
                 
@@ -484,6 +538,7 @@ def main():
             comp_dist = df_tab2['Dağıtım Şirketi'].value_counts().reset_index()
             comp_dist.columns = ['Şirket', 'Adet']
             fig_my_share = px.pie(comp_dist, names='Şirket', values='Adet', hole=0.5, title="Filtre İçi Pazar Payı")
+            fig_my_share.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_my_share, use_container_width=True)
         else:
             st.warning("Veri yok.")
@@ -509,6 +564,7 @@ def main():
         if not df_vs.empty:
             fig_vs = px.bar(df_vs.groupby(['İl','Dağıtım Şirketi']).size().reset_index(name='Adet'), 
                             x='İl', y='Adet', color='Dağıtım Şirketi', barmode='group')
+            fig_vs.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_vs, use_container_width=True)
 
     # 5. İL KARNESİ
@@ -547,6 +603,7 @@ def main():
                     final_counts = pd.concat([top10, others])
                 else: final_counts = comp_counts
                 fig_pie = px.pie(values=final_counts.values, names=final_counts.index, hole=0.4)
+                fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_pie, use_container_width=True)
             with g2:
                 st.markdown(f"##### 📍 {target_company} İlçe Dağılımı")
@@ -554,6 +611,7 @@ def main():
                     dist_counts = my_company_df['İlçe'].value_counts().reset_index()
                     dist_counts.columns = ['İlçe', 'Adet']
                     fig_bar = px.bar(dist_counts, x='Adet', y='İlçe', orientation='h', text='Adet')
+                    fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                     st.plotly_chart(fig_bar, use_container_width=True)
                 else: st.warning("Bu şirketin bu ilde bayisi yok.")
 
@@ -587,7 +645,7 @@ def main():
             cnt.columns = ['İlçe', 'Adet']
             
             fig_bar = px.bar(cnt.head(20), x='Adet', y='İlçe', orientation='h', text='Adet')
-            fig_bar.update_layout(yaxis={'categoryorder':'total ascending'})
+            fig_bar.update_layout(yaxis={'categoryorder':'total ascending'}, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             
             st.caption("👇 **İlçelere tıklayarak aşağıda o ilçenin detaylı listesini görebilirsiniz.**")
             selection = st.plotly_chart(fig_bar, use_container_width=True, on_select="rerun")
@@ -658,6 +716,7 @@ def main():
                     color_discrete_map={'MERKEZ': 'red', 'RAKİP': 'blue'},
                     zoom=10, mapbox_style="open-street-map"
                 )
+                fig_rad.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_rad, use_container_width=True)
                 
                 display_cols = ['Unvan', 'İlçe', 'Dağıtım Şirketi', target_date_col, 'Kalan_Gun', 'Mesafe']
@@ -710,6 +769,7 @@ def main():
                     marker=go.scattermapbox.Marker(size=14, color='green'),
                     text=route_df['Sıra No'], textposition="top center", hoverinfo='text', hovertext=route_df['Unvan']
                 ))
+                fig_rt.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_rt, use_container_width=True)
                 st.dataframe(route_df[['Sıra No', 'Unvan', 'İlçe', 'Dağıtım Şirketi']], use_container_width=True)
             else:
