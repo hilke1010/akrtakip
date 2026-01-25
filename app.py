@@ -98,16 +98,14 @@ st.markdown("""
         animation: blinker-red 1.5s linear infinite;
     }
     
-    /* Diğer Önemli Sekmeler */
-    button[data-testid="stTab"]:nth-child(8) p, /* Yarıçap */
-    button[data-testid="stTab"]:nth-child(9) p, /* Rota */
-    button[data-testid="stTab"]:nth-child(10) p, /* Robo */
-    button[data-testid="stTab"]:nth-child(11) p { /* Vergi */
-         color: #333 !important; /* Diğerlerini normale çevirdim karışmasın diye */
+    button[data-testid="stTab"]:nth-child(8) p,
+    button[data-testid="stTab"]:nth-child(9) p,
+    button[data-testid="stTab"]:nth-child(10) p,
+    button[data-testid="stTab"]:nth-child(11) p { 
+         color: #333 !important;
          font-weight: 600 !important;
     }
 
-    /* Robo Kartları (Sade Tasarım) */
     .dealer-card, .robo-card {
         background: white;
         border: 2px solid #e0e0e0;
@@ -115,24 +113,6 @@ st.markdown("""
         padding: 20px;
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         font-family: sans-serif;
-    }
-    .dealer-header {
-        border-bottom: 2px solid #3498db;
-        padding-bottom: 10px;
-        margin-bottom: 15px;
-    }
-    .dealer-title { font-size: 1.5em; font-weight: bold; color: #2c3e50; }
-    .dealer-badge { 
-        background-color: #3498db; color: white; padding: 4px 8px; 
-        border-radius: 4px; font-size: 0.8em; font-weight: bold; vertical-align: middle;
-    }
-    .dealer-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dotted #eee; padding-bottom: 5px; }
-    .dealer-label { font-weight: bold; color: #7f8c8d; min-width: 150px; }
-    .dealer-value { color: #2c3e50; font-weight: 500; text-align: right; width: 100%; word-break: break-word; }
-    
-    .robo-header {
-        font-size: 1.2em; font-weight: bold; margin-bottom: 10px; color: #2c3e50;
-        border-bottom: 1px solid #eee; padding-bottom: 5px;
     }
     .robo-list { list-style-type: none; padding: 0; margin: 0; }
     .robo-list li { margin-bottom: 8px; font-size: 1em; padding-left: 10px; border-left: 3px solid #eee; }
@@ -383,8 +363,8 @@ def main():
 
     # 1. HAREKETLİ YARIŞ (RACE CHART) - YATAY VE SIRALAMALI
     with tab_race:
-        st.subheader("📈 Profesyonel Yarış Grafiği")
-        st.info("💡 Grafik, her tarih için en yüksek değere sahip şirketleri otomatik sıralar ve yarıştırır. Solda isimler, sağda değerler akar.")
+        st.subheader("📈 Profesyonel Yarış Grafiği (Tüm Firmalar)")
+        st.info("💡 Grafik, her tarih için firmaları bayi sayısına göre sıralar. Oynat butonuna basarak değişimi izleyebilirsiniz.")
         
         # Dosya yolu
         gr_file = "gr.xlsx"
@@ -401,6 +381,12 @@ def main():
                 # Wide to Long dönüşümü
                 df_race_long = df_race_wide.melt(id_vars=[first_col], var_name='Tarih', value_name='Deger')
                 
+                # FİLTRELEME: "DİĞERLERİ" ve benzeri varyasyonları çıkar
+                filter_keywords = ["DİĞER", "DIGER", "OTHER"]
+                # Case insensitive filtreleme
+                pattern = '|'.join(filter_keywords)
+                df_race_long = df_race_long[~df_race_long[first_col].str.upper().str.contains(pattern, na=False)]
+
                 # Tarih ve Değer Düzenleme
                 df_race_long['Tarih_Dt'] = pd.to_datetime(df_race_long['Tarih'], dayfirst=True, errors='coerce')
                 df_race_long = df_race_long.sort_values('Tarih_Dt') # Tarihe göre sırala
@@ -409,58 +395,109 @@ def main():
                 
                 # --- YARIŞ MANTIĞI (RANKING) ---
                 # Her tarih için kendi içinde sıralama yapıyoruz
-                # method='first': Eşitlik durumunda ilk geleni üstte tutar, hata vermez
                 df_race_long['Rank'] = df_race_long.groupby('Tarih_Str')['Deger'].rank(method='first', ascending=True)
                 
-                # GÖRSEL İÇİN FİLTRELEME (TOP 15)
-                # Sadece o tarihteki en iyi 15'i gösterelim ki grafik profesyonel dursun
-                # Rank'i büyük olanlar (yani değeri yüksek olanlar) üstte kalsın diye filtreliyoruz
-                # Toplam firma sayısını bulalım
-                total_firms = df_race_long[first_col].nunique()
-                top_n = 15 # Kaç tane gösterilsin?
-                
-                # Eğer firma sayısı 15'ten azsa hepsini göster, çoksa kes
-                limit_rank = total_firms - top_n
-                df_race_filtered = df_race_long[df_race_long['Rank'] > limit_rank].copy()
-                
                 # --- GRAFİK ---
-                max_val = df_race_filtered['Deger'].max() * 1.1 
+                max_val = df_race_long['Deger'].max() * 1.1 
+                total_firms = df_race_long[first_col].nunique()
                 
                 # Renklerin sabit kalması için renk haritası
-                companies = df_race_filtered[first_col].unique()
+                companies = df_race_long[first_col].unique()
                 colors = px.colors.qualitative.Dark24 # Profesyonel renk paleti
+                # Eğer firma sayısı renk paletinden fazlaysa renkler tekrar eder
                 color_map = {comp: colors[i % len(colors)] for i, comp in enumerate(companies)}
 
+                # Grafik Boyutunu Firma Sayısına Göre Ayarla (Dinamik Yükseklik)
+                # En az 600px olsun, firma başına 30px ekle
+                dynamic_height = max(600, len(companies) * 30)
+
                 fig_race = px.bar(
-                    df_race_filtered, 
+                    df_race_long, 
                     x="Deger", 
                     y="Rank", # Y ekseni Sıralama olacak (Kayma efekti için)
                     orientation='h', # YATAY ÇUBUK
                     color=first_col,
-                    text=first_col, # Çubuğun içine firma ismini yaz
+                    text="Deger", # Barların yanına sayıyı yaz
                     animation_frame="Tarih_Str", 
                     range_x=[0, max_val],
-                    range_y=[limit_rank + 0.5, total_firms + 0.5], # Y eksenini sabitle
+                    range_y=[0.5, total_firms + 0.5], # Y eksenini tüm firmaları kapsayacak şekilde sabitle
                     color_discrete_map=color_map,
                     title="Zaman İçinde Liderlik Yarışı"
                 )
                 
                 # Profesyonel Görünüm Ayarları
-                fig_race.update_traces(textposition='inside', textfont_size=14, textfont_color="white")
+                fig_race.update_traces(
+                    texttemplate='%{text:.0f}', # Sayıyı tam sayı olarak göster
+                    textposition='outside', # Barın ucuna yaz
+                    textfont_size=12, 
+                    textfont_color="black",
+                    cliponaxis=False # Sayılar eksen dışına taşarsa kesilmesin
+                )
+                
                 fig_race.update_layout(
-                    xaxis_title="",
+                    xaxis_title="Bayi Sayısı",
                     yaxis_title="",
                     yaxis=dict(showticklabels=False, showgrid=False), # Y ekseni sayılarını (rank) gizle
                     showlegend=False, # Efsaneyi gizle (Zaten barda yazıyor)
                     plot_bgcolor='white',
-                    margin=dict(l=0, r=50, t=50, b=0),
-                    height=600
+                    height=dynamic_height, # Dinamik yükseklik
+                    margin=dict(l=0, r=100, t=50, b=0) # Sağ tarafta sayılar için boşluk bırak
                 )
                 
-                # Animasyon Hızı (Daha yavaş ve akıcı: duration artırıldı)
-                fig_race.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 700 # Her kare 700ms (Yavaş)
-                fig_race.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 500 # Geçiş 500ms (Akıcı)
-                fig_race.layout.updatemenus[0].buttons[0].args[1]["transition"]["easing"] = "cubic-in-out" # Yumuşak geçiş
+                # Barların içine Firma ismini yazmak için annotation ekleyelim (Opsiyonel ama şık durur)
+                # Plotly Express ile text='Firma' yaparsak sayıyı yazamayız. 
+                # O yüzden barın içine firma adını, dışına sayıyı yazmak complex.
+                # Şimdilik "text" parametresine sayıyı verdik.
+                # Firma isimleri için legend yerine bar üstüne yazı yazdırmak en temizi px.bar'da text=... ile oluyor.
+                # Hem isim hem sayı istiyorsak:
+                
+                # customdata ekleyelim
+                fig_race.update_traces(
+                    texttemplate='<b>%{y}</b> %{x:.0f}', # Bu rank numarasını yazar, ismi değil.
+                    # İsimleri barların içine yazdırmak için farklı bir yöntem gerekir ama şu anki yapı bozulmasın diye
+                    # Legend'ı aktif edebiliriz ama çok yer kaplar.
+                    # En iyisi barın içine ismi yazmak.
+                )
+                
+                # DÜZELTME: Hem İsim Hem Sayı Görünsün
+                # Bunun için `text` kolonunu dataframe'de manipüle edelim
+                df_race_long['Etiket'] = df_race_long[first_col].astype(str) + " (" + df_race_long['Deger'].astype(int).astype(str) + ")"
+                
+                # Grafiği tekrar oluştur (Etiketli haliyle)
+                fig_race = px.bar(
+                    df_race_long, 
+                    x="Deger", 
+                    y="Rank", 
+                    orientation='h',
+                    color=first_col,
+                    text="Etiket", # İsim + Sayı
+                    animation_frame="Tarih_Str", 
+                    range_x=[0, max_val * 1.3], # Yazı sığsın diye x eksenini genişlet
+                    range_y=[0.5, total_firms + 0.5],
+                    color_discrete_map=color_map,
+                    title="Zaman İçinde Liderlik Yarışı"
+                )
+                
+                fig_race.update_traces(
+                    textposition='outside', 
+                    textfont_size=12,
+                    cliponaxis=False
+                )
+                
+                fig_race.update_layout(
+                    xaxis_title="",
+                    yaxis_title="",
+                    yaxis=dict(showticklabels=False, showgrid=False),
+                    showlegend=False,
+                    plot_bgcolor='white',
+                    height=dynamic_height,
+                    margin=dict(l=0, r=150, t=50, b=0)
+                )
+
+                # Animasyon Hızı
+                fig_race.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 700 
+                fig_race.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 500
+                fig_race.layout.updatemenus[0].buttons[0].args[1]["transition"]["easing"] = "cubic-in-out"
                 
                 st.plotly_chart(fig_race, use_container_width=True)
                 
