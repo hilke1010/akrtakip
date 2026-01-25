@@ -8,7 +8,7 @@ yfinance
 matplotlib
 requests
 networkx
-folium
-streamlit-folium
+
+
 
 
