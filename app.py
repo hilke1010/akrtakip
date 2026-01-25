@@ -1098,70 +1098,89 @@ def main():
             else:
                 st.success("Riskli kayıt yok.")
 
-    # 14. CANLI TRAFİK (YENİ EKLENEN KISIM)
-  # 14. CANLI TRAFİK & İSTASYONLAR (GOOGLE TRAFİK KATMANI İLE)
+    # 14. CANLI TRAFİK & İSTASYONLAR (FOLIUM - PRO VERSİYON)
     with tabs[13]:
-        st.subheader("🚦 Trafik Yoğunluğu & İstasyonlar")
-        st.info("💡 Bu harita Google Trafik verisini kullanır. Kırmızı/Turuncu çizgiler trafiği, noktalar istasyonları gösterir.")
+        st.subheader("🚦 Canlı Trafik & İstasyonlar (Google Altyapısı)")
+        
+        # Kütüphane Kontrolü (Yüklü değilse uyarı verir)
+        try:
+            import folium
+            from streamlit_folium import st_folium
+            from folium.plugins import MarkerCluster
+        except ImportError:
+            st.error("⚠️ Kanka bu haritanın çalışması için terminale şunu yazıp kurman lazım: `pip install folium streamlit-folium`")
+            st.stop()
+
+        st.info("💡 Kırmızı/Turuncu yollar trafiği gösterir. İstasyonlar üzerine ⛽ ikonu ile işlenmiştir.")
 
         # --- FİLTRELEME ---
-        # Burası için özel bir filtre kutusu koyalım ki harita çok şişmesin
-        st.markdown("##### 📍 Harita Filtresi")
-        trafik_il_sec = st.selectbox("Hangi İldeki Trafik ve İstasyonları Görelim?", ["TÜMÜ"] + sorted(df['İl'].unique().tolist()), index=0)
+        c_filter1, c_filter2 = st.columns([1, 3])
+        with c_filter1:
+            trafik_il_sec = st.selectbox("İl Seç:", ["TÜMÜ"] + sorted(df['İl'].unique().tolist()), index=0)
         
-        # Veriyi Hazırla
+        # Veri Hazırlığı
         if trafik_il_sec != "TÜMÜ":
             map_traffic_df = df[df['İl'] == trafik_il_sec].copy()
-            # Şehrin merkezine odaklan (Varsa simülasyon, yoksa gerçek)
             center_lat = map_traffic_df[lat_col].mean()
             center_lon = map_traffic_df[lon_col].mean()
             zoom_lvl = 10
         else:
             map_traffic_df = df.copy()
-            # Türkiye geneli
-            center_lat, center_lon = 39.0, 35.0
+            center_lat, center_lon = 39.0, 35.0 # Türkiye Ortası
             zoom_lvl = 6
 
-        # --- HARİTA OLUŞTURMA (PLOTLY İLE) ---
         if not map_traffic_df.empty:
-            # 1. İstasyonları Çiz
-            fig_trf = px.scatter_mapbox(
-                map_traffic_df, 
-                lat=lat_col, 
-                lon=lon_col, 
-                hover_name="Unvan",
-                hover_data=["İlçe", "Dağıtım Şirketi"],
-                size_max=15,
-                zoom=zoom_lvl
-            )
+            # --- HARİTA OLUŞTURMA (FOLIUM) ---
+            m = folium.Map(location=[center_lat, center_lon], zoom_start=zoom_lvl)
 
-            # 2. Arka Plana Google Trafik Haritasını Döşe (HACK YÖNTEMİ)
-            # Bu URL Google'ın herkese açık harita görsellerini çeker (m=map, traffic=trafik katmanı)
-            fig_trf.update_layout(
-                mapbox_style="white-bg", # Standart haritayı kapatıyoruz, kendi katmanımızı koyacağız
-                mapbox_layers=[
-                    {
-                        "below": 'traces', # İstasyonların altında kalsın
-                        "sourcetype": "raster",
-                        "sourceattribution": "Google Maps",
-                        "source": [
-                            "https://mt0.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}"
-                        ]
-                    }
-                ],
-                mapbox_center={"lat": center_lat, "lon": center_lon},
-                margin={"r":0,"t":0,"l":0,"b":0}
-            )
-            
-            # İstasyon Noktalarını Güzelleştir (Kırmızı ve Belirgin Yap)
-            fig_trf.update_traces(marker=dict(size=10, color='blue', opacity=0.8, symbol='circle'))
+            # 1. Google Trafik Katmanını Ekle
+            folium.TileLayer(
+                tiles='https://mt1.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}',
+                attr='Google Traffic',
+                name='Google Trafik',
+                overlay=False,
+                control=True
+            ).add_to(m)
 
-            st.plotly_chart(fig_trf, use_container_width=True)
+            # 2. Marker Kümeleme (Çok nokta varsa gruplar)
+            marker_cluster = MarkerCluster().add_to(m)
+
+            # 3. İstasyonları Ekle
+            # Performans için sadece ilk 2000 noktayı gösterelim (Tümünü seçtiyse kasmasın)
+            limit = 2000
+            if len(map_traffic_df) > limit:
+                st.warning(f"⚠️ Performans için sadece ilk {limit} istasyon gösteriliyor. Lütfen İl seçerek filtreleyin.")
+                loop_df = map_traffic_df.head(limit)
+            else:
+                loop_df = map_traffic_df
+
+            for idx, row in loop_df.iterrows():
+                # Risk durumuna göre ikon rengi
+                icon_color = 'red' if row.get('Kalan_Gun', 999) < 90 else 'blue'
+                
+                # Popup İçeriği (HTML)
+                html_content = f"""
+                <div style="font-family:sans-serif; width:200px;">
+                    <h5 style="margin-bottom:5px; color:#2c3e50;">{row['Unvan']}</h5>
+                    <hr style="margin:5px 0;">
+                    <b>Şirket:</b> {row['Dağıtım Şirketi']}<br>
+                    <b>İlçe:</b> {row.get('İlçe', '-')}<br>
+                    <b>Kalan Gün:</b> <span style="color:{icon_color}; font-weight:bold;">{row.get('Kalan_Gun', '-')}</span>
+                </div>
+                """
+                
+                folium.Marker(
+                    location=[row[lat_col], row[lon_col]],
+                    tooltip=row['Unvan'], # Üzerine gelince adı yazar
+                    popup=folium.Popup(html_content, max_width=250),
+                    icon=folium.Icon(color=icon_color, icon='gas-pump', prefix='fa') # ⛽ İkonu
+                ).add_to(marker_cluster)
+
+            # Haritayı Streamlit'e bas
+            st_folium(m, width="100%", height=600)
             
-            # Altına basit liste
-            st.markdown(f"**Görüntülenen İstasyon Sayısı:** {len(map_traffic_df)}")
         else:
-            st.warning("Bu seçimde gösterilecek istasyon bulunamadı.")
+            st.warning("Gösterilecek istasyon bulunamadı.")
 if __name__ == "__main__":
     main()
 
