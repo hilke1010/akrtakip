@@ -7,7 +7,7 @@ import os
 import io
 import time
 import math
-import networkx as nx
+import streamlit.components.v1 as components # Trafik haritası için ekledik
 from datetime import datetime, timedelta, date
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
@@ -54,10 +54,9 @@ def show_intro_animation():
         ⚠️ Kritik Yenileme Dönemleri
     </div>
     <ul style="padding-left:20px; margin:0;">
-        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2027</span>: Toplam <b>435</b> Bayi</li>
-        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2028</span>: Toplam <b>461</b> Bayi</li>
-        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2029</span>: Toplam <b>455</b> Bayi</li>
-        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2030</span>: Toplam <b>762</b> Bayi</li>
+        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2027</span>: Hazırlık Yılı</li>
+        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2028</span>: Yoğun Dönem</li>
+        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2029</span>: Final Dönemi</li>
     </ul>
 </div>
 """, unsafe_allow_html=True)
@@ -68,7 +67,6 @@ def show_intro_animation():
 # --- AYARLAR VE CSS ---
 MAX_ROW_DISPLAY = 1000
 MAX_MAP_POINTS = 50000
-PREVIEW_ROW_LIMIT = 100
 SABIT_DOSYA_ADI = "asatis.xlsx"
 
 st.markdown("""
@@ -76,13 +74,7 @@ st.markdown("""
     .stMetric { background-color: #f0f2f6; border-left: 5px solid #2980b9; padding: 15px; border-radius: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
     .crm-box { background-color: #fff9c4; padding: 10px; border-radius: 5px; border: 1px solid #fbc02d; margin-bottom: 10px; }
     .warning-box { padding: 1rem; background-color: #ffeba0; border-left: 6px solid #ffa500; color: #5c3a00; border-radius: 4px; font-weight: bold; }
-    .year-box { background-color: #e8f4f8; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #b3e5fc; margin-bottom: 5px; }
-    .year-title { font-weight: bold; color: #0277bd; font-size: 1.1em; }
-    .year-count { font-size: 1.5em; font-weight: bold; color: #01579b; }
-    .insight-box-success { padding: 15px; border-radius: 8px; background-color: #d4edda; border-left: 5px solid #28a745; color: #155724; margin-bottom: 10px; }
-    .insight-box-warning { padding: 15px; border-radius: 8px; background-color: #fff3cd; border-left: 5px solid #ffc107; color: #856404; margin-bottom: 10px; }
     .insight-box-danger { padding: 15px; border-radius: 8px; background-color: #f8d7da; border-left: 5px solid #dc3545; color: #721c24; margin-bottom: 10px; }
-    .insight-box-info { padding: 15px; border-radius: 8px; background-color: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460; margin-bottom: 10px; }
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
     
@@ -91,21 +83,19 @@ st.markdown("""
         50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* YENİ SIRALAMAYA GÖRE KIRMIZI YANIP SÖNECEK SEKMELER [NEW Olanlar] */
-    /* 1 tabanlı indeksleme: 7, 8, 9, 10, 11. sekmeler */
-    
-    button[data-testid="stTab"]:nth-child(7) p, /* Yarıçap */
-    button[data-testid="stTab"]:nth-child(8) p, /* Rota */
-    button[data-testid="stTab"]:nth-child(9) p, /* Robo */
-    button[data-testid="stTab"]:nth-child(10) p, /* Vergi */
-    button[data-testid="stTab"]:nth-child(11) p { /* Detaylı Arama */
+    /* Canlı Trafik sekmesi ve diğer yeniler yanıp sönsün */
+    button[data-testid="stTab"]:nth-child(7) p, 
+    button[data-testid="stTab"]:nth-child(8) p,
+    button[data-testid="stTab"]:nth-child(9) p,
+    button[data-testid="stTab"]:nth-child(10) p,
+    button[data-testid="stTab"]:nth-child(11) p,
+    button[data-testid="stTab"]:nth-child(14) p { /* Canlı Trafik */
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
     }
 
-    /* Robo Kartları (Sade Tasarım) */
-    .dealer-card, .robo-card {
+    .robo-card {
         background: white;
         border: 2px solid #e0e0e0;
         border-radius: 10px;
@@ -113,31 +103,13 @@ st.markdown("""
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         font-family: sans-serif;
     }
-    .dealer-header {
-        border-bottom: 2px solid #3498db;
-        padding-bottom: 10px;
-        margin-bottom: 15px;
-    }
-    .dealer-title { font-size: 1.5em; font-weight: bold; color: #2c3e50; }
-    .dealer-badge { 
-        background-color: #3498db; color: white; padding: 4px 8px; 
-        border-radius: 4px; font-size: 0.8em; font-weight: bold; vertical-align: middle;
-    }
-    .dealer-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dotted #eee; padding-bottom: 5px; }
-    .dealer-label { font-weight: bold; color: #7f8c8d; min-width: 150px; }
-    .dealer-value { color: #2c3e50; font-weight: 500; text-align: right; width: 100%; word-break: break-word; }
-    
-    .robo-header {
-        font-size: 1.2em; font-weight: bold; margin-bottom: 10px; color: #2c3e50;
-        border-bottom: 1px solid #eee; padding-bottom: 5px;
-    }
     .robo-list { list-style-type: none; padding: 0; margin: 0; }
     .robo-list li { margin-bottom: 8px; font-size: 1em; padding-left: 10px; border-left: 3px solid #eee; }
     .robo-highlight { font-weight: bold; color: #d35400; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- KOORDİNAT VERİTABANI ---
+# --- KOORDİNAT VERİTABANI (ŞEHİR MERKEZLERİ) ---
 CITY_COORDINATES = {
     "ADANA": [37.0000, 35.3213], "ADIYAMAN": [37.7648, 38.2786], "AFYONKARAHİSAR": [38.7507, 30.5567],
     "AĞRI": [39.7191, 43.0503], "AMASYA": [40.6499, 35.8353], "ANKARA": [39.9334, 32.8597],
@@ -318,12 +290,14 @@ def main():
     df, target_date_col, start_date_col = data_result
     
     # ----------------------------------------------------
-    # 🛠️ KOORDİNAT SİMÜLASYONU (JITTER)
+    # 🛠️ KOORDİNAT SİMÜLASYONU (JITTER) - BENDE KOORDİNAT YOK ÇÖZÜMÜ
     # ----------------------------------------------------
     if 'Enlem' not in df.columns or 'Boylam' not in df.columns:
+        # st.toast("⚠️ Koordinat verisi bulunamadı. Şehir merkezli simülasyon kullanılıyor.", icon="📍")
         np.random.seed(42)
         df['base_lat'] = df['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
         df['base_lon'] = df['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
+        # Rastgele dağıt (Jitter)
         df['Enlem_Sim'] = df['base_lat'] + np.random.uniform(-0.05, 0.05, size=len(df))
         df['Boylam_Sim'] = df['base_lon'] + np.random.uniform(-0.05, 0.05, size=len(df))
         lat_col, lon_col = 'Enlem_Sim', 'Boylam_Sim'
@@ -334,21 +308,13 @@ def main():
 
     # --- ÜST BİLGİ PANELİ ---
     st.markdown("### 🚀 Akaryakıt Pazar & Risk Analizi")
-    col_info1, col_info2, col_info3 = st.columns([1, 1, 1])
+    col_info1, col_info2 = st.columns([1, 1])
     
     with col_info1:
         st.success(f"🔄 **Veri Güncelleme:**\n\n{file_date_str}")
     with col_info2:
-        st.info(f"📧 **İletişim:**\n\nkerim.aksu@milangaz.com.tr")
-    with col_info3:
-        st.warning("🔗 **Diğer Uygulamalar**")
-        st.markdown("""
-        <div style="font-size:0.9em;">
-        • 📊 <a href="https://pazarpayi.streamlit.app/" target="_blank">EPDK LPG AYLIK SEKTÖR RAPORU ( AÇIK KAYNAK SATIŞ )</a><br>
-        • 📰 <a href="https://newslpg.streamlit.app/" target="_blank">Haber Aracı</a><br>
-        • 📱 <a href="https://lpg2026.streamlit.app/" target="_blank">Mobil Hesaplayıcı</a>
-        </div>
-        """, unsafe_allow_html=True)
+        st.warning(f"📍 **Konum Modu:** {'Gerçek Veri' if lat_col == 'Enlem' else 'Simülasyon (Tahmini Konum)'}")
+    
     st.divider()
 
     # --- KPI ---
@@ -359,7 +325,7 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER (GÖRSELE GÖRE YENİDEN SIRALANDI) ---
+    # --- SEKMELER ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
         "📅 Takvim",
@@ -367,13 +333,14 @@ def main():
         "⚔️ Karşılaştırma",
         "📄 İl Karnesi",
         "📍 İlçe Penetrasyonu",
-        "📍 Yarıçap (Radar) [NEW]",
-        "🚗 Rota Planlayıcı [NEW]",
-        "🤖 Robo-Yönetici [NEW]",
-        "💸 Vergi Zincir Analizi [NEW]",
-        "🔍 Detaylı Arama [NEW]",
+        "📍 Yarıçap (Radar)",
+        "🚗 Rota Planlayıcı",
+        "🤖 Robo-Yönetici",
+        "💸 Vergi Zincir Analizi",
+        "🔍 Detaylı Arama",
         "🔮 Simülasyon",
-        "📡 Sözleşme Radar"
+        "📡 Sözleşme Radar",
+        "🚦 Canlı Trafik" # <-- YENİ SEKME
     ])
 
     # 1. BÖLGESEL & DURUM
@@ -628,9 +595,12 @@ def main():
             else:
                 st.success("Tebrikler! Seçili bölgedeki tüm ilçelerde varlık gösteriyorsunuz.")
 
-    # 7. YARIÇAP ANALİZİ [NEW]
+    # 7. YARIÇAP ANALİZİ
     with tabs[6]:
         st.subheader("📍 Yarıçap (Radar) Analizi")
+        if lat_col == 'Enlem_Sim':
+             st.warning("⚠️ **UYARI:** Koordinat verisi olmadığı için konumlar **ŞEHİR MERKEZLİ SİMÜLASYON** ile gösterilmektedir. Mesafe hesaplamaları tahmini olacaktır.")
+        
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         
         df_radar = create_tab_filters(df, "tab_radar_new")
@@ -672,11 +642,12 @@ def main():
         else:
             st.warning("Veri yok.")
 
-    # 8. ROTA PLANLAYICI [NEW]
+    # 8. ROTA PLANLAYICI
     with tabs[7]:
         st.subheader("🚗 Akıllı Rota Planlayıcı")
-        st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
-        
+        if lat_col == 'Enlem_Sim':
+             st.warning("⚠️ **UYARI:** Konumlar simülasyondur. Rota sıralaması tahmini olacaktır.")
+             
         df_route = create_tab_filters(df, "tab_route_new")
 
         if not df_route.empty:
@@ -717,10 +688,10 @@ def main():
         else:
              st.warning("Veri yok.")
 
-    # 9. ROBO-YÖNETİCİ [NEW]
+    # 9. ROBO-YÖNETİCİ
     with tabs[8]:
-        st.subheader("🤖 Robo-Yönetici: Stratejik İstihbarat Raporu (40+ Nokta)")
-        st.info("💡 Bu rapor, seçili filtredeki pazar durumunu **GÜZEL ENERJİ AKARYAKIT A.Ş.** perspektifinden, İl ve İlçe kalelerini ayrıştırarak analiz eder.")
+        st.subheader("🤖 Robo-Yönetici: Stratejik İstihbarat Raporu")
+        st.info("💡 Bu rapor, seçili filtredeki pazar durumunu **GÜZEL ENERJİ AKARYAKIT A.Ş.** perspektifinden analiz eder.")
         
         df_robo = create_tab_filters(df, "tab_robo")
         
@@ -933,7 +904,7 @@ def main():
         else:
             st.warning("Rapor oluşturmak için lütfen yukarıdan en az bir filtre seçimi yapın.")
 
-    # 10. VERGİ ZİNCİR ANALİZİ [NEW]
+    # 10. VERGİ ZİNCİR ANALİZİ
     with tabs[9]:
         st.subheader("💸 Vergi Zincir Haritası (Holding/Grup Analizi)")
         st.info("💡 Bu ekran, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları listeler.")
@@ -1012,7 +983,7 @@ def main():
             else:
                 st.warning("Veri yok.")
 
-    # 11. DETAYLI ARAMA [NEW]
+    # 11. DETAYLI ARAMA
     with tabs[10]:
         st.subheader("🔍 Detaylı Arama & Bayi Kimlik Kartı")
         st.info("💡 Aşağıdaki kutudan bayi seçimi yapın, sistem tüm bilgileri sizin için derlesin.")
@@ -1035,7 +1006,7 @@ def main():
             placeholder="Örn: YILDIZ PETROL"
         )
         
-        # 2. BAYİ KİMLİK KARTI (GÜVENLİ NATIVE KART)
+        # 2. BAYİ KİMLİK KARTI
         if selected_label:
             row = df[df['Arama_Etiketi'] == selected_label].iloc[0]
             
@@ -1067,13 +1038,12 @@ def main():
                     vergi_no = row[c]
                     break
             
-            # Tarihler (Hata veren yer burasıydı, düzeltildi)
+            # Tarihler
             baslangic = row[start_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(start_date_col)) else "-"
             bitis = row[target_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(target_date_col)) else "-"
             kalan = int(row['Kalan_Gun']) if pd.notnull(row.get('Kalan_Gun')) else 0
             
             # --- NATIVE STREAMLIT KART TASARIMI ---
-            # HTML yerine native kullanarak hatayı önlüyoruz
             with st.container(border=True):
                 c_header1, c_header2 = st.columns([3, 1])
                 with c_header1:
@@ -1128,6 +1098,42 @@ def main():
             else:
                 st.success("Riskli kayıt yok.")
 
+    # 14. CANLI TRAFİK (YENİ EKLENEN KISIM)
+    with tabs[13]:
+        st.subheader("🚦 Canlı Trafik Durumu (Yandex)")
+        st.info("💡 Bu harita anlık trafik yoğunluğunu gösterir. Şehir seçerek o bölgeye odaklanabilirsiniz.")
+        
+        # Şehir seçici (Kod içinde tanımlı şehirlerden)
+        city_for_traffic = st.selectbox("Şehir Seç (Trafik Odaklanma)", ["TÜRKİYE GENELİ"] + sorted(list(CITY_COORDINATES.keys())))
+        
+        # Varsayılan (Türkiye)
+        map_lat, map_lon = 38.9637, 35.2433 
+        zoom_level = 6
+        
+        # Eğer şehir seçilirse koordinatı güncelle
+        if city_for_traffic != "TÜRKİYE GENELİ":
+            c_coords = CITY_COORDINATES.get(city_for_traffic)
+            if c_coords:
+                map_lat, map_lon = c_coords[0], c_coords[1]
+                zoom_level = 10 # Şehre yaklaş
+        
+        # Yandex Widget URL oluşturma (ll=boylam,enlem formatı)
+        # Yandex widget genelde ll parametresini lon,lat olarak alabilir, deneyerek görelim
+        # Standart url yapısı: ll=LONG,LAT
+        yandex_url = f"https://yandex.com.tr/map-widget/v1/?ll={map_lon}%2C{map_lat}&z={zoom_level}&l=trf%2Ctrfe"
+        
+        yandex_map_html = f"""
+        <iframe 
+            src="{yandex_url}" 
+            width="100%" 
+            height="600" 
+            frameborder="1" 
+            allowfullscreen="true"
+            style="border-radius: 10px; border: 2px solid #ccc;">
+        </iframe>
+        """
+        
+        components.html(yandex_map_html, height=600)
+
 if __name__ == "__main__":
     main()
-
