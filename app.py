@@ -7,9 +7,14 @@ import os
 import io
 import time
 import math
-import streamlit.components.v1 as components # Trafik haritası için ekledik
+import streamlit.components.v1 as components 
 from datetime import datetime, timedelta, date
 
+# ### 👇 YENİ EKLENECEK KISIM BURASI 👇 ###
+import folium
+from streamlit_folium import st_folium
+from folium.plugins import MarkerCluster
+# ### 👆 YENİ EKLENECEK KISIM BURASI 👆 ###
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
     page_title="EPDK Akaryakıt Pazar Analizi",
@@ -1183,4 +1188,5 @@ def main():
             st.warning("Gösterilecek istasyon bulunamadı.")
 if __name__ == "__main__":
     main()
+
 
