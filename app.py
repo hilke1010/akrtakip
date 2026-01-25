@@ -365,7 +365,7 @@ def main():
     # --- TABLARI OLUŞTUR VE DEĞİŞKENLERE ATA ---
     # Bu yöntemle "tab_race" (Yarış) değişkeni ilk sırada render edilir.
     tab_race, tab_bolge, tab_takvim, tab_hizli, tab_kars, tab_il, tab_ilce, tab_yaricap, tab_rota, tab_robo, tab_vergi, tab_ara, tab_sim, tab_radar = st.tabs([
-        "📈 Hareketli Grafik [YENİ]",
+        "📈 Hareketli Yarış [YENİ]",
         "📊 Bölgesel & Durum",
         "📅 Takvim",
         "⚡ Hızlı Analiz",
@@ -381,10 +381,10 @@ def main():
         "📡 Sözleşme Radar"
     ])
 
-    # 1. HAREKETLİ YARIŞ [NEW] -> ARTIK EN BAŞTA!
+    # 1. HAREKETLİ YARIŞ (RACE CHART) - YATAY VE SIRALAMALI
     with tab_race:
-        st.subheader("📈 Hareketli Grafik (Race)")
-        st.info("💡 `gr.xlsx` dosyasındaki veriler kullanılarak oluşturulmuştur. Oynat butonuna basarak zaman içindeki değişimi izleyebilirsiniz.")
+        st.subheader("📈 Profesyonel Yarış Grafiği")
+        st.info("💡 Grafik, her tarih için en yüksek değere sahip şirketleri otomatik sıralar ve yarıştırır. Solda isimler, sağda değerler akar.")
         
         # Dosya yolu
         gr_file = "gr.xlsx"
@@ -395,46 +395,72 @@ def main():
             try:
                 # Excel'i oku (Wide format)
                 df_race_wide = pd.read_excel(gr_file)
-                
-                # Kolonları temizle
                 df_race_wide.columns = [str(c).strip() for c in df_race_wide.columns]
+                first_col = df_race_wide.columns[0] # Firma Adı Kolonu
                 
-                # İlk sütun muhtemelen Firma ismidir, diğerleri tarihtir.
-                first_col = df_race_wide.columns[0]
-                
-                # Wide to Long dönüşümü (Melt)
+                # Wide to Long dönüşümü
                 df_race_long = df_race_wide.melt(id_vars=[first_col], var_name='Tarih', value_name='Deger')
                 
-                # Tarih sütununu datetime objesine çevir (Sıralama doğru olsun diye)
+                # Tarih ve Değer Düzenleme
                 df_race_long['Tarih_Dt'] = pd.to_datetime(df_race_long['Tarih'], dayfirst=True, errors='coerce')
-                
-                # Tarihe göre sırala
-                df_race_long = df_race_long.sort_values('Tarih_Dt')
-                
-                # Görünen tarih formatını string yap
+                df_race_long = df_race_long.sort_values('Tarih_Dt') # Tarihe göre sırala
                 df_race_long['Tarih_Str'] = df_race_long['Tarih_Dt'].dt.strftime('%d.%m.%Y')
-                
-                # Boş değerleri 0 yap
                 df_race_long['Deger'] = df_race_long['Deger'].fillna(0)
-
-                # Animasyonlu Grafik
-                max_val = df_race_long['Deger'].max() * 1.1 
                 
+                # --- YARIŞ MANTIĞI (RANKING) ---
+                # Her tarih için kendi içinde sıralama yapıyoruz
+                # method='first': Eşitlik durumunda ilk geleni üstte tutar, hata vermez
+                df_race_long['Rank'] = df_race_long.groupby('Tarih_Str')['Deger'].rank(method='first', ascending=True)
+                
+                # GÖRSEL İÇİN FİLTRELEME (TOP 15)
+                # Sadece o tarihteki en iyi 15'i gösterelim ki grafik profesyonel dursun
+                # Rank'i büyük olanlar (yani değeri yüksek olanlar) üstte kalsın diye filtreliyoruz
+                # Toplam firma sayısını bulalım
+                total_firms = df_race_long[first_col].nunique()
+                top_n = 15 # Kaç tane gösterilsin?
+                
+                # Eğer firma sayısı 15'ten azsa hepsini göster, çoksa kes
+                limit_rank = total_firms - top_n
+                df_race_filtered = df_race_long[df_race_long['Rank'] > limit_rank].copy()
+                
+                # --- GRAFİK ---
+                max_val = df_race_filtered['Deger'].max() * 1.1 
+                
+                # Renklerin sabit kalması için renk haritası
+                companies = df_race_filtered[first_col].unique()
+                colors = px.colors.qualitative.Dark24 # Profesyonel renk paleti
+                color_map = {comp: colors[i % len(colors)] for i, comp in enumerate(companies)}
+
                 fig_race = px.bar(
-                    df_race_long, 
-                    x=first_col, 
-                    y="Deger", 
+                    df_race_filtered, 
+                    x="Deger", 
+                    y="Rank", # Y ekseni Sıralama olacak (Kayma efekti için)
+                    orientation='h', # YATAY ÇUBUK
                     color=first_col,
+                    text=first_col, # Çubuğun içine firma ismini yaz
                     animation_frame="Tarih_Str", 
-                    range_y=[0, max_val],
-                    title="Zaman İçinde Değişim",
-                    text="Deger" 
+                    range_x=[0, max_val],
+                    range_y=[limit_rank + 0.5, total_firms + 0.5], # Y eksenini sabitle
+                    color_discrete_map=color_map,
+                    title="Zaman İçinde Liderlik Yarışı"
                 )
                 
-                # Animasyon hızı ayarı
-                fig_race.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 500
-                fig_race.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 300
-                fig_race.update_traces(textposition='outside')
+                # Profesyonel Görünüm Ayarları
+                fig_race.update_traces(textposition='inside', textfont_size=14, textfont_color="white")
+                fig_race.update_layout(
+                    xaxis_title="",
+                    yaxis_title="",
+                    yaxis=dict(showticklabels=False, showgrid=False), # Y ekseni sayılarını (rank) gizle
+                    showlegend=False, # Efsaneyi gizle (Zaten barda yazıyor)
+                    plot_bgcolor='white',
+                    margin=dict(l=0, r=50, t=50, b=0),
+                    height=600
+                )
+                
+                # Animasyon Hızı (Daha yavaş ve akıcı: duration artırıldı)
+                fig_race.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 700 # Her kare 700ms (Yavaş)
+                fig_race.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 500 # Geçiş 500ms (Akıcı)
+                fig_race.layout.updatemenus[0].buttons[0].args[1]["transition"]["easing"] = "cubic-in-out" # Yumuşak geçiş
                 
                 st.plotly_chart(fig_race, use_container_width=True)
                 
@@ -443,7 +469,7 @@ def main():
                     
             except Exception as e:
                 st.error(f"Grafik oluşturulurken bir hata oluştu: {str(e)}")
-                st.error("Excel formatının doğru olduğundan emin olun (İlk sütun Firma Adı, diğer sütunlar Tarih).")
+                st.error("Lütfen veriyi kontrol edin.")
 
     # 2. BÖLGESEL & DURUM
     with tab_bolge:
