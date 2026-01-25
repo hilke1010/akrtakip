@@ -91,21 +91,20 @@ st.markdown("""
         50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* İLK SEKME (HAREKETLİ GRAFİK) KIRMIZI YANIP SÖNSÜN */
-    button[data-testid="stTab"]:nth-child(1) p {
+    /* YENİ SIRALAMAYA GÖRE KIRMIZI YANIP SÖNECEK SEKMELER [NEW Olanlar] */
+    /* 1 tabanlı indeksleme: 7, 8, 9, 10, 11. sekmeler */
+    
+    button[data-testid="stTab"]:nth-child(7) p, /* Yarıçap */
+    button[data-testid="stTab"]:nth-child(8) p, /* Rota */
+    button[data-testid="stTab"]:nth-child(9) p, /* Robo */
+    button[data-testid="stTab"]:nth-child(10) p, /* Vergi */
+    button[data-testid="stTab"]:nth-child(11) p { /* Detaylı Arama */
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
     }
-    
-    button[data-testid="stTab"]:nth-child(8) p,
-    button[data-testid="stTab"]:nth-child(9) p,
-    button[data-testid="stTab"]:nth-child(10) p,
-    button[data-testid="stTab"]:nth-child(11) p { 
-         color: #333 !important;
-         font-weight: 600 !important;
-    }
 
+    /* Robo Kartları (Sade Tasarım) */
     .dealer-card, .robo-card {
         background: white;
         border: 2px solid #e0e0e0;
@@ -113,6 +112,24 @@ st.markdown("""
         padding: 20px;
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         font-family: sans-serif;
+    }
+    .dealer-header {
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+    }
+    .dealer-title { font-size: 1.5em; font-weight: bold; color: #2c3e50; }
+    .dealer-badge { 
+        background-color: #3498db; color: white; padding: 4px 8px; 
+        border-radius: 4px; font-size: 0.8em; font-weight: bold; vertical-align: middle;
+    }
+    .dealer-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dotted #eee; padding-bottom: 5px; }
+    .dealer-label { font-weight: bold; color: #7f8c8d; min-width: 150px; }
+    .dealer-value { color: #2c3e50; font-weight: 500; text-align: right; width: 100%; word-break: break-word; }
+    
+    .robo-header {
+        font-size: 1.2em; font-weight: bold; margin-bottom: 10px; color: #2c3e50;
+        border-bottom: 1px solid #eee; padding-bottom: 5px;
     }
     .robo-list { list-style-type: none; padding: 0; margin: 0; }
     .robo-list li { margin-bottom: 8px; font-size: 1em; padding-left: 10px; border-left: 3px solid #eee; }
@@ -342,10 +359,8 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- TABLARI OLUŞTUR VE DEĞİŞKENLERE ATA ---
-    # Bu yöntemle "tab_race" (Yarış) değişkeni ilk sırada render edilir.
-    tab_race, tab_bolge, tab_takvim, tab_hizli, tab_kars, tab_il, tab_ilce, tab_yaricap, tab_rota, tab_robo, tab_vergi, tab_ara, tab_sim, tab_radar = st.tabs([
-        "📈 Hareketli Yarış [YENİ]",
+    # --- SEKMELER (GÖRSELE GÖRE YENİDEN SIRALANDI) ---
+    tabs = st.tabs([
         "📊 Bölgesel & Durum",
         "📅 Takvim",
         "⚡ Hızlı Analiz",
@@ -361,155 +376,8 @@ def main():
         "📡 Sözleşme Radar"
     ])
 
-    # 1. HAREKETLİ YARIŞ (RACE CHART) - YATAY VE SIRALAMALI
-    with tab_race:
-        st.subheader("📈 Profesyonel Yarış Grafiği (Tüm Firmalar)")
-        st.info("💡 Grafik, her tarih için firmaları bayi sayısına göre sıralar. Oynat butonuna basarak değişimi izleyebilirsiniz.")
-        
-        # Dosya yolu
-        gr_file = "gr.xlsx"
-        
-        if not os.path.exists(gr_file):
-            st.error(f"⚠️ `{gr_file}` dosyası bulunamadı! Lütfen proje klasörüne ekleyin.")
-        else:
-            try:
-                # Excel'i oku (Wide format)
-                df_race_wide = pd.read_excel(gr_file)
-                df_race_wide.columns = [str(c).strip() for c in df_race_wide.columns]
-                first_col = df_race_wide.columns[0] # Firma Adı Kolonu
-                
-                # Wide to Long dönüşümü
-                df_race_long = df_race_wide.melt(id_vars=[first_col], var_name='Tarih', value_name='Deger')
-                
-                # FİLTRELEME: "DİĞERLERİ" ve benzeri varyasyonları çıkar
-                filter_keywords = ["DİĞER", "DIGER", "OTHER"]
-                # Case insensitive filtreleme
-                pattern = '|'.join(filter_keywords)
-                df_race_long = df_race_long[~df_race_long[first_col].str.upper().str.contains(pattern, na=False)]
-
-                # Tarih ve Değer Düzenleme
-                df_race_long['Tarih_Dt'] = pd.to_datetime(df_race_long['Tarih'], dayfirst=True, errors='coerce')
-                df_race_long = df_race_long.sort_values('Tarih_Dt') # Tarihe göre sırala
-                df_race_long['Tarih_Str'] = df_race_long['Tarih_Dt'].dt.strftime('%d.%m.%Y')
-                df_race_long['Deger'] = df_race_long['Deger'].fillna(0)
-                
-                # --- YARIŞ MANTIĞI (RANKING) ---
-                # Her tarih için kendi içinde sıralama yapıyoruz
-                df_race_long['Rank'] = df_race_long.groupby('Tarih_Str')['Deger'].rank(method='first', ascending=True)
-                
-                # --- GRAFİK ---
-                max_val = df_race_long['Deger'].max() * 1.1 
-                total_firms = df_race_long[first_col].nunique()
-                
-                # Renklerin sabit kalması için renk haritası
-                companies = df_race_long[first_col].unique()
-                colors = px.colors.qualitative.Dark24 # Profesyonel renk paleti
-                # Eğer firma sayısı renk paletinden fazlaysa renkler tekrar eder
-                color_map = {comp: colors[i % len(colors)] for i, comp in enumerate(companies)}
-
-                # Grafik Boyutunu Firma Sayısına Göre Ayarla (Dinamik Yükseklik)
-                # En az 600px olsun, firma başına 30px ekle
-                dynamic_height = max(600, len(companies) * 30)
-
-                fig_race = px.bar(
-                    df_race_long, 
-                    x="Deger", 
-                    y="Rank", # Y ekseni Sıralama olacak (Kayma efekti için)
-                    orientation='h', # YATAY ÇUBUK
-                    color=first_col,
-                    text="Deger", # Barların yanına sayıyı yaz
-                    animation_frame="Tarih_Str", 
-                    range_x=[0, max_val],
-                    range_y=[0.5, total_firms + 0.5], # Y eksenini tüm firmaları kapsayacak şekilde sabitle
-                    color_discrete_map=color_map,
-                    title="Zaman İçinde Liderlik Yarışı"
-                )
-                
-                # Profesyonel Görünüm Ayarları
-                fig_race.update_traces(
-                    texttemplate='%{text:.0f}', # Sayıyı tam sayı olarak göster
-                    textposition='outside', # Barın ucuna yaz
-                    textfont_size=12, 
-                    textfont_color="black",
-                    cliponaxis=False # Sayılar eksen dışına taşarsa kesilmesin
-                )
-                
-                fig_race.update_layout(
-                    xaxis_title="Bayi Sayısı",
-                    yaxis_title="",
-                    yaxis=dict(showticklabels=False, showgrid=False), # Y ekseni sayılarını (rank) gizle
-                    showlegend=False, # Efsaneyi gizle (Zaten barda yazıyor)
-                    plot_bgcolor='white',
-                    height=dynamic_height, # Dinamik yükseklik
-                    margin=dict(l=0, r=100, t=50, b=0) # Sağ tarafta sayılar için boşluk bırak
-                )
-                
-                # Barların içine Firma ismini yazmak için annotation ekleyelim (Opsiyonel ama şık durur)
-                # Plotly Express ile text='Firma' yaparsak sayıyı yazamayız. 
-                # O yüzden barın içine firma adını, dışına sayıyı yazmak complex.
-                # Şimdilik "text" parametresine sayıyı verdik.
-                # Firma isimleri için legend yerine bar üstüne yazı yazdırmak en temizi px.bar'da text=... ile oluyor.
-                # Hem isim hem sayı istiyorsak:
-                
-                # customdata ekleyelim
-                fig_race.update_traces(
-                    texttemplate='<b>%{y}</b> %{x:.0f}', # Bu rank numarasını yazar, ismi değil.
-                    # İsimleri barların içine yazdırmak için farklı bir yöntem gerekir ama şu anki yapı bozulmasın diye
-                    # Legend'ı aktif edebiliriz ama çok yer kaplar.
-                    # En iyisi barın içine ismi yazmak.
-                )
-                
-                # DÜZELTME: Hem İsim Hem Sayı Görünsün
-                # Bunun için `text` kolonunu dataframe'de manipüle edelim
-                df_race_long['Etiket'] = df_race_long[first_col].astype(str) + " (" + df_race_long['Deger'].astype(int).astype(str) + ")"
-                
-                # Grafiği tekrar oluştur (Etiketli haliyle)
-                fig_race = px.bar(
-                    df_race_long, 
-                    x="Deger", 
-                    y="Rank", 
-                    orientation='h',
-                    color=first_col,
-                    text="Etiket", # İsim + Sayı
-                    animation_frame="Tarih_Str", 
-                    range_x=[0, max_val * 1.3], # Yazı sığsın diye x eksenini genişlet
-                    range_y=[0.5, total_firms + 0.5],
-                    color_discrete_map=color_map,
-                    title="Zaman İçinde Liderlik Yarışı"
-                )
-                
-                fig_race.update_traces(
-                    textposition='outside', 
-                    textfont_size=12,
-                    cliponaxis=False
-                )
-                
-                fig_race.update_layout(
-                    xaxis_title="",
-                    yaxis_title="",
-                    yaxis=dict(showticklabels=False, showgrid=False),
-                    showlegend=False,
-                    plot_bgcolor='white',
-                    height=dynamic_height,
-                    margin=dict(l=0, r=150, t=50, b=0)
-                )
-
-                # Animasyon Hızı
-                fig_race.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 700 
-                fig_race.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 500
-                fig_race.layout.updatemenus[0].buttons[0].args[1]["transition"]["easing"] = "cubic-in-out"
-                
-                st.plotly_chart(fig_race, use_container_width=True)
-                
-                with st.expander("📄 Ham Veriyi Göster"):
-                    st.dataframe(df_race_wide)
-                    
-            except Exception as e:
-                st.error(f"Grafik oluşturulurken bir hata oluştu: {str(e)}")
-                st.error("Lütfen veriyi kontrol edin.")
-
-    # 2. BÖLGESEL & DURUM
-    with tab_bolge:
+    # 1. BÖLGESEL & DURUM
+    with tabs[0]:
         st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         df_tab1 = create_tab_filters(df, "tab1")
@@ -548,8 +416,8 @@ def main():
         
         show_details_table(df_tab1, target_date_col)
 
-    # 3. TAKVİM
-    with tab_takvim:
+    # 2. TAKVİM
+    with tabs[1]:
         st.subheader("📅 Takvim")
         st.caption("👇 **Grafikteki sütunlara tıklayarak aşağıdaki tabloyu filtreleyebilirsiniz.**")
         
@@ -579,8 +447,8 @@ def main():
                 
                 show_details_table(filtered_table, target_date_col)
 
-    # 4. HIZLI ANALİZ
-    with tab_hizli:
+    # 3. HIZLI ANALİZ
+    with tabs[2]:
         st.subheader("⚡ Hızlı Analiz")
         df_tab2 = create_tab_filters(df, "tab2")
         
@@ -620,8 +488,8 @@ def main():
         else:
             st.warning("Veri yok.")
 
-    # 5. KARŞILAŞTIRMA
-    with tab_kars:
+    # 4. KARŞILAŞTIRMA
+    with tabs[3]:
         st.subheader("⚔️ Rakip Karşılaştırma")
         df_tab3 = create_tab_filters(df, "tab3")
         
@@ -643,8 +511,8 @@ def main():
                             x='İl', y='Adet', color='Dağıtım Şirketi', barmode='group')
             st.plotly_chart(fig_vs, use_container_width=True)
 
-    # 6. İL KARNESİ
-    with tab_il:
+    # 5. İL KARNESİ
+    with tabs[4]:
         st.subheader("📄 İl Karnesi (360° Analiz)")
         
         all_provinces = sorted(df['İl'].unique().tolist())
@@ -710,8 +578,8 @@ def main():
                         
                     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    # 7. İLÇE PENETRASYONU
-    with tab_ilce:
+    # 6. İLÇE PENETRASYONU
+    with tabs[5]:
         st.subheader("📍 İlçe Analizi")
         df_dist = create_tab_filters(df, "tab7")
         if not df_dist.empty:
@@ -760,8 +628,8 @@ def main():
             else:
                 st.success("Tebrikler! Seçili bölgedeki tüm ilçelerde varlık gösteriyorsunuz.")
 
-    # 8. YARIÇAP ANALİZİ
-    with tab_yaricap:
+    # 7. YARIÇAP ANALİZİ [NEW]
+    with tabs[6]:
         st.subheader("📍 Yarıçap (Radar) Analizi")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         
@@ -804,8 +672,8 @@ def main():
         else:
             st.warning("Veri yok.")
 
-    # 9. ROTA PLANLAYICI
-    with tab_rota:
+    # 8. ROTA PLANLAYICI [NEW]
+    with tabs[7]:
         st.subheader("🚗 Akıllı Rota Planlayıcı")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         
@@ -849,8 +717,8 @@ def main():
         else:
              st.warning("Veri yok.")
 
-    # 10. ROBO-YÖNETİCİ
-    with tab_robo:
+    # 9. ROBO-YÖNETİCİ [NEW]
+    with tabs[8]:
         st.subheader("🤖 Robo-Yönetici: Stratejik İstihbarat Raporu (40+ Nokta)")
         st.info("💡 Bu rapor, seçili filtredeki pazar durumunu **GÜZEL ENERJİ AKARYAKIT A.Ş.** perspektifinden, İl ve İlçe kalelerini ayrıştırarak analiz eder.")
         
@@ -1065,8 +933,8 @@ def main():
         else:
             st.warning("Rapor oluşturmak için lütfen yukarıdan en az bir filtre seçimi yapın.")
 
-    # 11. VERGİ ZİNCİR ANALİZİ
-    with tab_vergi:
+    # 10. VERGİ ZİNCİR ANALİZİ [NEW]
+    with tabs[9]:
         st.subheader("💸 Vergi Zincir Haritası (Holding/Grup Analizi)")
         st.info("💡 Bu ekran, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları listeler.")
         
@@ -1144,8 +1012,8 @@ def main():
             else:
                 st.warning("Veri yok.")
 
-    # 12. DETAYLI ARAMA
-    with tab_ara:
+    # 11. DETAYLI ARAMA [NEW]
+    with tabs[10]:
         st.subheader("🔍 Detaylı Arama & Bayi Kimlik Kartı")
         st.info("💡 Aşağıdaki kutudan bayi seçimi yapın, sistem tüm bilgileri sizin için derlesin.")
         
@@ -1234,8 +1102,8 @@ def main():
                 st.divider()
                 st.success("📜 **Lisans Durumu:** AKTİF")
 
-    # 13. SİMÜLASYON
-    with tab_sim:
+    # 12. SİMÜLASYON
+    with tabs[11]:
         st.subheader("🔮 Simülasyon")
         df_sim = create_tab_filters(df, "tab4")
         all_comp = sorted(df['Dağıtım Şirketi'].dropna().unique().tolist())
@@ -1248,8 +1116,8 @@ def main():
         gain = int(tgt * rate / 100)
         st.metric("Yeni Toplam", curr + gain, delta=f"+{gain}")
 
-    # 14. SÖZLEŞME RADAR
-    with tab_radar:
+    # 13. SÖZLEŞME RADAR
+    with tabs[12]:
         st.subheader("📡 Sözleşme Radar")
         df_rad = create_tab_filters(df, "tab6")
         if 'Sozlesme_Suresi_Gun' in df_rad.columns:
