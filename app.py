@@ -98,7 +98,8 @@ st.markdown("""
     button[data-testid="stTab"]:nth-child(8) p, /* Rota */
     button[data-testid="stTab"]:nth-child(9) p, /* Robo */
     button[data-testid="stTab"]:nth-child(10) p, /* Vergi */
-    button[data-testid="stTab"]:nth-child(11) p { /* Detaylı Arama */
+    button[data-testid="stTab"]:nth-child(11) p, /* Detaylı Arama */
+    button[data-testid="stTab"]:nth-child(14) p { /* Hareketli Grafik (Son Eklenen) */
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
@@ -373,7 +374,8 @@ def main():
         "💸 Vergi Zincir Analizi [NEW]",
         "🔍 Detaylı Arama [NEW]",
         "🔮 Simülasyon",
-        "📡 Sözleşme Radar"
+        "📡 Sözleşme Radar",
+        "📈 Hareketli Yarış [NEW]"
     ])
 
     # 1. BÖLGESEL & DURUM
@@ -1127,6 +1129,75 @@ def main():
                 show_details_table(risk, target_date_col)
             else:
                 st.success("Riskli kayıt yok.")
+
+    # 14. HAREKETLİ YARIŞ [NEW]
+    with tabs[13]:
+        st.subheader("📈 Hareketli Grafik (Race)")
+        st.info("💡 `gr.xlsx` dosyasındaki veriler kullanılarak oluşturulmuştur. Oynat butonuna basarak zaman içindeki değişimi izleyebilirsiniz.")
+        
+        # Dosya yolu
+        gr_file = "gr.xlsx"
+        
+        if not os.path.exists(gr_file):
+            st.error(f"⚠️ `{gr_file}` dosyası bulunamadı! Lütfen proje klasörüne ekleyin.")
+        else:
+            try:
+                # Excel'i oku (Wide format)
+                df_race_wide = pd.read_excel(gr_file)
+                
+                # İlk sütun muhtemelen Firma ismidir, diğerleri tarihtir.
+                # Kolonları temizle
+                df_race_wide.columns = [str(c).strip() for c in df_race_wide.columns]
+                
+                # İlk sütun adını al (Dinamik olması için)
+                first_col = df_race_wide.columns[0]
+                
+                # Wide to Long dönüşümü (Melt)
+                # id_vars -> Sabit kalacak sütun (Firma Adı)
+                # var_name -> Sütun başlıklarının yeni adı (Tarih)
+                # value_name -> Değerlerin yeni adı (Satış/Miktar)
+                df_race_long = df_race_wide.melt(id_vars=[first_col], var_name='Tarih', value_name='Deger')
+                
+                # Tarih sütununu datetime objesine çevir (Sıralama doğru olsun diye)
+                df_race_long['Tarih_Dt'] = pd.to_datetime(df_race_long['Tarih'], dayfirst=True, errors='coerce')
+                
+                # Tarihe göre sırala (Animasyon akışı için şart)
+                df_race_long = df_race_long.sort_values('Tarih_Dt')
+                
+                # Görünen tarih formatını string yap
+                df_race_long['Tarih_Str'] = df_race_long['Tarih_Dt'].dt.strftime('%d.%m.%Y')
+                
+                # Boş değerleri 0 yapalım ki grafik patlamasın
+                df_race_long['Deger'] = df_race_long['Deger'].fillna(0)
+
+                # Animasyonlu Grafik
+                # range_y parametresi grafiğin zıplamasını engeller, sabit bir tavan belirler
+                max_val = df_race_long['Deger'].max() * 1.1 
+                
+                fig_race = px.bar(
+                    df_race_long, 
+                    x=first_col, 
+                    y="Deger", 
+                    color=first_col,
+                    animation_frame="Tarih_Str", 
+                    range_y=[0, max_val],
+                    title="Zaman İçinde Değişim",
+                    text="Deger" # Barların üzerine sayıları yaz
+                )
+                
+                # Animasyon hızı ayarı
+                fig_race.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 500
+                fig_race.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 300
+                fig_race.update_traces(textposition='outside')
+                
+                st.plotly_chart(fig_race, use_container_width=True)
+                
+                with st.expander("📄 Ham Veriyi Göster"):
+                    st.dataframe(df_race_wide)
+                    
+            except Exception as e:
+                st.error(f"Grafik oluşturulurken bir hata oluştu: {str(e)}")
+                st.error("Excel formatının doğru olduğundan emin olun (İlk sütun Firma Adı, diğer sütunlar Tarih).")
 
 if __name__ == "__main__":
     main()
