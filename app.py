@@ -91,18 +91,20 @@ st.markdown("""
         50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* YENİ SIRALAMAYA GÖRE KIRMIZI YANIP SÖNECEK SEKMELER [NEW Olanlar] */
-    /* 1 tabanlı indeksleme: 7, 8, 9, 10, 11. sekmeler */
-    
-    button[data-testid="stTab"]:nth-child(7) p, /* Yarıçap */
-    button[data-testid="stTab"]:nth-child(8) p, /* Rota */
-    button[data-testid="stTab"]:nth-child(9) p, /* Robo */
-    button[data-testid="stTab"]:nth-child(10) p, /* Vergi */
-    button[data-testid="stTab"]:nth-child(11) p, /* Detaylı Arama */
-    button[data-testid="stTab"]:nth-child(14) p { /* Hareketli Grafik (Son Eklenen) */
+    /* İLK SEKME (HAREKETLİ GRAFİK) KIRMIZI YANIP SÖNSÜN */
+    button[data-testid="stTab"]:nth-child(1) p {
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
+    }
+    
+    /* Diğer Önemli Sekmeler */
+    button[data-testid="stTab"]:nth-child(8) p, /* Yarıçap */
+    button[data-testid="stTab"]:nth-child(9) p, /* Rota */
+    button[data-testid="stTab"]:nth-child(10) p, /* Robo */
+    button[data-testid="stTab"]:nth-child(11) p { /* Vergi */
+         color: #333 !important; /* Diğerlerini normale çevirdim karışmasın diye */
+         font-weight: 600 !important;
     }
 
     /* Robo Kartları (Sade Tasarım) */
@@ -360,8 +362,10 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER (GÖRSELE GÖRE YENİDEN SIRALANDI) ---
-    tabs = st.tabs([
+    # --- TABLARI OLUŞTUR VE DEĞİŞKENLERE ATA ---
+    # Bu yöntemle "tab_race" (Yarış) değişkeni ilk sırada render edilir.
+    tab_race, tab_bolge, tab_takvim, tab_hizli, tab_kars, tab_il, tab_ilce, tab_yaricap, tab_rota, tab_robo, tab_vergi, tab_ara, tab_sim, tab_radar = st.tabs([
+        "📈 Hareketli Grafik [YENİ]",
         "📊 Bölgesel & Durum",
         "📅 Takvim",
         "⚡ Hızlı Analiz",
@@ -374,12 +378,75 @@ def main():
         "💸 Vergi Zincir Analizi [NEW]",
         "🔍 Detaylı Arama [NEW]",
         "🔮 Simülasyon",
-        "📡 Sözleşme Radar",
-        "📈 Hareketli Yarış [NEW]"
+        "📡 Sözleşme Radar"
     ])
 
-    # 1. BÖLGESEL & DURUM
-    with tabs[0]:
+    # 1. HAREKETLİ YARIŞ [NEW] -> ARTIK EN BAŞTA!
+    with tab_race:
+        st.subheader("📈 Hareketli Grafik (Race)")
+        st.info("💡 `gr.xlsx` dosyasındaki veriler kullanılarak oluşturulmuştur. Oynat butonuna basarak zaman içindeki değişimi izleyebilirsiniz.")
+        
+        # Dosya yolu
+        gr_file = "gr.xlsx"
+        
+        if not os.path.exists(gr_file):
+            st.error(f"⚠️ `{gr_file}` dosyası bulunamadı! Lütfen proje klasörüne ekleyin.")
+        else:
+            try:
+                # Excel'i oku (Wide format)
+                df_race_wide = pd.read_excel(gr_file)
+                
+                # Kolonları temizle
+                df_race_wide.columns = [str(c).strip() for c in df_race_wide.columns]
+                
+                # İlk sütun muhtemelen Firma ismidir, diğerleri tarihtir.
+                first_col = df_race_wide.columns[0]
+                
+                # Wide to Long dönüşümü (Melt)
+                df_race_long = df_race_wide.melt(id_vars=[first_col], var_name='Tarih', value_name='Deger')
+                
+                # Tarih sütununu datetime objesine çevir (Sıralama doğru olsun diye)
+                df_race_long['Tarih_Dt'] = pd.to_datetime(df_race_long['Tarih'], dayfirst=True, errors='coerce')
+                
+                # Tarihe göre sırala
+                df_race_long = df_race_long.sort_values('Tarih_Dt')
+                
+                # Görünen tarih formatını string yap
+                df_race_long['Tarih_Str'] = df_race_long['Tarih_Dt'].dt.strftime('%d.%m.%Y')
+                
+                # Boş değerleri 0 yap
+                df_race_long['Deger'] = df_race_long['Deger'].fillna(0)
+
+                # Animasyonlu Grafik
+                max_val = df_race_long['Deger'].max() * 1.1 
+                
+                fig_race = px.bar(
+                    df_race_long, 
+                    x=first_col, 
+                    y="Deger", 
+                    color=first_col,
+                    animation_frame="Tarih_Str", 
+                    range_y=[0, max_val],
+                    title="Zaman İçinde Değişim",
+                    text="Deger" 
+                )
+                
+                # Animasyon hızı ayarı
+                fig_race.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 500
+                fig_race.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 300
+                fig_race.update_traces(textposition='outside')
+                
+                st.plotly_chart(fig_race, use_container_width=True)
+                
+                with st.expander("📄 Ham Veriyi Göster"):
+                    st.dataframe(df_race_wide)
+                    
+            except Exception as e:
+                st.error(f"Grafik oluşturulurken bir hata oluştu: {str(e)}")
+                st.error("Excel formatının doğru olduğundan emin olun (İlk sütun Firma Adı, diğer sütunlar Tarih).")
+
+    # 2. BÖLGESEL & DURUM
+    with tab_bolge:
         st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         df_tab1 = create_tab_filters(df, "tab1")
@@ -418,8 +485,8 @@ def main():
         
         show_details_table(df_tab1, target_date_col)
 
-    # 2. TAKVİM
-    with tabs[1]:
+    # 3. TAKVİM
+    with tab_takvim:
         st.subheader("📅 Takvim")
         st.caption("👇 **Grafikteki sütunlara tıklayarak aşağıdaki tabloyu filtreleyebilirsiniz.**")
         
@@ -449,8 +516,8 @@ def main():
                 
                 show_details_table(filtered_table, target_date_col)
 
-    # 3. HIZLI ANALİZ
-    with tabs[2]:
+    # 4. HIZLI ANALİZ
+    with tab_hizli:
         st.subheader("⚡ Hızlı Analiz")
         df_tab2 = create_tab_filters(df, "tab2")
         
@@ -490,8 +557,8 @@ def main():
         else:
             st.warning("Veri yok.")
 
-    # 4. KARŞILAŞTIRMA
-    with tabs[3]:
+    # 5. KARŞILAŞTIRMA
+    with tab_kars:
         st.subheader("⚔️ Rakip Karşılaştırma")
         df_tab3 = create_tab_filters(df, "tab3")
         
@@ -513,8 +580,8 @@ def main():
                             x='İl', y='Adet', color='Dağıtım Şirketi', barmode='group')
             st.plotly_chart(fig_vs, use_container_width=True)
 
-    # 5. İL KARNESİ
-    with tabs[4]:
+    # 6. İL KARNESİ
+    with tab_il:
         st.subheader("📄 İl Karnesi (360° Analiz)")
         
         all_provinces = sorted(df['İl'].unique().tolist())
@@ -580,8 +647,8 @@ def main():
                         
                     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    # 6. İLÇE PENETRASYONU
-    with tabs[5]:
+    # 7. İLÇE PENETRASYONU
+    with tab_ilce:
         st.subheader("📍 İlçe Analizi")
         df_dist = create_tab_filters(df, "tab7")
         if not df_dist.empty:
@@ -630,8 +697,8 @@ def main():
             else:
                 st.success("Tebrikler! Seçili bölgedeki tüm ilçelerde varlık gösteriyorsunuz.")
 
-    # 7. YARIÇAP ANALİZİ [NEW]
-    with tabs[6]:
+    # 8. YARIÇAP ANALİZİ
+    with tab_yaricap:
         st.subheader("📍 Yarıçap (Radar) Analizi")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         
@@ -674,8 +741,8 @@ def main():
         else:
             st.warning("Veri yok.")
 
-    # 8. ROTA PLANLAYICI [NEW]
-    with tabs[7]:
+    # 9. ROTA PLANLAYICI
+    with tab_rota:
         st.subheader("🚗 Akıllı Rota Planlayıcı")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         
@@ -719,8 +786,8 @@ def main():
         else:
              st.warning("Veri yok.")
 
-    # 9. ROBO-YÖNETİCİ [NEW]
-    with tabs[8]:
+    # 10. ROBO-YÖNETİCİ
+    with tab_robo:
         st.subheader("🤖 Robo-Yönetici: Stratejik İstihbarat Raporu (40+ Nokta)")
         st.info("💡 Bu rapor, seçili filtredeki pazar durumunu **GÜZEL ENERJİ AKARYAKIT A.Ş.** perspektifinden, İl ve İlçe kalelerini ayrıştırarak analiz eder.")
         
@@ -935,8 +1002,8 @@ def main():
         else:
             st.warning("Rapor oluşturmak için lütfen yukarıdan en az bir filtre seçimi yapın.")
 
-    # 10. VERGİ ZİNCİR ANALİZİ [NEW]
-    with tabs[9]:
+    # 11. VERGİ ZİNCİR ANALİZİ
+    with tab_vergi:
         st.subheader("💸 Vergi Zincir Haritası (Holding/Grup Analizi)")
         st.info("💡 Bu ekran, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları listeler.")
         
@@ -1014,8 +1081,8 @@ def main():
             else:
                 st.warning("Veri yok.")
 
-    # 11. DETAYLI ARAMA [NEW]
-    with tabs[10]:
+    # 12. DETAYLI ARAMA
+    with tab_ara:
         st.subheader("🔍 Detaylı Arama & Bayi Kimlik Kartı")
         st.info("💡 Aşağıdaki kutudan bayi seçimi yapın, sistem tüm bilgileri sizin için derlesin.")
         
@@ -1104,8 +1171,8 @@ def main():
                 st.divider()
                 st.success("📜 **Lisans Durumu:** AKTİF")
 
-    # 12. SİMÜLASYON
-    with tabs[11]:
+    # 13. SİMÜLASYON
+    with tab_sim:
         st.subheader("🔮 Simülasyon")
         df_sim = create_tab_filters(df, "tab4")
         all_comp = sorted(df['Dağıtım Şirketi'].dropna().unique().tolist())
@@ -1118,8 +1185,8 @@ def main():
         gain = int(tgt * rate / 100)
         st.metric("Yeni Toplam", curr + gain, delta=f"+{gain}")
 
-    # 13. SÖZLEŞME RADAR
-    with tabs[12]:
+    # 14. SÖZLEŞME RADAR
+    with tab_radar:
         st.subheader("📡 Sözleşme Radar")
         df_rad = create_tab_filters(df, "tab6")
         if 'Sozlesme_Suresi_Gun' in df_rad.columns:
@@ -1129,75 +1196,6 @@ def main():
                 show_details_table(risk, target_date_col)
             else:
                 st.success("Riskli kayıt yok.")
-
-    # 14. HAREKETLİ YARIŞ [NEW]
-    with tabs[13]:
-        st.subheader("📈 Hareketli Grafik (Race)")
-        st.info("💡 `gr.xlsx` dosyasındaki veriler kullanılarak oluşturulmuştur. Oynat butonuna basarak zaman içindeki değişimi izleyebilirsiniz.")
-        
-        # Dosya yolu
-        gr_file = "gr.xlsx"
-        
-        if not os.path.exists(gr_file):
-            st.error(f"⚠️ `{gr_file}` dosyası bulunamadı! Lütfen proje klasörüne ekleyin.")
-        else:
-            try:
-                # Excel'i oku (Wide format)
-                df_race_wide = pd.read_excel(gr_file)
-                
-                # İlk sütun muhtemelen Firma ismidir, diğerleri tarihtir.
-                # Kolonları temizle
-                df_race_wide.columns = [str(c).strip() for c in df_race_wide.columns]
-                
-                # İlk sütun adını al (Dinamik olması için)
-                first_col = df_race_wide.columns[0]
-                
-                # Wide to Long dönüşümü (Melt)
-                # id_vars -> Sabit kalacak sütun (Firma Adı)
-                # var_name -> Sütun başlıklarının yeni adı (Tarih)
-                # value_name -> Değerlerin yeni adı (Satış/Miktar)
-                df_race_long = df_race_wide.melt(id_vars=[first_col], var_name='Tarih', value_name='Deger')
-                
-                # Tarih sütununu datetime objesine çevir (Sıralama doğru olsun diye)
-                df_race_long['Tarih_Dt'] = pd.to_datetime(df_race_long['Tarih'], dayfirst=True, errors='coerce')
-                
-                # Tarihe göre sırala (Animasyon akışı için şart)
-                df_race_long = df_race_long.sort_values('Tarih_Dt')
-                
-                # Görünen tarih formatını string yap
-                df_race_long['Tarih_Str'] = df_race_long['Tarih_Dt'].dt.strftime('%d.%m.%Y')
-                
-                # Boş değerleri 0 yapalım ki grafik patlamasın
-                df_race_long['Deger'] = df_race_long['Deger'].fillna(0)
-
-                # Animasyonlu Grafik
-                # range_y parametresi grafiğin zıplamasını engeller, sabit bir tavan belirler
-                max_val = df_race_long['Deger'].max() * 1.1 
-                
-                fig_race = px.bar(
-                    df_race_long, 
-                    x=first_col, 
-                    y="Deger", 
-                    color=first_col,
-                    animation_frame="Tarih_Str", 
-                    range_y=[0, max_val],
-                    title="Zaman İçinde Değişim",
-                    text="Deger" # Barların üzerine sayıları yaz
-                )
-                
-                # Animasyon hızı ayarı
-                fig_race.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = 500
-                fig_race.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = 300
-                fig_race.update_traces(textposition='outside')
-                
-                st.plotly_chart(fig_race, use_container_width=True)
-                
-                with st.expander("📄 Ham Veriyi Göster"):
-                    st.dataframe(df_race_wide)
-                    
-            except Exception as e:
-                st.error(f"Grafik oluşturulurken bir hata oluştu: {str(e)}")
-                st.error("Excel formatının doğru olduğundan emin olun (İlk sütun Firma Adı, diğer sütunlar Tarih).")
 
 if __name__ == "__main__":
     main()
