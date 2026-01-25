@@ -1099,41 +1099,69 @@ def main():
                 st.success("Riskli kayıt yok.")
 
     # 14. CANLI TRAFİK (YENİ EKLENEN KISIM)
+  # 14. CANLI TRAFİK & İSTASYONLAR (GOOGLE TRAFİK KATMANI İLE)
     with tabs[13]:
-        st.subheader("🚦 Canlı Trafik Durumu (Yandex)")
-        st.info("💡 Bu harita anlık trafik yoğunluğunu gösterir. Şehir seçerek o bölgeye odaklanabilirsiniz.")
-        
-        # Şehir seçici (Kod içinde tanımlı şehirlerden)
-        city_for_traffic = st.selectbox("Şehir Seç (Trafik Odaklanma)", ["TÜRKİYE GENELİ"] + sorted(list(CITY_COORDINATES.keys())))
-        
-        # Varsayılan (Türkiye)
-        map_lat, map_lon = 38.9637, 35.2433 
-        zoom_level = 6
-        
-        # Eğer şehir seçilirse koordinatı güncelle
-        if city_for_traffic != "TÜRKİYE GENELİ":
-            c_coords = CITY_COORDINATES.get(city_for_traffic)
-            if c_coords:
-                map_lat, map_lon = c_coords[0], c_coords[1]
-                zoom_level = 10 # Şehre yaklaş
-        
-        # Yandex Widget URL oluşturma (ll=boylam,enlem formatı)
-        # Yandex widget genelde ll parametresini lon,lat olarak alabilir, deneyerek görelim
-        # Standart url yapısı: ll=LONG,LAT
-        yandex_url = f"https://yandex.com.tr/map-widget/v1/?ll={map_lon}%2C{map_lat}&z={zoom_level}&l=trf%2Ctrfe"
-        
-        yandex_map_html = f"""
-        <iframe 
-            src="{yandex_url}" 
-            width="100%" 
-            height="600" 
-            frameborder="1" 
-            allowfullscreen="true"
-            style="border-radius: 10px; border: 2px solid #ccc;">
-        </iframe>
-        """
-        
-        components.html(yandex_map_html, height=600)
+        st.subheader("🚦 Trafik Yoğunluğu & İstasyonlar")
+        st.info("💡 Bu harita Google Trafik verisini kullanır. Kırmızı/Turuncu çizgiler trafiği, noktalar istasyonları gösterir.")
 
+        # --- FİLTRELEME ---
+        # Burası için özel bir filtre kutusu koyalım ki harita çok şişmesin
+        st.markdown("##### 📍 Harita Filtresi")
+        trafik_il_sec = st.selectbox("Hangi İldeki Trafik ve İstasyonları Görelim?", ["TÜMÜ"] + sorted(df['İl'].unique().tolist()), index=0)
+        
+        # Veriyi Hazırla
+        if trafik_il_sec != "TÜMÜ":
+            map_traffic_df = df[df['İl'] == trafik_il_sec].copy()
+            # Şehrin merkezine odaklan (Varsa simülasyon, yoksa gerçek)
+            center_lat = map_traffic_df[lat_col].mean()
+            center_lon = map_traffic_df[lon_col].mean()
+            zoom_lvl = 10
+        else:
+            map_traffic_df = df.copy()
+            # Türkiye geneli
+            center_lat, center_lon = 39.0, 35.0
+            zoom_lvl = 6
+
+        # --- HARİTA OLUŞTURMA (PLOTLY İLE) ---
+        if not map_traffic_df.empty:
+            # 1. İstasyonları Çiz
+            fig_trf = px.scatter_mapbox(
+                map_traffic_df, 
+                lat=lat_col, 
+                lon=lon_col, 
+                hover_name="Unvan",
+                hover_data=["İlçe", "Dağıtım Şirketi"],
+                size_max=15,
+                zoom=zoom_lvl
+            )
+
+            # 2. Arka Plana Google Trafik Haritasını Döşe (HACK YÖNTEMİ)
+            # Bu URL Google'ın herkese açık harita görsellerini çeker (m=map, traffic=trafik katmanı)
+            fig_trf.update_layout(
+                mapbox_style="white-bg", # Standart haritayı kapatıyoruz, kendi katmanımızı koyacağız
+                mapbox_layers=[
+                    {
+                        "below": 'traces', # İstasyonların altında kalsın
+                        "sourcetype": "raster",
+                        "sourceattribution": "Google Maps",
+                        "source": [
+                            "https://mt0.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}"
+                        ]
+                    }
+                ],
+                mapbox_center={"lat": center_lat, "lon": center_lon},
+                margin={"r":0,"t":0,"l":0,"b":0}
+            )
+            
+            # İstasyon Noktalarını Güzelleştir (Kırmızı ve Belirgin Yap)
+            fig_trf.update_traces(marker=dict(size=10, color='blue', opacity=0.8, symbol='circle'))
+
+            st.plotly_chart(fig_trf, use_container_width=True)
+            
+            # Altına basit liste
+            st.markdown(f"**Görüntülenen İstasyon Sayısı:** {len(map_traffic_df)}")
+        else:
+            st.warning("Bu seçimde gösterilecek istasyon bulunamadı.")
 if __name__ == "__main__":
     main()
+
