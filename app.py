@@ -10,11 +10,15 @@ import math
 import streamlit.components.v1 as components 
 from datetime import datetime, timedelta, date
 
-# ### 👇 YENİ EKLENECEK KISIM BURASI 👇 ###
-import folium
-from streamlit_folium import st_folium
-from folium.plugins import MarkerCluster
-# ### 👆 YENİ EKLENECEK KISIM BURASI 👆 ###
+# --- HARİTA KÜTÜPHANELERİ ---
+# Eğer yüklü değilse hata vermesin diye try-except bloğu
+try:
+    import folium
+    from streamlit_folium import st_folium
+except ImportError:
+    st.error("⚠️ Lütfen terminalden şu komutu çalıştır: pip install folium streamlit-folium")
+    st.stop()
+
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
     page_title="EPDK Akaryakıt Pazar Analizi",
@@ -295,16 +299,16 @@ def main():
     df, target_date_col, start_date_col = data_result
     
     # ----------------------------------------------------
-    # 🛠️ KOORDİNAT SİMÜLASYONU (JITTER) - BENDE KOORDİNAT YOK ÇÖZÜMÜ
+    # 🛠️ KOORDİNAT SİMÜLASYONU (JITTER) - DAHA SIKI DAĞILIM İÇİN DÜZENLENDİ
     # ----------------------------------------------------
     if 'Enlem' not in df.columns or 'Boylam' not in df.columns:
-        # st.toast("⚠️ Koordinat verisi bulunamadı. Şehir merkezli simülasyon kullanılıyor.", icon="📍")
         np.random.seed(42)
         df['base_lat'] = df['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
         df['base_lon'] = df['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
-        # Rastgele dağıt (Jitter)
-        df['Enlem_Sim'] = df['base_lat'] + np.random.uniform(-0.05, 0.05, size=len(df))
-        df['Boylam_Sim'] = df['base_lon'] + np.random.uniform(-0.05, 0.05, size=len(df))
+        
+        # ⚠️ DEĞİŞİKLİK BURADA: 0.05 yerine 0.01 yapıldı (Denize kaçmasınlar diye)
+        df['Enlem_Sim'] = df['base_lat'] + np.random.uniform(-0.01, 0.01, size=len(df))
+        df['Boylam_Sim'] = df['base_lon'] + np.random.uniform(-0.01, 0.01, size=len(df))
         lat_col, lon_col = 'Enlem_Sim', 'Boylam_Sim'
     else:
         lat_col, lon_col = 'Enlem', 'Boylam'
@@ -345,7 +349,7 @@ def main():
         "🔍 Detaylı Arama",
         "🔮 Simülasyon",
         "📡 Sözleşme Radar",
-        "🚦 Canlı Trafik" # <-- YENİ SEKME
+        "🚦 Canlı Trafik" 
     ])
 
     # 1. BÖLGESEL & DURUM
@@ -391,8 +395,6 @@ def main():
     # 2. TAKVİM
     with tabs[1]:
         st.subheader("📅 Takvim")
-        st.caption("👇 **Grafikteki sütunlara tıklayarak aşağıdaki tabloyu filtreleyebilirsiniz.**")
-        
         df_cal = create_tab_filters(df, "tab5")
         if 'Bitis_Yili' in df_cal.columns:
             yrs = sorted(df_cal['Bitis_Yili'].dropna().astype(int).unique())
@@ -1103,37 +1105,31 @@ def main():
             else:
                 st.success("Riskli kayıt yok.")
 
-    # 14. CANLI TRAFİK & İSTASYONLAR (FOLIUM - PRO VERSİYON)
+    # 14. CANLI TRAFİK & İSTASYONLAR (FOLIUM)
     with tabs[13]:
         st.subheader("🚦 Canlı Trafik & İstasyonlar (Google Altyapısı)")
-        
-        # Kütüphane Kontrolü (Yüklü değilse uyarı verir)
-        try:
-            import folium
-            from streamlit_folium import st_folium
-            from folium.plugins import MarkerCluster
-        except ImportError:
-            st.error("⚠️ Kanka bu haritanın çalışması için terminale şunu yazıp kurman lazım: `pip install folium streamlit-folium`")
-            st.stop()
-
         st.info("💡 Kırmızı/Turuncu yollar trafiği gösterir. İstasyonlar üzerine ⛽ ikonu ile işlenmiştir.")
 
         # --- FİLTRELEME ---
         c_filter1, c_filter2 = st.columns([1, 3])
         with c_filter1:
-            trafik_il_sec = st.selectbox("İl Seç:", ["TÜMÜ"] + sorted(df['İl'].unique().tolist()), index=0)
+            # Şehir listesini güvenli çekelim
+            city_list = sorted(df['İl'].dropna().unique().tolist())
+            trafik_il_sec = st.selectbox("İl Seç:", ["TÜMÜ"] + city_list, index=0)
         
         # Veri Hazırlığı
         if trafik_il_sec != "TÜMÜ":
             map_traffic_df = df[df['İl'] == trafik_il_sec].copy()
+            # Şehrin ortasını bul
             center_lat = map_traffic_df[lat_col].mean()
             center_lon = map_traffic_df[lon_col].mean()
-            zoom_lvl = 10
+            zoom_lvl = 11 # Şehre daha da yaklaş
         else:
             map_traffic_df = df.copy()
             center_lat, center_lon = 39.0, 35.0 # Türkiye Ortası
             zoom_lvl = 6
 
+        # Eğer veri varsa haritayı çiz
         if not map_traffic_df.empty:
             # --- HARİTA OLUŞTURMA (FOLIUM) ---
             m = folium.Map(location=[center_lat, center_lon], zoom_start=zoom_lvl)
@@ -1147,11 +1143,11 @@ def main():
                 control=True
             ).add_to(m)
 
-            # 2. Marker Kümeleme (Çok nokta varsa gruplar)
-            marker_cluster = MarkerCluster().add_to(m)
+            # ⚠️ DEĞİŞİKLİK BURADA: CLUSTER'I KALDIRDIM
+            # marker_cluster = MarkerCluster().add_to(m) <-- ARTIK YOK
 
             # 3. İstasyonları Ekle
-            # Performans için sadece ilk 2000 noktayı gösterelim (Tümünü seçtiyse kasmasın)
+            # Performans limiti (Çok kasmasın diye)
             limit = 2000
             if len(map_traffic_df) > limit:
                 st.warning(f"⚠️ Performans için sadece ilk {limit} istasyon gösteriliyor. Lütfen İl seçerek filtreleyin.")
@@ -1161,32 +1157,35 @@ def main():
 
             for idx, row in loop_df.iterrows():
                 # Risk durumuna göre ikon rengi
-                icon_color = 'red' if row.get('Kalan_Gun', 999) < 90 else 'blue'
+                kalan_gun = row.get('Kalan_Gun', 999)
+                if pd.isna(kalan_gun): kalan_gun = 999
                 
-                # Popup İçeriği (HTML)
+                icon_color = 'red' if kalan_gun < 90 else 'blue'
+                
+                # Popup İçeriği
                 html_content = f"""
                 <div style="font-family:sans-serif; width:200px;">
                     <h5 style="margin-bottom:5px; color:#2c3e50;">{row['Unvan']}</h5>
                     <hr style="margin:5px 0;">
                     <b>Şirket:</b> {row['Dağıtım Şirketi']}<br>
                     <b>İlçe:</b> {row.get('İlçe', '-')}<br>
-                    <b>Kalan Gün:</b> <span style="color:{icon_color}; font-weight:bold;">{row.get('Kalan_Gun', '-')}</span>
+                    <b>Kalan Gün:</b> <span style="color:{icon_color}; font-weight:bold;">{int(kalan_gun)}</span>
                 </div>
                 """
                 
+                # Doğrudan haritaya ekle (m.add_child) - Cluster kullanmadan
                 folium.Marker(
                     location=[row[lat_col], row[lon_col]],
-                    tooltip=row['Unvan'], # Üzerine gelince adı yazar
+                    tooltip=str(row['Unvan']),
                     popup=folium.Popup(html_content, max_width=250),
-                    icon=folium.Icon(color=icon_color, icon='gas-pump', prefix='fa') # ⛽ İkonu
-                ).add_to(marker_cluster)
+                    icon=folium.Icon(color=icon_color, icon='gas-pump', prefix='fa')
+                ).add_to(m) # <-- DOĞRUDAN 'm' HARİTASINA
 
             # Haritayı Streamlit'e bas
-            st_folium(m, width="100%", height=600)
+            st_folium(m, width=1200, height=600)
             
         else:
             st.warning("Gösterilecek istasyon bulunamadı.")
+
 if __name__ == "__main__":
     main()
-
-
