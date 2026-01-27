@@ -507,7 +507,7 @@ def main():
     # 3. İL HAKİMİYET HARİTASI (LOGO) - DETAYLI TOOLTIP VERSİYON
     with tabs[2]:
         st.subheader("🦁 İl Hakimiyet Haritası (Lider Markalar)")
-        st.info("💡 Bu harita, GitHub'daki logoları çekerek her ilin lider markasını gösterir. Üzerine gelince detayları görebilirsin.")
+        st.info("💡  Her ilin lider markasını gösterir. Üzerine gelince detayları görebilirsin.")
         
         # --- GITHUB ADRESİN ---
         LOGO_URL_BASLANGIC = "https://raw.githubusercontent.com/hilke1010/akrtakip/main/"
@@ -1299,4 +1299,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
