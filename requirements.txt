@@ -7,7 +7,4 @@ xlsxwriter
 networkx
 requests
 feedparser
-request
-
-
-
+beautifulsoup4
