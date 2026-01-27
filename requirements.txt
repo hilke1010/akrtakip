@@ -6,4 +6,5 @@ xlsxwriter
 requests
 numpy
 networkx
+pydeck
 
