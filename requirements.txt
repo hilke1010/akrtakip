@@ -6,4 +6,6 @@ openpyxl
 xlsxwriter
 networkx
 requests
-beautifulsoup4
+feedparser
+
+
