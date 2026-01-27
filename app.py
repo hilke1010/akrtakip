@@ -371,22 +371,21 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER (YENİ SIRALAMA - İL HAKİMİYET 3. SIRADA) ---
-    tabs = st.tabs([
-        "📊 Bölgesel & Durum",
-        "📅 Takvim",
-        "🦁 İl Liderleri [NEW]",  # <-- 3. SIRAYA TAŞINDI
-        "⚡ Hızlı Analiz",
-        "⚔️ Karşılaştırma",
-        "📄 İl Karnesi",
-        "📍 İlçe Penetrasyonu",
-        "📍 Yarıçap (Radar) [NEW]",
-        "🚗 Rota Planlayıcı [NEW]",
-        "🤖 Robo-Yönetici [NEW]",
-        "💸 Vergi Zincir Analizi [NEW]",
-        "🔍 Detaylı Arama [NEW]",
-        "🔮 Simülasyon"
-        "🎯 Fırsat Matrisi [NEW]"
+   tabs = st.tabs([
+        "📊 Bölgesel & Durum",      # 0
+        "📅 Takvim",                # 1
+        "🦁 İl Liderleri [NEW]",    # 2
+        "⚡ Hızlı Analiz",          # 3
+        "⚔️ Karşılaştırma",         # 4
+        "📄 İl Karnesi",            # 5
+        "📍 İlçe Penetrasyonu",     # 6
+        "📍 Yarıçap (Radar) [NEW]", # 7
+        "🚗 Rota Planlayıcı [NEW]", # 8
+        "🤖 Robo-Yönetici [NEW]",   # 9
+        "💸 Vergi Zincir Analizi",  # 10
+        "🔍 Detaylı Arama [NEW]",   # 11
+        "🔮 Simülasyon",            # 12
+        "🎯 Fırsat Matrisi [NEW]"   # 13 <-- BUNU EKLEMEZSEN HATA VERİR
     ])
 
     # 1. BÖLGESEL & DURUM
@@ -1330,5 +1329,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
