@@ -8,3 +8,5 @@ networkx
 requests
 feedparser
 beautifulsoup4
+yfinance
+
