@@ -8,6 +8,7 @@ yfinance
 matplotlib
 requests
 networkx
+feedparser
 
 
 
