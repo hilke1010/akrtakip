@@ -1125,7 +1125,7 @@ def main():
         
         # --- LOGO AYARLARI (BURAYI KENDİ GITHUB ADRESİNE GÖRE DÜZENLE) ---
         # Örnek: "https://raw.githubusercontent.com/KULLANICI_ADIN/REPO_ADIN/main/logos/"
-        LOGO_URL_BASLANGIC = "https://raw.githubusercontent.com/KULLANICI_ADIN/REPO_ADIN/main/logos/"
+        LOGO_URL_BASLANGIC = "https://github.com/hilke1010/akrtakip/raw/refs/heads/main/app.py"
         
         # Hangi şirketin hangi dosya ismiyle eşleşeceği
         LOGO_MAP = {
@@ -1221,6 +1221,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
