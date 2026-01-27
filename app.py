@@ -1120,6 +1120,7 @@ def main():
     # 13. İL HAKİMİYET HARİTASI (LOGO) - DÜZELTİLMİŞ SÜRÜM
     # 13. İL HAKİMİYET HARİTASI (LOGO) - HILKE1010 ÖZEL VERSİYON
    # 13. İL HAKİMİYET HARİTASI (LOGO) - HILKE1010 FİNAL VERSİYON
+   # 13. İL HAKİMİYET HARİTASI (LOGO) - KÜÇÜLTÜLMÜŞ VERSİYON
     with tabs[12]:
         st.subheader("🦁 İl Hakimiyet Haritası (Lider Markalar)")
         st.info("💡 Bu harita, GitHub'daki logoları çekerek her ilin lider markasını gösterir.")
@@ -1156,44 +1157,35 @@ def main():
             leaders['lat'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
             leaders['lon'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
             
-            # 3. İKON PAKETLEME (DÜZELTME BURADA)
-            # Pydeck'e her satır için bir "sözlük" veriyoruz.
+            # 3. İKON PAKETLEME
             def create_icon_data(company_name):
                 url = DEFAULT_LOGO
                 comp_upper = str(company_name).upper()
-                
-                # Eşleşen resmi bul
                 for key, filename in LOGO_MAP.items():
                     if key in comp_upper:
                         url = LOGO_URL_BASLANGIC + filename
                         break
-                
-                # Resim bilgilerini paketle
                 return {
                     "url": url,
-                    "width": 242,   # Resim genişliği
-                    "height": 242,  # Resim yüksekliği
-                    "anchorY": 242  # Resmin alt noktası konuma bassın (Pin gibi)
+                    "width": 242,
+                    "height": 242,
+                    "anchorY": 242
                 }
 
-            # Yeni bir kolon oluşturup bu paketi içine atıyoruz
             leaders['icon_data'] = leaders['Dağıtım Şirketi'].apply(create_icon_data)
             
             # --- HARİTA ÇİZİMİ ---
-            view_state = pdk.ViewState(
-                latitude=39.0,
-                longitude=35.0,
-                zoom=5.5,
-                pitch=0
-            )
+            view_state = pdk.ViewState(latitude=39.0, longitude=35.0, zoom=5.5, pitch=0)
 
+            # --- BOYUT AYARI BURADA YAPILDI ---
             icon_layer = pdk.Layer(
                 type="IconLayer",
                 data=leaders,
-                get_icon="icon_data",  # Artık paketlenmiş veriyi okuyor
+                get_icon="icon_data",
                 get_position='[lon, lat]',
-                get_size=40,           # İkon boyutu
-                size_scale=15,
+                # BURAYI DEĞİŞTİRDİK:
+                get_size=30,     # Temel boyut (45'ten 30'a indi)
+                size_scale=1,    # Çarpan (15'ten 1'e indi - asıl büyüten buydu)
                 pickable=True,
             )
 
@@ -1224,6 +1216,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
