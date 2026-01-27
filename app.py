@@ -20,7 +20,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- GLOBAL CSS ---
+# --- GLOBAL STİL AYARLARI ---
 st.markdown("""
 <style>
     .stMetric { background-color: #f0f2f6; border-left: 5px solid #2980b9; padding: 15px; border-radius: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
@@ -36,7 +36,7 @@ st.markdown("""
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
     
-    /* TAB AYARLARI VE YANIP SÖNME EFEKTLERİ */
+    /* --- TAB AYARLARI --- */
     .stTabs [data-baseweb="tab-list"] {gap: 4px;}
     .stTabs [data-baseweb="tab"] {
         height: 40px; 
@@ -49,6 +49,7 @@ st.markdown("""
     }
     .stTabs [aria-selected="true"] {background-color: #ffffff; color: #2563eb; border: 1px solid #e2e8f0; border-bottom: none;}
 
+    /* YANIP SÖNME EFEKTLERİ */
     @keyframes blinker-red { 50% { opacity: 0.5; color: #ff2b2b; } }
     @keyframes blinker-green { 50% { opacity: 0.5; color: #28a745; } }
 
@@ -110,7 +111,7 @@ CITY_COORDINATES = {
     "KİLİS": [36.7184, 37.1212], "OSMANİYE": [37.0742, 36.2467], "DÜZCE": [40.8438, 31.1565]
 }
 
-# --- GÜNCELLENMİŞ BÖLGE TANIMLARI (HAKKARİ EKLENDİ) ---
+# --- BÖLGE TANIMLARI (HAKKARİ GÜNEYDOĞU'YA EKLENDİ) ---
 BOLGE_TANIMLARI = {
     "EGE": ["ANTALYA", "BURDUR", "DENİZLİ", "MANİSA", "MUĞLA", "AYDIN", "ISPARTA", "İZMİR", "KÜTAHYA", "UŞAK"],
     "GÜNEYDOĞU": ["ADANA", "MERSİN", "GAZİANTEP", "KAHRAMANMARAŞ", "BATMAN", "ŞANLIURFA", "MARDİN", "ELAZIĞ", "DİYARBAKIR", "ADIYAMAN", "HATAY", "MALATYA", "MUŞ", "KARAMAN", "VAN", "OSMANİYE", "BİTLİS", "SİİRT", "ŞIRNAK", "BİNGÖL", "KİLİS", "HAKKARİ"],
@@ -145,6 +146,7 @@ def get_file_last_modified(file_path):
     except: return "TARİH ALINAMADI"
 
 def clean_turkish_number(x):
+    """Excel sayı formatını (2.911,30) float'a (2911.30) çevirir."""
     if isinstance(x, str):
         clean_str = x.replace('.', '').replace(',', '.')
         try: return float(clean_str)
