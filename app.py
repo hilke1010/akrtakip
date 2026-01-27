@@ -1118,91 +1118,109 @@ def main():
         st.metric("Yeni Toplam", curr + gain, delta=f"+{gain}")
 
     # 13. İL HAKİMİYET HARİTASI (LOGO) - DÜZELTİLMİŞ SÜRÜM
+    # 13. İL HAKİMİYET HARİTASI (LOGO) - HILKE1010 ÖZEL VERSİYON
     with tabs[12]:
         st.subheader("🦁 İl Hakimiyet Haritası (Lider Markalar)")
-        st.info("💡 Bu harita, GitHub'daki logoları çekerek lider markayı gösterir.")
+        st.info("💡 Bu harita, GitHub'daki logoları çekerek her ilin lider markasını gösterir.")
         
-        # --- BURAYI DÜZENLE: KENDİ GITHUB RAW ADRESİNİ YAZ ---
-        # Tarayıcıda bir resme tıklayıp "Raw" butonunun linkini al, sonundaki "opet.png" kısmını sil.
-        # Sonunda "/" (taksim) işareti MUTLAKA olsun!
-        # Örnek: "https://raw.githubusercontent.com/kerimaksu/akaryakit-analiz/main/"
+        # --- SENİN GITHUB ADRESİN ---
+        # Dosyaların burada: https://github.com/hilke1010/akrtakip/blob/main/opet.png
+        # Bizim RAW adresine ihtiyacımız var:
         LOGO_URL_BASLANGIC = "https://raw.githubusercontent.com/hilke1010/akrtakip/main/"
         
-        # Dosya isimlerini ekran görüntüne göre güncelledim:
+        # Dosya İsimlerin (Ekran görüntülerine göre güncelledim)
         LOGO_MAP = {
-            "OPET": "opet.png",
-            "SHELL": "shell.png",
-            "PETROL OFİSİ": "po.png",     # Ekran görüntüsünde po.png var
-            "GÜZEL ENERJİ": "ge.png",     # Ekran görüntüsünde ge.png var
-            "BP": "bp.png",               # Dosya varsa çalışır
-            "TOTAL": "total.png",         # Dosya varsa çalışır
+            "OPET": "opet.png",           # Repo'da var
+            "SHELL": "shell.png",         # Repo'da var
+            "PETROL OFİSİ": "po.png",     # Repo'da "po.png" olarak var
+            "GÜZEL ENERJİ": "ge.png",     # Repo'da "ge.png" olarak var
+            "BP": "bp.png",
+            "TOTAL": "total.png",
             "AYGAZ": "aygaz.png",
             "İPRAGAZ": "ipragaz.png",
             "MİLANGAZ": "milangaz.png",
             "TP": "tp.png"
         }
         
-        # Varsayılan Logo (Dosya bulunamazsa bu çıkar)
+        # Varsayılan Logo (Eğer listede yoksa bu görünür)
         DEFAULT_LOGO = "https://img.icons8.com/color/48/gas-station.png" 
 
         # --- VERİ HAZIRLIĞI ---
         df_dom = create_tab_filters(df, "tab_dominance")
         
         if not df_dom.empty:
-            # Liderleri bul
+            # 1. Her ildeki marka sayılarını hesapla
             city_stats = df_dom.groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
+            
+            # 2. Her ilin liderini bul (En çok istasyonu olanı al)
             idx = city_stats.groupby(['İl'])['Adet'].transform(max) == city_stats['Adet']
             leaders = city_stats[idx].drop_duplicates(subset=['İl']).copy()
             
-            # Koordinatları ekle
+            # 3. Koordinatları Ekle
             leaders['lat'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
             leaders['lon'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
             
-            # Logo URL oluşturucu
+            # 4. Logo URL'lerini Ata
             def get_icon_url(company_name):
                 comp_upper = str(company_name).upper()
                 for key, filename in LOGO_MAP.items():
                     if key in comp_upper:
-                        # Tam URL oluşturur: https://raw.../main/opet.png
+                        # Sonuç: https://raw.githubusercontent.com/hilke1010/akrtakip/main/opet.png
                         return LOGO_URL_BASLANGIC + filename
                 return DEFAULT_LOGO 
 
             leaders['icon_url'] = leaders['Dağıtım Şirketi'].apply(get_icon_url)
             
-            # İkon Boyutları (Resimlerin kare değilse buraları kurcala)
+            # İkon Boyut Ayarları (Piksel cinsinden)
             leaders['width'] = 242 
             leaders['height'] = 242
             
-            # --- HARİTA ÇİZİMİ ---
-            view_state = pdk.ViewState(latitude=39.0, longitude=35.0, zoom=5)
+            # --- HARİTA ÇİZİMİ (PYDECK) ---
+            view_state = pdk.ViewState(
+                latitude=39.0,
+                longitude=35.0,
+                zoom=5.5,
+                pitch=0
+            )
 
             icon_layer = pdk.Layer(
                 type="IconLayer",
                 data=leaders,
                 get_icon="icon_url",
                 get_position='[lon, lat]',
-                get_size=40, # Logolar küçükse bu sayıyı büyüt (örn: 60 yap)
+                get_size=45,  # Logolar küçük gelirse burayı 60 yap
                 size_scale=15,
                 pickable=True,
             )
+
+            tooltip = {
+                "html": "<b>{İl}</b><br/>👑 Lider: <b>{Dağıtım Şirketi}</b><br/>📊 İstasyon: {Adet}",
+                "style": {"backgroundColor": "steelblue", "color": "white"}
+            }
 
             r = pdk.Deck(
                 map_style=None,
                 initial_view_state=view_state,
                 layers=[icon_layer],
-                tooltip={"html": "<b>{İl}</b><br/>Lider: {Dağıtım Şirketi}<br/>Sayı: {Adet}"}
+                tooltip=tooltip
             )
 
             st.pydeck_chart(r)
             
-            # Tablo
-            st.dataframe(leaders[['İl', 'Dağıtım Şirketi', 'Adet']].sort_values('Adet', ascending=False), hide_index=True)
+            # --- ALT TABLO ---
+            st.markdown("### 🏆 İl Liderleri Listesi")
+            st.dataframe(
+                leaders[['İl', 'Dağıtım Şirketi', 'Adet']].sort_values('Adet', ascending=False),
+                use_container_width=True,
+                hide_index=True
+            )
             
         else:
             st.warning("Veri yok.")
 
 if __name__ == "__main__":
     main()
+
 
 
 
