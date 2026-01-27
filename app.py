@@ -93,7 +93,7 @@ def fetch_last_30_days_gazette():
     keywords = ["EPDK", "LPG", "BENZİN", "AKARYAKIT", "PETROL", "VERGİ", "ENERJİ", "MOTORİN", "MADENİ YAĞ"]
     
     end_date = date.today()
-    start_date = end_date - timedelta(days=30)
+    start_date = end_date - timedelta(days=60)
     
     date_list = [end_date - timedelta(days=x) for x in range((end_date - start_date).days + 1)]
     
@@ -1224,3 +1224,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
