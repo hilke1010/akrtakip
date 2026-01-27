@@ -1,4 +1,3 @@
-import requests
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -8,7 +7,7 @@ import os
 import io
 import time
 import math
-import feedparser  # <-- RSS İÇİN GEREKLİ
+import networkx as nx
 from datetime import datetime, timedelta, date
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
@@ -42,54 +41,6 @@ def get_file_last_modified(file_path):
         month_name = tr_months.get(turkey_time.month, "")
         return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
     except: return "TARİH ALINAMADI"
-
-# --- RESMİ GAZETE RSS (GÜÇLENDİRİLMİŞ VERSİYON) ---
-@st.cache_data(ttl=300, show_spinner=False) # 5 Dakika Cache (Test için düşürdüm)
-def fetch_all_rss_news():
-    rss_url = "https://www.resmigazete.gov.tr/rss.xml"
-    
-    # Kendimizi Tarayıcı Gibi Tanıtıyoruz (Kritik Nokta Burası)
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
-    }
-    
-    try:
-        # Önce requests ile veriyi çekiyoruz
-        response = requests.get(rss_url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            # Gelen veriyi feedparser'a yediriyoruz
-            feed = feedparser.parse(response.content)
-            
-            if not feed.entries:
-                return None, "RSS Çekildi ama içi boş (Site yapısı değişmiş olabilir)."
-                
-            news_items = []
-            keywords = ["EPDK", "LPG", "BENZİN", "AKARYAKIT", "PETROL", "VERGİ", "ENERJİ", "MOTORİN"]
-            tr_map = {ord('i'): 'İ', ord('ı'): 'I', ord('ğ'): 'Ğ', ord('ü'): 'Ü', ord('ş'): 'Ş', ord('ö'): 'Ö', ord('ç'): 'Ç'}
-
-            for entry in feed.entries:
-                title = entry.title
-                link = entry.link
-                
-                # Etiketleme Mantığı
-                title_upper = title.translate(tr_map).upper()
-                matched = [k for k in keywords if k in title_upper]
-                is_important = "🔥 KRİTİK" if matched else "GENEL"
-                
-                news_items.append({
-                    "Durum": is_important,
-                    "Başlık": title,
-                    "Link": link,
-                    "Etiket": ", ".join(matched) if matched else "-"
-                })
-            
-            return pd.DataFrame(news_items), None
-        else:
-            return None, f"Siteye Erişilemedi (Hata Kodu: {response.status_code})"
-            
-    except Exception as e:
-        return None, str(e)
 
 # --- GİRİŞ ANİMASYONU ---
 def show_intro_animation():
@@ -140,13 +91,14 @@ st.markdown("""
         50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* Sekmelerin Yanıp Sönmesi */
+    /* YENİ SIRALAMAYA GÖRE KIRMIZI YANIP SÖNECEK SEKMELER [NEW Olanlar] */
+    /* 1 tabanlı indeksleme: 7, 8, 9, 10, 11. sekmeler */
+    
     button[data-testid="stTab"]:nth-child(7) p, /* Yarıçap */
     button[data-testid="stTab"]:nth-child(8) p, /* Rota */
     button[data-testid="stTab"]:nth-child(9) p, /* Robo */
     button[data-testid="stTab"]:nth-child(10) p, /* Vergi */
-    button[data-testid="stTab"]:nth-child(11) p, /* Detaylı Arama */
-    button[data-testid="stTab"]:nth-child(14) p { /* Resmi Gazete */
+    button[data-testid="stTab"]:nth-child(11) p { /* Detaylı Arama */
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
@@ -407,7 +359,7 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER (Geri döndü) ---
+    # --- SEKMELER (GÖRSELE GÖRE YENİDEN SIRALANDI) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
         "📅 Takvim",
@@ -421,8 +373,7 @@ def main():
         "💸 Vergi Zincir Analizi [NEW]",
         "🔍 Detaylı Arama [NEW]",
         "🔮 Simülasyon",
-        "📡 Sözleşme Radar",
-        "📰 Resmi Gazete (Tümü)"  # <--- BURADA!
+        "📡 Sözleşme Radar"
     ])
 
     # 1. BÖLGESEL & DURUM
@@ -1177,49 +1128,5 @@ def main():
             else:
                 st.success("Riskli kayıt yok.")
 
-    # 14. RESMİ GAZETE (RSS - TÜMÜ) [NEW]
-    with tabs[13]:
-        st.subheader("📰 Resmi Gazete (Canlı Akış)")
-        st.info("💡 Bu veriler Resmi Gazete RSS kaynağından anlık çekilmektedir. 'KRİTİK' etiketliler sektörle ilgilidir.")
-        
-        rg_df, rg_error = fetch_all_rss_news()
-        
-        if rg_error:
-            st.error(f"⚠️ RSS Hatası: {rg_error}")
-        else:
-            if not rg_df.empty:
-                # KRİTİK OLANLARI AYIR (Highlight için)
-                critical_news = rg_df[rg_df['Durum'] == '🔥 KRİTİK']
-                
-                if not critical_news.empty:
-                    st.markdown(f"""
-                    <div class='insight-box-danger'>
-                        <div style="font-size:1.1em; font-weight:bold;">🚨 GÜNDEMDE SEKTÖREL GELİŞME VAR!</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    st.dataframe(
-                        critical_news[['Başlık', 'Link', 'Etiket']], 
-                        column_config={"Link": st.column_config.LinkColumn("Habere Git")},
-                        use_container_width=True, hide_index=True
-                    )
-                else:
-                    st.success("✅ Şu ana kadar EPDK/LPG ile ilgili kritik bir başlık düşmedi.")
-                
-                st.divider()
-                st.markdown("### 📋 Tüm Başlıklar")
-                st.dataframe(
-                    rg_df[['Durum', 'Başlık', 'Link']],
-                    column_config={
-                        "Link": st.column_config.LinkColumn("Oku"),
-                        "Durum": st.column_config.TextColumn("Kategori", width="small")
-                    },
-                    use_container_width=True,
-                    hide_index=True
-                )
-            else:
-                st.warning("RSS boş döndü.")
-
 if __name__ == "__main__":
     main()
-
-
