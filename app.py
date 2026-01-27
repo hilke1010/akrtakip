@@ -180,12 +180,6 @@ CITY_COORDINATES = {
     "KİLİS": [36.7184, 37.1212], "OSMANİYE": [37.0742, 36.2467], "DÜZCE": [40.8438, 31.1565]
 }
 
-Kanka, gönderdiğin metindeki liste standart coğrafi bölgelerden farklı (Örneğin şirketiniz Antalya'yı Ege'ye, Erzurum'u Karadeniz'e, Adana'yı Güneydoğu'ya bağlamış). Bu yüzden standart Türkiye haritası yerine, senin attığın listeye sadık kalarak bir gruplama yaptım.
-
-Böylece filtrelerde şirketinin satış bölgeleriyle tam uyumlu çalışırsın.
-
-Mevcut BOLGE_TANIMLARI kısmını silip, aşağıdaki genişletilmiş ve senin listene göre düzenlenmiş kodu yapıştır:
-
 Python
 # --- BÖLGE TANIMLARI (Senin Listene Göre Satış Bölgeleri) ---
 BOLGE_TANIMLARI = {
@@ -1275,4 +1269,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
