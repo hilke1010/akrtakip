@@ -1137,7 +1137,7 @@ def main():
             "İPRAGAZ": "ipragaz.png",
             "MİLANGAZ": "milangaz.png",
             "TP": "tp.png",
-            "GÜZEL ENERJİ": "guzel.png"
+            "GÜZEL ENERJİ": "ge.png"
             # Diğer şirketleri ve dosya isimlerini buraya ekleyebilirsin
         }
         
@@ -1221,6 +1221,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
