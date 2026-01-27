@@ -386,6 +386,7 @@ def main():
         "💸 Vergi Zincir Analizi [NEW]",
         "🔍 Detaylı Arama [NEW]",
         "🔮 Simülasyon"
+        "🎯 Fırsat Matrisi [NEW]"
     ])
 
     # 1. BÖLGESEL & DURUM
@@ -1253,7 +1254,81 @@ def main():
         tgt = len(df_sim[df_sim['Dağıtım Şirketi'] == tar_c])
         gain = int(tgt * rate / 100)
         st.metric("Yeni Toplam", curr + gain, delta=f"+{gain}")
+    # 13. FIRSAT MATRİSİ (SCATTER STRATEGY)
+    with tabs[13]: # Indexi sonuncuya göre ayarla
+        st.subheader("🎯 Stratejik Fırsat Matrisi")
+        st.info("💡 **Nasıl Okunur?** \n* **Sağ Üst Köşe (Altın Madeni):** Hem pazarın büyük olduğu hem de yakında sözleşmesi bitecek çok bayinin olduğu yerler. Satış ekibini buraya yönlendirin.\n* **Baloncuk Boyutu:** O bölgedeki toplam istasyon sayısını gösterir.")
+
+        # Filtreler
+        df_opp = create_tab_filters(df, "tab_opp")
+        
+        # Analiz Parametreleri
+        c1, c2 = st.columns(2)
+        kritik_gun = c1.number_input("Kaç gün içinde bitecekleri arayalım?", value=365, step=30)
+        analiz_baz = c2.selectbox("Analiz Bazı", ["İl", "İlçe"], index=0)
+
+        if not df_opp.empty:
+            # 1. Her bölge için İstatistikleri Çıkar
+            # Toplam İstasyon Sayısı
+            total_stats = df_opp.groupby(analiz_baz).size().reset_index(name='Toplam_Pazar_Buyuklugu')
+            
+            # Kritik Durumdaki (Sözleşmesi Bitecek) İstasyon Sayısı
+            # Kalan_Gun sütunu varsa kullan, yoksa hesapla
+            if 'Kalan_Gun' in df_opp.columns:
+                crit_df = df_opp[df_opp['Kalan_Gun'] <= kritik_gun]
+                crit_stats = crit_df.groupby(analiz_baz).size().reset_index(name='Bosa_Cikacak_Bayi')
+            else:
+                st.error("Kalan gün verisi hesaplanamamış.")
+                st.stop()
+            
+            # Verileri Birleştir
+            matrix_df = pd.merge(total_stats, crit_stats, on=analiz_baz, how='left').fillna(0)
+            
+            # Kendi şirketimiz hariç mi bakalım? (Opsiyonel ama mantıklı)
+            # matrix_df['Bosa_Cikacak_Bayi'] rakiplerden oluşsa daha iyi olur ama şimdilik genel bakalım.
+
+            if not matrix_df.empty:
+                # SCATTER PLOT
+                fig_mat = px.scatter(
+                    matrix_df,
+                    x="Toplam_Pazar_Buyuklugu", # X Ekseni: Pazarın Hacmi
+                    y="Bosa_Cikacak_Bayi",      # Y Ekseni: Fırsat Sayısı
+                    size="Toplam_Pazar_Buyuklugu", # Baloncuk büyüklüğü
+                    color="Bosa_Cikacak_Bayi",     # Renk skalası
+                    hover_name=analiz_baz,
+                    text=analiz_baz,
+                    title=f"{analiz_baz} Bazlı Fırsat Analizi (Önümüzdeki {kritik_gun} Gün)",
+                    color_continuous_scale="RdYlGn_r" # Yeşilden Kırmızıya (veya tam tersi)
+                )
+                
+                # Grafiği 4'e bölen çizgiler (Ortalamalar)
+                avg_x = matrix_df['Toplam_Pazar_Buyuklugu'].mean()
+                avg_y = matrix_df['Bosa_Cikacak_Bayi'].mean()
+                
+                fig_mat.add_hline(y=avg_y, line_dash="dot", annotation_text="Ortalama Fırsat", annotation_position="bottom right")
+                fig_mat.add_vline(x=avg_x, line_dash="dot", annotation_text="Ortalama Hacim", annotation_position="top right")
+                
+                fig_mat.update_traces(textposition='top center')
+                fig_mat.update_layout(
+                    xaxis_title="Bölgedeki Toplam İstasyon Sayısı (Pazar Hacmi)",
+                    yaxis_title=f"Sözleşmesi {kritik_gun} Gün İçinde Bitecek Bayi Sayısı",
+                    showlegend=False
+                )
+                
+                st.plotly_chart(fig_mat, use_container_width=True)
+                
+                # --- AKSİYON LİSTESİ ---
+                st.markdown("### 🚀 Aksiyon Listesi (Top 10 Hedef)")
+                # En çok fırsat olan ve pazarı büyük olan yerleri sırala
+                target_list = matrix_df.sort_values(by=['Bosa_Cikacak_Bayi', 'Toplam_Pazar_Buyuklugu'], ascending=False).head(10)
+                st.dataframe(target_list, use_container_width=True, hide_index=True)
+                
+            else:
+                st.warning("Seçilen kriterlerde hiç veri oluşmadı.")
+        else:
+            st.warning("Veri yok.")
 
 if __name__ == "__main__":
     main()
+
 
