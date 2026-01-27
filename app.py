@@ -8,7 +8,7 @@ import io
 import time
 import math
 import networkx as nx
-import pydeck as pdk # Harita için gerekli kütüphane
+import pydeck as pdk
 from datetime import datetime, timedelta, date
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
@@ -180,8 +180,7 @@ CITY_COORDINATES = {
     "KİLİS": [36.7184, 37.1212], "OSMANİYE": [37.0742, 36.2467], "DÜZCE": [40.8438, 31.1565]
 }
 
-
-# --- BÖLGE TANIMLARI (Senin Listene Göre Satış Bölgeleri) ---
+# --- BÖLGE TANIMLARI (YENİLENMİŞ ŞİRKET ÖZEL LİSTESİ) ---
 BOLGE_TANIMLARI = {
     "Orta Anadolu": [
         "ANKARA", "KONYA", "KAYSERİ", "ESKİŞEHİR", "YOZGAT", "KASTAMONU", 
@@ -207,6 +206,9 @@ BOLGE_TANIMLARI = {
         "VAN", "OSMANİYE", "ŞIRNAK", "MUŞ", "BİTLİS", "SİİRT", "KARAMAN", "KİLİS"
     ]
 }
+
+if 'crm_notes' not in st.session_state: st.session_state.crm_notes = {}
+
 # --- VERİ YÜKLEME ---
 @st.cache_data
 def load_data(file_path):
@@ -338,6 +340,34 @@ def create_tab_filters(df, key_prefix):
 # --- ANA UYGULAMA ---
 def main():
     show_intro_animation()
+
+    # --- DUYURU (AÇILIŞ ANİMASYONU ALTINA EKLE) ---
+    st.markdown("""
+    <style>
+        @keyframes glowing {
+            0% { background-color: #2ecc71; box-shadow: 0 0 5px #2ecc71; transform: scale(1); }
+            50% { background-color: #27ae60; box-shadow: 0 0 20px #2ecc71; transform: scale(1.02); }
+            100% { background-color: #2ecc71; box-shadow: 0 0 5px #2ecc71; transform: scale(1); }
+        }
+        .duyuru-kutusu {
+            padding: 20px;
+            color: white;
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            border: 2px solid white;
+            animation: glowing 1.5s infinite alternate; /* YANIP SÖNME EFEKTİ */
+        }
+    </style>
+    
+    <div class="duyuru-kutusu">
+        📢 DİKKAT: BÖLGE FİLTRESİNE TÜM BÖLGELER EKLENMİŞTİR! 🌍✅ <br>
+        <span style="font-size:0.7em; font-weight:normal;">(Standart Ege, Güneydoğu vb. tüm tanımlar güncellendi)</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
     data_result = load_data(SABIT_DOSYA_ADI)
     if data_result is None or data_result[0] is None:
         st.error(f"⚠️ Hata: {data_result[1] if data_result else 'Veri Yüklenemedi'}")
@@ -557,8 +587,8 @@ def main():
                 data=leaders,
                 get_icon="icon_data",
                 get_position='[lon, lat]',
-                get_size=30,     
-                size_scale=1,    
+                get_size=30,      
+                size_scale=1,     
                 pickable=True,
             )
 
@@ -1269,6 +1299,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
