@@ -1119,21 +1119,20 @@ def main():
 
     # 13. İL HAKİMİYET HARİTASI (LOGO) - DÜZELTİLMİŞ SÜRÜM
     # 13. İL HAKİMİYET HARİTASI (LOGO) - HILKE1010 ÖZEL VERSİYON
+   # 13. İL HAKİMİYET HARİTASI (LOGO) - HILKE1010 FİNAL VERSİYON
     with tabs[12]:
         st.subheader("🦁 İl Hakimiyet Haritası (Lider Markalar)")
         st.info("💡 Bu harita, GitHub'daki logoları çekerek her ilin lider markasını gösterir.")
         
-        # --- SENİN GITHUB ADRESİN ---
-        # Dosyaların burada: https://github.com/hilke1010/akrtakip/blob/main/opet.png
-        # Bizim RAW adresine ihtiyacımız var:
+        # --- GITHUB ADRESİN ---
         LOGO_URL_BASLANGIC = "https://raw.githubusercontent.com/hilke1010/akrtakip/main/"
         
-        # Dosya İsimlerin (Ekran görüntülerine göre güncelledim)
+        # Dosya Eşleştirmeleri
         LOGO_MAP = {
-            "OPET": "opet.png",           # Repo'da var
-            "SHELL": "shell.png",         # Repo'da var
-            "PETROL OFİSİ": "po.png",     # Repo'da "po.png" olarak var
-            "GÜZEL ENERJİ": "ge.png",     # Repo'da "ge.png" olarak var
+            "OPET": "opet.png",
+            "SHELL": "shell.png",
+            "PETROL OFİSİ": "po.png",
+            "GÜZEL ENERJİ": "ge.png",
             "BP": "bp.png",
             "TOTAL": "total.png",
             "AYGAZ": "aygaz.png",
@@ -1142,40 +1141,45 @@ def main():
             "TP": "tp.png"
         }
         
-        # Varsayılan Logo (Eğer listede yoksa bu görünür)
         DEFAULT_LOGO = "https://img.icons8.com/color/48/gas-station.png" 
 
         # --- VERİ HAZIRLIĞI ---
         df_dom = create_tab_filters(df, "tab_dominance")
         
         if not df_dom.empty:
-            # 1. Her ildeki marka sayılarını hesapla
+            # 1. Hesaplama
             city_stats = df_dom.groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
-            
-            # 2. Her ilin liderini bul (En çok istasyonu olanı al)
             idx = city_stats.groupby(['İl'])['Adet'].transform(max) == city_stats['Adet']
             leaders = city_stats[idx].drop_duplicates(subset=['İl']).copy()
             
-            # 3. Koordinatları Ekle
+            # 2. Koordinatlar
             leaders['lat'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
             leaders['lon'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
             
-            # 4. Logo URL'lerini Ata
-            def get_icon_url(company_name):
+            # 3. İKON PAKETLEME (DÜZELTME BURADA)
+            # Pydeck'e her satır için bir "sözlük" veriyoruz.
+            def create_icon_data(company_name):
+                url = DEFAULT_LOGO
                 comp_upper = str(company_name).upper()
+                
+                # Eşleşen resmi bul
                 for key, filename in LOGO_MAP.items():
                     if key in comp_upper:
-                        # Sonuç: https://raw.githubusercontent.com/hilke1010/akrtakip/main/opet.png
-                        return LOGO_URL_BASLANGIC + filename
-                return DEFAULT_LOGO 
+                        url = LOGO_URL_BASLANGIC + filename
+                        break
+                
+                # Resim bilgilerini paketle
+                return {
+                    "url": url,
+                    "width": 242,   # Resim genişliği
+                    "height": 242,  # Resim yüksekliği
+                    "anchorY": 242  # Resmin alt noktası konuma bassın (Pin gibi)
+                }
 
-            leaders['icon_url'] = leaders['Dağıtım Şirketi'].apply(get_icon_url)
+            # Yeni bir kolon oluşturup bu paketi içine atıyoruz
+            leaders['icon_data'] = leaders['Dağıtım Şirketi'].apply(create_icon_data)
             
-            # İkon Boyut Ayarları (Piksel cinsinden)
-            leaders['width'] = 242 
-            leaders['height'] = 242
-            
-            # --- HARİTA ÇİZİMİ (PYDECK) ---
+            # --- HARİTA ÇİZİMİ ---
             view_state = pdk.ViewState(
                 latitude=39.0,
                 longitude=35.0,
@@ -1186,9 +1190,9 @@ def main():
             icon_layer = pdk.Layer(
                 type="IconLayer",
                 data=leaders,
-                get_icon="icon_url",
+                get_icon="icon_data",  # Artık paketlenmiş veriyi okuyor
                 get_position='[lon, lat]',
-                get_size=45,  # Logolar küçük gelirse burayı 60 yap
+                get_size=40,           # İkon boyutu
                 size_scale=15,
                 pickable=True,
             )
@@ -1220,6 +1224,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
