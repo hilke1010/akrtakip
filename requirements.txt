@@ -9,6 +9,7 @@ matplotlib
 requests
 networkx
 feedparser
+beautifulsoup4
 
 
 
