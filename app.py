@@ -180,18 +180,39 @@ CITY_COORDINATES = {
     "KİLİS": [36.7184, 37.1212], "OSMANİYE": [37.0742, 36.2467], "DÜZCE": [40.8438, 31.1565]
 }
 
-# --- BÖLGE TANIMLARI ---
+Kanka, gönderdiğin metindeki liste standart coğrafi bölgelerden farklı (Örneğin şirketiniz Antalya'yı Ege'ye, Erzurum'u Karadeniz'e, Adana'yı Güneydoğu'ya bağlamış). Bu yüzden standart Türkiye haritası yerine, senin attığın listeye sadık kalarak bir gruplama yaptım.
+
+Böylece filtrelerde şirketinin satış bölgeleriyle tam uyumlu çalışırsın.
+
+Mevcut BOLGE_TANIMLARI kısmını silip, aşağıdaki genişletilmiş ve senin listene göre düzenlenmiş kodu yapıştır:
+
+Python
+# --- BÖLGE TANIMLARI (Senin Listene Göre Satış Bölgeleri) ---
 BOLGE_TANIMLARI = {
     "Orta Anadolu": [
-        "DÜZCE", "KARABÜK", "KONYA", "BOLU", "AFYONKARAHİSAR",
-        "AKSARAY", "ESKİŞEHİR", "ANKARA", "KIRIKKALE", "KASTAMONU",
-        "ÇANKIRI", "YOZGAT", "KIRŞEHİR", "KAYSERİ", "NEVŞEHİR",
-        "NİĞDE", "ZONGULDAK", "BARTIN"
+        "ANKARA", "KONYA", "KAYSERİ", "ESKİŞEHİR", "YOZGAT", "KASTAMONU", 
+        "ZONGULDAK", "KARABÜK", "KIRIKKALE", "AFYONKARAHİSAR", "KIRŞEHİR", 
+        "NİĞDE", "NEVŞEHİR", "ÇANKIRI", "AKSARAY", "DÜZCE", "BOLU", "BARTIN"
+    ],
+    "Marmara": [
+        "İSTANBUL", "BURSA", "BALIKESİR", "SAKARYA", "TEKİRDAĞ", "KOCAELİ", 
+        "EDİRNE", "ÇANAKKALE", "KIRKLARELİ", "BİLECİK", "YALOVA"
+    ],
+    "Ege": [
+        "İZMİR", "ANTALYA", "MANİSA", "AYDIN", "DENİZLİ", "MUĞLA", 
+        "KÜTAHYA", "ISPARTA", "BURDUR", "UŞAK"
+    ],
+    "Karadeniz": [
+        "SAMSUN", "TRABZON", "ORDU", "SİVAS", "TOKAT", "ERZURUM", "ÇORUM", 
+        "GİRESUN", "AMASYA", "RİZE", "KARS", "SİNOP", "AĞRI", "ERZİNCAN", 
+        "ARTVİN", "BAYBURT", "GÜMÜŞHANE", "IĞDIR", "ARDAHAN", "TUNCELİ"
+    ],
+    "Güneydoğu": [
+        "ADANA", "GAZİANTEP", "MERSİN", "ŞANLIURFA", "DİYARBAKIR", "HATAY", 
+        "KAHRAMANMARAŞ", "MALATYA", "MARDİN", "BATMAN", "ELAZIĞ", "ADIYAMAN", 
+        "VAN", "OSMANİYE", "ŞIRNAK", "MUŞ", "BİTLİS", "SİİRT", "KARAMAN", "KİLİS"
     ]
 }
-
-if 'crm_notes' not in st.session_state: st.session_state.crm_notes = {}
-
 # --- VERİ YÜKLEME ---
 @st.cache_data
 def load_data(file_path):
@@ -1254,3 +1275,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
