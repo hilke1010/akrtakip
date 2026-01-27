@@ -1117,16 +1117,108 @@ def main():
         st.metric("Yeni Toplam", curr + gain, delta=f"+{gain}")
 
     # 13. SÖZLEŞME RADAR
+    # 13. SÖZLEŞME RADAR -> İL HAKİMİYET HARİTASI (LOGO)
     with tabs[12]:
-        st.subheader("📡 Sözleşme Radar")
-        df_rad = create_tab_filters(df, "tab6")
-        if 'Sozlesme_Suresi_Gun' in df_rad.columns:
-            risk = df_rad[(df_rad['Sozlesme_Suresi_Gun'] < 90) & (df_rad['Sozlesme_Suresi_Gun'] >= 0)]
-            if not risk.empty:
-                st.error(f"{len(risk)} Kritik Kayıt!")
-                show_details_table(risk, target_date_col)
-            else:
-                st.success("Riskli kayıt yok.")
+        st.subheader("🦁 İl Hakimiyet Haritası (Lider Markalar)")
+        st.info("💡 Bu harita, her ilde en fazla istasyonu olan 'Lider Marka'nın logosunu o ilin üzerine koyar.")
+        
+        # --- LOGO AYARLARI (BURAYI KENDİ GITHUB ADRESİNE GÖRE DÜZENLE) ---
+        # Örnek: "https://raw.githubusercontent.com/KULLANICI_ADIN/REPO_ADIN/main/logos/"
+        LOGO_URL_BASLANGIC = "https://raw.githubusercontent.com/KULLANICI_ADIN/REPO_ADIN/main/logos/"
+        
+        # Hangi şirketin hangi dosya ismiyle eşleşeceği
+        LOGO_MAP = {
+            "OPET": "opet.png",
+            "SHELL": "shell.png",
+            "PETROL OFİSİ": "po.png",
+            "BP": "bp.png",
+            "TOTAL": "total.png",
+            "AYGAZ": "aygaz.png",
+            "İPRAGAZ": "ipragaz.png",
+            "MİLANGAZ": "milangaz.png",
+            "TP": "tp.png",
+            "GÜZEL ENERJİ": "guzel.png"
+            # Diğer şirketleri ve dosya isimlerini buraya ekleyebilirsin
+        }
+        
+        # Varsayılan Logo (Eğer listede yoksa bu görünür)
+        DEFAULT_LOGO = "https://img.icons8.com/color/48/gas-station.png" 
+
+        # --- VERİ HAZIRLIĞI ---
+        # 1. Filtreleri uygula (İsteğe bağlı, genelde tüm Türkiye'ye bakılır ama filtre de çalışsın)
+        df_dom = create_tab_filters(df, "tab_dominance")
+        
+        if not df_dom.empty:
+            # 2. Her ildeki marka sayılarını hesapla
+            city_stats = df_dom.groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
+            
+            # 3. Her ilin liderini bul (Maksimum istasyona sahip olanı seç)
+            # Bir ilde eşitlik varsa ilkini alır
+            idx = city_stats.groupby(['İl'])['Adet'].transform(max) == city_stats['Adet']
+            leaders = city_stats[idx].drop_duplicates(subset=['İl']).copy()
+            
+            # 4. Koordinatları Ekle
+            leaders['lat'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
+            leaders['lon'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
+            
+            # 5. Logo URL'lerini Ata
+            def get_icon_url(company_name):
+                # Şirket isminin içinde geçen kelimeye göre eşleştirme yap (Büyük/Küçük harf duyarsız)
+                comp_upper = str(company_name).upper()
+                for key, filename in LOGO_MAP.items():
+                    if key in comp_upper:
+                        return LOGO_URL_BASLANGIC + filename
+                return DEFAULT_LOGO # Eşleşme yoksa varsayılan ikon
+
+            leaders['icon_url'] = leaders['Dağıtım Şirketi'].apply(get_icon_url)
+            
+            # PyDeck için ikon boyut ayarı (Genişlik/Yükseklik) - Piksellere göre ayarla
+            leaders['width'] = 242 
+            leaders['height'] = 242
+            
+            # --- HARİTA ÇİZİMİ (PYDECK) ---
+            view_state = pdk.ViewState(
+                latitude=39.0,
+                longitude=35.0,
+                zoom=5,
+                pitch=0
+            )
+
+            icon_layer = pdk.Layer(
+                type="IconLayer",
+                data=leaders,
+                get_icon="icon_url",
+                get_position='[lon, lat]',
+                get_size=40, # Haritadaki ikon büyüklüğü
+                size_scale=15,
+                pickable=True,
+            )
+
+            tooltip = {
+                "html": "<b>{İl}</b><br/>👑 Lider: <b>{Dağıtım Şirketi}</b><br/>📊 İstasyon: {Adet}",
+                "style": {"backgroundColor": "steelblue", "color": "white"}
+            }
+
+            r = pdk.Deck(
+                map_style=None, # Streamlit temasını kullan
+                initial_view_state=view_state,
+                layers=[icon_layer],
+                tooltip=tooltip
+            )
+
+            st.pydeck_chart(r)
+            
+            # --- ALT TABLO ---
+            st.markdown("### 🏆 İl Liderleri Listesi")
+            st.dataframe(
+                leaders[['İl', 'Dağıtım Şirketi', 'Adet']].sort_values('Adet', ascending=False),
+                use_container_width=True,
+                hide_index=True
+            )
+            
+        else:
+            st.warning("Veri yok.")
 
 if __name__ == "__main__":
     main()
+
