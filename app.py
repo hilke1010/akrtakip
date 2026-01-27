@@ -43,7 +43,6 @@ def get_file_last_modified(file_path):
         return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
     except: return "TARİH ALINAMADI"
 
-# --- RESMİ GAZETE RSS (TÜM HABERLER) ---
 # --- RESMİ GAZETE RSS (GÜÇLENDİRİLMİŞ VERSİYON) ---
 @st.cache_data(ttl=300, show_spinner=False) # 5 Dakika Cache (Test için düşürdüm)
 def fetch_all_rss_news():
@@ -1222,4 +1221,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
