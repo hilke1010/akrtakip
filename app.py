@@ -180,7 +180,7 @@ CITY_COORDINATES = {
     "KİLİS": [36.7184, 37.1212], "OSMANİYE": [37.0742, 36.2467], "DÜZCE": [40.8438, 31.1565]
 }
 
-Python
+
 # --- BÖLGE TANIMLARI (Senin Listene Göre Satış Bölgeleri) ---
 BOLGE_TANIMLARI = {
     "Orta Anadolu": [
@@ -1269,5 +1269,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
