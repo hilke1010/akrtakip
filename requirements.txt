@@ -1,12 +1,10 @@
 streamlit
 pandas
 plotly
-numpy
 openpyxl
 xlsxwriter
-networkx
-requests
 feedparser
-beautifulsoup4
 yfinance
-
+requests
+numpy
+networkx
