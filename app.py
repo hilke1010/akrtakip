@@ -8,9 +8,6 @@ import io
 import time
 import math
 import networkx as nx
-import yfinance as yf
-import requests
-import feedparser
 from datetime import datetime, timedelta, date
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
@@ -31,79 +28,6 @@ def haversine(lat1, lon1, lat2, lon2):
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return R * c
-
-# --- PİYASA VERİLERİNİ GEÇMİŞİYLE ÇEKME (TREND İÇİN) ---
-@st.cache_data(ttl=900) 
-def get_market_data_history():
-    try:
-        # Son 5 günün verisini çekiyoruz ki ortalama alabilelim
-        tickers = ["TRY=X", "EURTRY=X", "BZ=F"]
-        data = yf.download(tickers, period="5d", interval="1d", progress=False)
-        
-        if not data.empty:
-            # MultiIndex kontrolü ve veri alma
-            try:
-                # Son kapanışlar
-                usd_now = data['Close']['TRY=X'].iloc[-1]
-                eur_now = data['Close']['EURTRY=X'].iloc[-1]
-                brent_now = data['Close']['BZ=F'].iloc[-1]
-                
-                # 3 Günlük Ortalamalar (EPDK Mantığına Yakın Simülasyon)
-                usd_avg = data['Close']['TRY=X'].tail(3).mean()
-                brent_avg = data['Close']['BZ=F'].tail(3).mean()
-                
-            except:
-                # Yedek erişim
-                usd_now = data.iloc[-1, 0]
-                eur_now = data.iloc[-1, 1]
-                brent_now = data.iloc[-1, 2]
-                usd_avg = usd_now
-                brent_avg = brent_now
-            
-            return {
-                "usd": usd_now, "eur": eur_now, "brent": brent_now,
-                "usd_avg": usd_avg, "brent_avg": brent_avg
-            }
-        return None
-    except Exception:
-        return None
-
-# --- RESMİ GAZETE RSS ---
-@st.cache_data(ttl=300, show_spinner=False)
-def fetch_all_rss_news():
-    rss_url = "https://www.resmigazete.gov.tr/rss.xml"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
-    }
-    try:
-        response = requests.get(rss_url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            feed = feedparser.parse(response.content)
-            if not feed.entries:
-                return None, "RSS Boş."
-            
-            news_items = []
-            keywords = ["EPDK", "LPG", "BENZİN", "AKARYAKIT", "PETROL", "VERGİ", "ENERJİ", "MOTORİN"]
-            tr_map = {ord('i'): 'İ', ord('ı'): 'I', ord('ğ'): 'Ğ', ord('ü'): 'Ü', ord('ş'): 'Ş', ord('ö'): 'Ö', ord('ç'): 'Ç'}
-
-            for entry in feed.entries:
-                title = entry.title
-                link = entry.link
-                title_upper = title.translate(tr_map).upper()
-                matched = [k for k in keywords if k in title_upper]
-                is_important = "🔥 KRİTİK" if matched else "GENEL"
-                
-                news_items.append({
-                    "Durum": is_important,
-                    "Başlık": title,
-                    "Link": link,
-                    "Etiket": ", ".join(matched) if matched else "-"
-                })
-            return pd.DataFrame(news_items), None
-        else:
-            return None, f"Hata Kodu: {response.status_code}"
-    except Exception as e:
-        return None, str(e)
 
 # --- DOSYA TARİHİ HESAPLAMA ---
 def get_file_last_modified(file_path):
@@ -167,13 +91,14 @@ st.markdown("""
         50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* YENİ SIRALAMAYA GÖRE KIRMIZI YANIP SÖNECEK SEKMELER */
+    /* YENİ SIRALAMAYA GÖRE KIRMIZI YANIP SÖNECEK SEKMELER [NEW Olanlar] */
+    /* 1 tabanlı indeksleme: 7, 8, 9, 10, 11. sekmeler */
+    
     button[data-testid="stTab"]:nth-child(7) p, /* Yarıçap */
     button[data-testid="stTab"]:nth-child(8) p, /* Rota */
     button[data-testid="stTab"]:nth-child(9) p, /* Robo */
     button[data-testid="stTab"]:nth-child(10) p, /* Vergi */
-    button[data-testid="stTab"]:nth-child(11) p, /* Detaylı Arama */
-    button[data-testid="stTab"]:nth-child(13) p { /* Fiyat Tahmin (Sözleşme Radar Yerine) */
+    button[data-testid="stTab"]:nth-child(11) p { /* Detaylı Arama */
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
@@ -209,29 +134,6 @@ st.markdown("""
     .robo-list { list-style-type: none; padding: 0; margin: 0; }
     .robo-list li { margin-bottom: 8px; font-size: 1em; padding-left: 10px; border-left: 3px solid #eee; }
     .robo-highlight { font-weight: bold; color: #d35400; }
-    
-    /* PİYASA ŞERİDİ STİLİ */
-    .market-strip {
-        background-color: #2c3e50;
-        color: white;
-        padding: 10px;
-        border-radius: 8px;
-        text-align: center;
-        margin-bottom: 10px;
-        display: flex;
-        justify-content: space-around;
-        align-items: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .market-item {
-        font-size: 1.1em;
-        font-weight: bold;
-    }
-    .market-label {
-        color: #bdc3c7;
-        font-size: 0.8em;
-        margin-right: 5px;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -449,30 +351,6 @@ def main():
         """, unsafe_allow_html=True)
     st.divider()
 
-    # --- 🌍 PİYASA VERİLERİ ŞERİDİ (ANA EKRAN) ---
-    market_data = get_market_data_history()
-    
-    # Varsayılanlar
-    usd_disp, eur_disp, brent_disp = "---", "---", "---"
-    
-    if market_data:
-        usd_val = market_data.get('usd', 0)
-        eur_val = market_data.get('eur', 0)
-        brent_val = market_data.get('brent', 0)
-        
-        usd_disp = f"{usd_val:.2f} ₺" if usd_val else "---"
-        eur_disp = f"{eur_val:.2f} ₺" if eur_val else "---"
-        brent_disp = f"${brent_val:.2f}" if brent_val else "---"
-
-    st.markdown(f"""
-    <div class="market-strip">
-        <span class="market-item"><span class="market-label">🇺🇸 USD/TRY:</span>{usd_disp}</span>
-        <span class="market-item"><span class="market-label">🇪🇺 EUR/TRY:</span>{eur_disp}</span>
-        <span class="market-item"><span class="market-label">🛢️ BRENT:</span>{brent_disp}</span>
-    </div>
-    """, unsafe_allow_html=True)
-    # ---------------------------------------------
-
     # --- KPI ---
     c1, c2, c3 = st.columns(3)
     c1.metric("Toplam Veri Tabanı", f"{len(df):,}")
@@ -481,8 +359,7 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER ---
-    # Sözleşme Radar KAlDIRILDI -> Yerine "Fiyat Tahmin Paneli" Geldi
+    # --- SEKMELER (GÖRSELE GÖRE YENİDEN SIRALANDI) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
         "📅 Takvim",
@@ -496,7 +373,7 @@ def main():
         "💸 Vergi Zincir Analizi [NEW]",
         "🔍 Detaylı Arama [NEW]",
         "🔮 Simülasyon",
-        "🔮 Fiyat Tahmin Paneli" # <-- BURASI DEĞİŞTİ
+        "📡 Sözleşme Radar"
     ])
 
     # 1. BÖLGESEL & DURUM
@@ -742,12 +619,12 @@ def main():
             if missing:
                  st.warning(f"⚠️ Şu anki filtrede varlık göstermediğiniz **{len(missing)}** ilçe tespit edildi.")
                  with st.expander("📄 Boş İlçe Listesini Göster"):
-                      chips = ""
-                      market_size_ref = df[df['İl'].isin(selected_cities)]['İlçe'].value_counts()
-                      for m in missing:
-                          size = market_size_ref.get(m, 0)
-                          chips += f"<span class='district-chip' title='Toplam Pazar: {size}'>{m} ({size})</span> "
-                      st.markdown(chips, unsafe_allow_html=True)
+                     chips = ""
+                     market_size_ref = df[df['İl'].isin(selected_cities)]['İlçe'].value_counts()
+                     for m in missing:
+                         size = market_size_ref.get(m, 0)
+                         chips += f"<span class='district-chip' title='Toplam Pazar: {size}'>{m} ({size})</span> "
+                     st.markdown(chips, unsafe_allow_html=True)
             else:
                 st.success("Tebrikler! Seçili bölgedeki tüm ilçelerde varlık gösteriyorsunuz.")
 
@@ -1239,87 +1116,17 @@ def main():
         gain = int(tgt * rate / 100)
         st.metric("Yeni Toplam", curr + gain, delta=f"+{gain}")
 
-    # 13. SÖZLEŞME RADAR (DEĞİŞTİ --> FİYAT TAHMİN PANELİ)
+    # 13. SÖZLEŞME RADAR
     with tabs[12]:
-        st.subheader("🔮 Fiyat Tahmin & Piyasa Paneli (Simülasyon)")
-        st.info("💡 **DİKKAT:** Gerçek *Cenova/Lavera* verileri ücretli olduğu için, bu panel **Brent Petrol x Dolar Kuru** korelasyonunu kullanarak %90 doğrulukla tahmini bir 'Rafineri Çıkış' trendi oluşturur.")
-        
-        # VERİLERİ ÇEK (ÖNBELLEKLİ)
-        market_hist = get_market_data_history()
-
-        if market_hist:
-            # --- HESAPLAMA MANTIĞI (BAKKAL HESABI SİMÜLASYONU) ---
-            # 1. Mevcut Endeks (Bugün): Dolar * Brent
-            current_index = market_hist['usd'] * market_hist['brent']
-            
-            # 2. Ortalama Endeks (3 Gün): Dolar_Avg * Brent_Avg
-            avg_index = market_hist['usd_avg'] * market_hist['brent_avg']
-            
-            # 3. Değişim Yüzdesi
-            change_pct = ((current_index - avg_index) / avg_index) * 100
-            
-            # 4. Karar Mekanizması
-            if change_pct > 3.0:
-                gauge_val = 90
-                status_text = "ZAM RİSKİ YÜKSEK"
-                color_code = "red"
-            elif change_pct < -3.0:
-                gauge_val = 10
-                status_text = "İNDİRİM BEKLENTİSİ"
-                color_code = "green"
+        st.subheader("📡 Sözleşme Radar")
+        df_rad = create_tab_filters(df, "tab6")
+        if 'Sozlesme_Suresi_Gun' in df_rad.columns:
+            risk = df_rad[(df_rad['Sozlesme_Suresi_Gun'] < 90) & (df_rad['Sozlesme_Suresi_Gun'] >= 0)]
+            if not risk.empty:
+                st.error(f"{len(risk)} Kritik Kayıt!")
+                show_details_table(risk, target_date_col)
             else:
-                gauge_val = 50 + (change_pct * 5) # Ortada salınım
-                status_text = "YATAY SEYİR (Durağan)"
-                color_code = "orange"
-                
-            col_gauge, col_exp = st.columns([1, 1])
-            
-            with col_gauge:
-                fig = go.Figure(go.Indicator(
-                    mode = "gauge+number+delta",
-                    value = gauge_val,
-                    domain = {'x': [0, 1], 'y': [0, 1]},
-                    title = {'text': status_text, 'font': {'size': 24, 'color': color_code}},
-                    delta = {'reference': 50, 'increasing': {'color': "red"}, 'decreasing': {'color': "green"}},
-                    gauge = {
-                        'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                        'bar': {'color': color_code},
-                        'bgcolor': "white",
-                        'borderwidth': 2,
-                        'bordercolor': "gray",
-                        'steps': [
-                            {'range': [0, 30], 'color': '#d4edda'},
-                            {'range': [30, 70], 'color': '#fff3cd'},
-                            {'range': [70, 100], 'color': '#f8d7da'}],
-                        'threshold': {
-                            'line': {'color': "red", 'width': 4},
-                            'thickness': 0.75,
-                            'value': gauge_val}}))
-                st.plotly_chart(fig, use_container_width=True)
-                
-                st.metric("Tahmini Maliyet Değişimi (Son 3 Gün)", f"%{change_pct:.2f}", delta_color="inverse")
-
-            with col_exp:
-                st.markdown("### 🧠 Nasıl Çalışır?")
-                st.markdown("""
-                <div class="robo-card">
-                <b>1. Cenova/Lavera (Platts) Piyasası:</b><br>
-                Türkiye'de akaryakıt fiyatları ham petrole göre değil, İtalya'daki işlenmiş ürün borsasına (Platts) göre belirlenir.
-                <br><br>
-                <b>2. Dolar Kuru Etkisi:</b><br>
-                Uluslararası fiyat düşse bile, içeride Dolar kuru artarsa "TL cinsinden maliyet" düşmez, aksine artabilir. Formül kabaca: <i>(Platts Fiyatı) x (Dolar Kuru)</i>.
-                <br><br>
-                <b>3. 3-5 Gün Kuralı:</b><br>
-                Rafineriler günlük hareketlere hemen tepki vermez. Fiyatların 3-5 gün boyunca belli bir ortalamanın üzerinde (+%3) veya altında (-%3) kalması beklenir.
-                <br><br>
-                <b>4. Vergi (ÖTV/KDV):</b><br>
-                Rafineri çıkış fiyatının üzerine ÖTV (sabit/değişken) ve onun üzerine %20 KDV eklenerek pompa fiyatı oluşur.
-                </div>
-                """, unsafe_allow_html=True)
-
-        else:
-            st.warning("Piyasa verilerine şu an ulaşılamıyor. Lütfen daha sonra tekrar deneyin.")
-
+                st.success("Riskli kayıt yok.")
 
 if __name__ == "__main__":
     main()
