@@ -1117,110 +1117,93 @@ def main():
         gain = int(tgt * rate / 100)
         st.metric("Yeni Toplam", curr + gain, delta=f"+{gain}")
 
-    # 13. SÖZLEŞME RADAR
-    # 13. SÖZLEŞME RADAR -> İL HAKİMİYET HARİTASI (LOGO)
+    # 13. İL HAKİMİYET HARİTASI (LOGO) - DÜZELTİLMİŞ SÜRÜM
     with tabs[12]:
         st.subheader("🦁 İl Hakimiyet Haritası (Lider Markalar)")
-        st.info("💡 Bu harita, her ilde en fazla istasyonu olan 'Lider Marka'nın logosunu o ilin üzerine koyar.")
+        st.info("💡 Bu harita, GitHub'daki logoları çekerek lider markayı gösterir.")
         
-        # --- LOGO AYARLARI (BURAYI KENDİ GITHUB ADRESİNE GÖRE DÜZENLE) ---
-        # Örnek: "https://raw.githubusercontent.com/KULLANICI_ADIN/REPO_ADIN/main/logos/"
+        # --- BURAYI DÜZENLE: KENDİ GITHUB RAW ADRESİNİ YAZ ---
+        # Tarayıcıda bir resme tıklayıp "Raw" butonunun linkini al, sonundaki "opet.png" kısmını sil.
+        # Sonunda "/" (taksim) işareti MUTLAKA olsun!
+        # Örnek: "https://raw.githubusercontent.com/kerimaksu/akaryakit-analiz/main/"
         LOGO_URL_BASLANGIC = "https://raw.githubusercontent.com/hilke1010/akrtakip/main/"
         
-        # Hangi şirketin hangi dosya ismiyle eşleşeceği
+        # Dosya isimlerini ekran görüntüne göre güncelledim:
         LOGO_MAP = {
             "OPET": "opet.png",
             "SHELL": "shell.png",
-            "PETROL OFİSİ": "po.png",
-            "BP": "bp.png",
-            "AYTEMİZ": "ay.png",
+            "PETROL OFİSİ": "po.png",     # Ekran görüntüsünde po.png var
+            "GÜZEL ENERJİ": "ge.png",     # Ekran görüntüsünde ge.png var
+            "BP": "bp.png",               # Dosya varsa çalışır
+            "TOTAL": "total.png",         # Dosya varsa çalışır
+            "AYGAZ": "aygaz.png",
             "İPRAGAZ": "ipragaz.png",
             "MİLANGAZ": "milangaz.png",
-            "TP": "tp.png",
-            "GÜZEL ENERJİ": "ge.png"
-            # Diğer şirketleri ve dosya isimlerini buraya ekleyebilirsin
+            "TP": "tp.png"
         }
         
-        # Varsayılan Logo (Eğer listede yoksa bu görünür)
+        # Varsayılan Logo (Dosya bulunamazsa bu çıkar)
         DEFAULT_LOGO = "https://img.icons8.com/color/48/gas-station.png" 
 
         # --- VERİ HAZIRLIĞI ---
-        # 1. Filtreleri uygula (İsteğe bağlı, genelde tüm Türkiye'ye bakılır ama filtre de çalışsın)
         df_dom = create_tab_filters(df, "tab_dominance")
         
         if not df_dom.empty:
-            # 2. Her ildeki marka sayılarını hesapla
+            # Liderleri bul
             city_stats = df_dom.groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
-            
-            # 3. Her ilin liderini bul (Maksimum istasyona sahip olanı seç)
-            # Bir ilde eşitlik varsa ilkini alır
             idx = city_stats.groupby(['İl'])['Adet'].transform(max) == city_stats['Adet']
             leaders = city_stats[idx].drop_duplicates(subset=['İl']).copy()
             
-            # 4. Koordinatları Ekle
+            # Koordinatları ekle
             leaders['lat'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
             leaders['lon'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
             
-            # 5. Logo URL'lerini Ata
+            # Logo URL oluşturucu
             def get_icon_url(company_name):
-                # Şirket isminin içinde geçen kelimeye göre eşleştirme yap (Büyük/Küçük harf duyarsız)
                 comp_upper = str(company_name).upper()
                 for key, filename in LOGO_MAP.items():
                     if key in comp_upper:
+                        # Tam URL oluşturur: https://raw.../main/opet.png
                         return LOGO_URL_BASLANGIC + filename
-                return DEFAULT_LOGO # Eşleşme yoksa varsayılan ikon
+                return DEFAULT_LOGO 
 
             leaders['icon_url'] = leaders['Dağıtım Şirketi'].apply(get_icon_url)
             
-            # PyDeck için ikon boyut ayarı (Genişlik/Yükseklik) - Piksellere göre ayarla
+            # İkon Boyutları (Resimlerin kare değilse buraları kurcala)
             leaders['width'] = 242 
             leaders['height'] = 242
             
-            # --- HARİTA ÇİZİMİ (PYDECK) ---
-            view_state = pdk.ViewState(
-                latitude=39.0,
-                longitude=35.0,
-                zoom=5,
-                pitch=0
-            )
+            # --- HARİTA ÇİZİMİ ---
+            view_state = pdk.ViewState(latitude=39.0, longitude=35.0, zoom=5)
 
             icon_layer = pdk.Layer(
                 type="IconLayer",
                 data=leaders,
                 get_icon="icon_url",
                 get_position='[lon, lat]',
-                get_size=40, # Haritadaki ikon büyüklüğü
+                get_size=40, # Logolar küçükse bu sayıyı büyüt (örn: 60 yap)
                 size_scale=15,
                 pickable=True,
             )
 
-            tooltip = {
-                "html": "<b>{İl}</b><br/>👑 Lider: <b>{Dağıtım Şirketi}</b><br/>📊 İstasyon: {Adet}",
-                "style": {"backgroundColor": "steelblue", "color": "white"}
-            }
-
             r = pdk.Deck(
-                map_style=None, # Streamlit temasını kullan
+                map_style=None,
                 initial_view_state=view_state,
                 layers=[icon_layer],
-                tooltip=tooltip
+                tooltip={"html": "<b>{İl}</b><br/>Lider: {Dağıtım Şirketi}<br/>Sayı: {Adet}"}
             )
 
             st.pydeck_chart(r)
             
-            # --- ALT TABLO ---
-            st.markdown("### 🏆 İl Liderleri Listesi")
-            st.dataframe(
-                leaders[['İl', 'Dağıtım Şirketi', 'Adet']].sort_values('Adet', ascending=False),
-                use_container_width=True,
-                hide_index=True
-            )
+            # Tablo
+            st.dataframe(leaders[['İl', 'Dağıtım Şirketi', 'Adet']].sort_values('Adet', ascending=False), hide_index=True)
             
         else:
             st.warning("Veri yok.")
 
 if __name__ == "__main__":
     main()
+
 
 
 
