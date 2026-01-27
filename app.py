@@ -1132,8 +1132,7 @@ def main():
             "SHELL": "shell.png",
             "PETROL OFİSİ": "po.png",
             "BP": "bp.png",
-            "TOTAL": "total.png",
-            "AYGAZ": "aygaz.png",
+            "AYTEMİZ": "ay.png",
             "İPRAGAZ": "ipragaz.png",
             "MİLANGAZ": "milangaz.png",
             "TP": "tp.png",
@@ -1221,4 +1220,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
