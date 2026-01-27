@@ -7,8 +7,9 @@ import os
 import io
 import time
 import math
-import networkx as nx
-import feedparser  # <-- YENİ EKLENDİ
+import requests
+from bs4 import BeautifulSoup
+import concurrent.futures
 from datetime import datetime, timedelta, date
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
@@ -16,7 +17,7 @@ st.set_page_config(
     page_title="EPDK Akaryakıt Pazar Analizi",
     page_icon="⛽",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed" # Menü kapalı başlar, kullanıcı açar
 )
 
 # --- HAVERSINE (MESAFE HESAPLAMA) FONKSİYONU ---
@@ -43,46 +44,76 @@ def get_file_last_modified(file_path):
         return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
     except: return "TARİH ALINAMADI"
 
-# --- RESMİ GAZETE RSS ENTEGRASYONU (YENİ EKLENDİ - 2 SAAT CACHE) ---
-@st.cache_data(ttl=7200, show_spinner=False)
-def fetch_resmi_gazete_rss():
-    rss_url = "https://www.resmigazete.gov.tr/rss.xml"
-    
+# --- RESMİ GAZETE 30 GÜNLÜK TARAMA (SCRAPING) ---
+def check_url_for_keywords(date_obj, keywords):
+    """Tek bir günün Resmi Gazetesini kontrol eder"""
     try:
-        feed = feedparser.parse(rss_url)
-        if feed.bozo: # Hata varsa
-            return None, "RSS Kaynağına ulaşılamadı veya internet bağlantısı yok."
-            
-        news_items = []
-        # Senin istediğin anahtar kelimeler
-        keywords = ["EPDK", "LPG", "BENZİN", "AKARYAKIT", "PETROL", "VERGİ", "ENERJİ", "MOTORİN", "MADENİ YAĞ"]
+        # URL Formatı: https://www.resmigazete.gov.tr/eskiler/2026/01/20260127.htm
+        str_date = date_obj.strftime('%Y%m%d')
+        year = date_obj.strftime('%Y')
+        month = date_obj.strftime('%m')
+        url = f"https://www.resmigazete.gov.tr/eskiler/{year}/{month}/{str_date}.htm"
         
-        # Türkçe karakter sorunu yaşamamak için basit normalizasyon haritası
+        response = requests.get(url, timeout=5)
+        if response.status_code != 200:
+            return []
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+        main_content = soup.find('div', {'id': 'container'}) # Genelde içerik buradadır
+        if not main_content: main_content = soup # Bulamazsa tümüne bak
+        
+        links = main_content.find_all('a')
+        found_news = []
+        
         tr_map = {ord('i'): 'İ', ord('ı'): 'I', ord('ğ'): 'Ğ', ord('ü'): 'Ü', ord('ş'): 'Ş', ord('ö'): 'Ö', ord('ç'): 'Ç'}
-        
-        for entry in feed.entries:
-            title = entry.title
-            link = entry.link
-            pub_date = entry.published
+
+        for link in links:
+            text = link.get_text().strip()
+            if not text: continue
             
-            # Başlığı büyük harfe çevirip kontrol et
-            title_upper = title.translate(tr_map).upper()
+            text_upper = text.translate(tr_map).upper()
+            href = link.get('href')
+            if href and not href.startswith('http'):
+                href = f"https://www.resmigazete.gov.tr/eskiler/{year}/{month}/{href}"
             
-            # Anahtar kelime kontrolü
-            matched_keywords = [kw for kw in keywords if kw in title_upper]
-            category = "SEKTÖREL" if matched_keywords else "GENEL"
-            
-            news_items.append({
-                "Tarih": pub_date,
-                "Başlık": title,
-                "Link": link,
-                "Kategori": category,
-                "Etiketler": ", ".join(matched_keywords) if matched_keywords else "-"
-            })
-            
-        return pd.DataFrame(news_items), None
-    except Exception as e:
-        return None, str(e)
+            matched = [k for k in keywords if k in text_upper]
+            if matched:
+                found_news.append({
+                    "Tarih": date_obj.strftime('%d.%m.%Y'),
+                    "Başlık": text,
+                    "Link": href,
+                    "Etiketler": ", ".join(matched)
+                })
+        return found_news
+    except:
+        return []
+
+@st.cache_data(ttl=21600, show_spinner=False) # 6 Saat Cache
+def fetch_last_30_days_gazette():
+    keywords = ["EPDK", "LPG", "BENZİN", "AKARYAKIT", "PETROL", "VERGİ", "ENERJİ", "MOTORİN", "MADENİ YAĞ"]
+    
+    end_date = date.today()
+    start_date = end_date - timedelta(days=30)
+    
+    date_list = [end_date - timedelta(days=x) for x in range((end_date - start_date).days + 1)]
+    
+    all_news = []
+    
+    # Paralel işlem (Hız için)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_date = {executor.submit(check_url_for_keywords, d, keywords): d for d in date_list}
+        for future in concurrent.futures.as_completed(future_to_date):
+            res = future.result()
+            if res:
+                all_news.extend(res)
+    
+    # Tarihe göre yeniden sırala (Yeniden eskiye)
+    if all_news:
+        df = pd.DataFrame(all_news)
+        df['Tarih_Dt'] = pd.to_datetime(df['Tarih'], format='%d.%m.%Y')
+        df = df.sort_values('Tarih_Dt', ascending=False).drop(columns=['Tarih_Dt'])
+        return df
+    return pd.DataFrame()
 
 # --- GİRİŞ ANİMASYONU ---
 def show_intro_animation():
@@ -133,15 +164,12 @@ st.markdown("""
         50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* YENİ SIRALAMAYA GÖRE KIRMIZI YANIP SÖNECEK SEKMELER [NEW Olanlar] */
-    /* 1 tabanlı indeksleme: 7, 8, 9, 10, 11 ve 14 (Resmi Gazete) sekmeler */
-    
+    /* YENİ SIRALAMAYA GÖRE KIRMIZI YANIP SÖNECEK SEKMELER */
     button[data-testid="stTab"]:nth-child(7) p, /* Yarıçap */
     button[data-testid="stTab"]:nth-child(8) p, /* Rota */
     button[data-testid="stTab"]:nth-child(9) p, /* Robo */
     button[data-testid="stTab"]:nth-child(10) p, /* Vergi */
-    button[data-testid="stTab"]:nth-child(11) p, /* Detaylı Arama */
-    button[data-testid="stTab"]:nth-child(14) p { /* Resmi Gazete */
+    button[data-testid="stTab"]:nth-child(11) p { /* Detaylı Arama */
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
@@ -375,6 +403,29 @@ def main():
 
     file_date_str = get_file_last_modified(SABIT_DOSYA_ADI)
 
+    # --- SIDEBAR (RESMİ GAZETE BURAYA TAŞINDI) ---
+    with st.sidebar:
+        st.image("https://www.resmigazete.gov.tr/assets/img/resmi-gazete-logo.png", width=200)
+        st.header("📰 Resmi Gazete Radar")
+        st.info("💡 Son 30 günün Resmi Gazetesi taranır. (Anahtar Kelimeler: EPDK, LPG, VERGİ, ENERJİ...)")
+        
+        if st.button("📡 Taramayı Başlat / Yenile"):
+            with st.spinner("Son 30 gün taranıyor (Bu işlem 10-15sn sürebilir)..."):
+                rg_df = fetch_last_30_days_gazette()
+                
+            if not rg_df.empty:
+                st.success(f"{len(rg_df)} ilgili kayıt bulundu.")
+                for idx, row in rg_df.iterrows():
+                    with st.expander(f"{row['Tarih']} - {row['Etiketler']}"):
+                        st.markdown(f"**[{row['Başlık']}]({row['Link']})**")
+            else:
+                st.warning("Son 30 günde ilgili kayıt bulunamadı.")
+        else:
+            st.caption("Verileri çekmek için butona basın.")
+        
+        st.divider()
+        st.write("© 2026 Dashboard")
+
     # --- ÜST BİLGİ PANELİ ---
     st.markdown("### 🚀 Akaryakıt Pazar & Risk Analizi")
     col_info1, col_info2, col_info3 = st.columns([1, 1, 1])
@@ -402,7 +453,7 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER (GÜNCELLENDİ) ---
+    # --- SEKMELER (ESKİ HALİNE DÖNDÜ - 13 SEKME) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
         "📅 Takvim",
@@ -416,8 +467,7 @@ def main():
         "💸 Vergi Zincir Analizi [NEW]",
         "🔍 Detaylı Arama [NEW]",
         "🔮 Simülasyon",
-        "📡 Sözleşme Radar",
-        "📰 Resmi Gazete (Canlı)"
+        "📡 Sözleşme Radar"
     ])
 
     # 1. BÖLGESEL & DURUM
@@ -1171,59 +1221,6 @@ def main():
                 show_details_table(risk, target_date_col)
             else:
                 st.success("Riskli kayıt yok.")
-
-    # 14. RESMİ GAZETE (RSS) [NEW]
-    with tabs[13]:
-        st.subheader("📰 Resmi Gazete - Sektörel Takip")
-        st.info("💡 Veriler Resmi Gazete RSS kaynağından **2 saatte bir** otomatik güncellenir. Anahtar Kelimeler: EPDK, LPG, BENZİN, PETROL, VERGİ...")
-        
-        rg_df, rg_error = fetch_resmi_gazete_rss()
-        
-        if rg_error:
-            st.error(f"⚠️ Veri çekilemedi: {rg_error}")
-        else:
-            if not rg_df.empty:
-                # Önce Sektörel Haberleri Ayır
-                sector_news = rg_df[rg_df['Kategori'] == 'SEKTÖREL']
-                general_news = rg_df[rg_df['Kategori'] == 'GENEL']
-                
-                # --- KRİTİK GELİŞMELER (SEKTÖREL) ---
-                if not sector_news.empty:
-                    st.markdown(f"""
-                    <div class='insight-box-danger'>
-                        <div style="font-size:1.2em; font-weight:bold;">🚨 KRİTİK SEKTÖREL GELİŞMELER ({len(sector_news)} Adet)</div>
-                        <p>Aşağıdaki maddeler akaryakıt ve enerji sektörünü ilgilendirmektedir.</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    for index, row in sector_news.iterrows():
-                        with st.container():
-                            col_icon, col_text = st.columns([1, 15])
-                            with col_icon:
-                                st.markdown("🔥")
-                            with col_text:
-                                st.markdown(f"**[{row['Başlık']}]({row['Link']})**")
-                                st.caption(f"📅 {row['Tarih']} | 🏷️ Etiket: {row['Etiketler']}")
-                            st.divider()
-                else:
-                    st.success("✅ Bugün şu ana kadar sektörel (EPDK, Akaryakıt vb.) bir gelişme yayınlanmadı.")
-                
-                # --- DİĞER GELİŞMELER (GENEL) ---
-                with st.expander(f"📋 Diğer Resmi Gazete Başlıkları ({len(general_news)} Adet)"):
-                    if not general_news.empty:
-                        # Tablo olarak gösterelim, daha düzenli durur
-                        st.dataframe(
-                            general_news[['Tarih', 'Başlık', 'Link']],
-                            column_config={
-                                "Link": st.column_config.LinkColumn("Habere Git")
-                            },
-                            use_container_width=True,
-                            hide_index=True
-                        )
-                    else:
-                        st.write("Başka kayıt yok.")
-            else:
-                st.warning("RSS boş döndü.")
 
 if __name__ == "__main__":
     main()
