@@ -460,9 +460,10 @@ def main():
                 show_details_table(filtered_table, target_date_col)
 
     # 3. İL HAKİMİYET HARİTASI (LOGO) - HILKE1010 ÖZEL VERSİYON (YENİ YERİNDE)
+    # 3. İL HAKİMİYET HARİTASI (LOGO) - DETAYLI TOOLTIP VERSİYON
     with tabs[2]:
         st.subheader("🦁 İl Hakimiyet Haritası (Lider Markalar)")
-        st.info("💡 Bu harita, GitHub'daki logoları çekerek her ilin lider markasını gösterir.")
+        st.info("💡 Bu harita, GitHub'daki logoları çekerek her ilin lider markasını gösterir. Üzerine gelince detayları görebilirsin.")
         
         # --- GITHUB ADRESİN ---
         LOGO_URL_BASLANGIC = "https://raw.githubusercontent.com/hilke1010/akrtakip/main/"
@@ -482,17 +483,33 @@ def main():
         }
         
         DEFAULT_LOGO = "https://img.icons8.com/color/48/gas-station.png" 
+        HERO_COMPANY = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ" # Senin Şirketin Tam Adı
 
         # --- VERİ HAZIRLIĞI ---
         df_dom = create_tab_filters(df, "tab_dominance")
         
         if not df_dom.empty:
-            # 1. Hesaplama
+            # 1. Her ildeki LİDERİ ve SAYISINI bul
             city_stats = df_dom.groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
             idx = city_stats.groupby(['İl'])['Adet'].transform(max) == city_stats['Adet']
             leaders = city_stats[idx].drop_duplicates(subset=['İl']).copy()
             
-            # 2. Koordinatlar
+            # --- YENİ EKLENEN HESAPLAMALAR ---
+            
+            # A. Her ildeki TOPLAM istasyon sayısı
+            total_per_city = df_dom.groupby('İl').size().reset_index(name='Toplam_Istasyon')
+            leaders = pd.merge(leaders, total_per_city, on='İl', how='left')
+            
+            # B. Her ildeki GÜZEL ENERJİ istasyon sayısı
+            ge_per_city = df_dom[df_dom['Dağıtım Şirketi'] == HERO_COMPANY].groupby('İl').size().reset_index(name='GE_Istasyon')
+            leaders = pd.merge(leaders, ge_per_city, on='İl', how='left')
+            
+            # Güzel Enerji'nin hiç olmadığı illerde NaN gelir, onları 0 yapalım
+            leaders['GE_Istasyon'] = leaders['GE_Istasyon'].fillna(0).astype(int)
+            
+            # ---------------------------------
+
+            # 2. Koordinatları Ekle
             leaders['lat'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
             leaders['lon'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
             
@@ -526,14 +543,22 @@ def main():
                 data=leaders,
                 get_icon="icon_data",
                 get_position='[lon, lat]',
-                get_size=30,     # Küçük boyut
-                size_scale=1,    # Küçük ölçek
+                get_size=30,     
+                size_scale=1,    
                 pickable=True,
             )
 
+            # --- TOOLTIP GÜNCELLEMESİ BURADA ---
             tooltip = {
-                "html": "<b>{İl}</b><br/>👑 Lider: <b>{Dağıtım Şirketi}</b><br/>📊 İstasyon: {Adet}",
-                "style": {"backgroundColor": "steelblue", "color": "white"}
+                "html": """
+                <div style='font-family: sans-serif; font-size: 14px; padding: 5px;'>
+                    <b>📍 {İl}</b><br/><hr>
+                    👑 <b>Lider:</b> {Dağıtım Şirketi} ({Adet})<br/>
+                    🦁 <b>Güzel Enerji:</b> {GE_Istasyon}<br/>
+                    📊 <b>İl Toplamı:</b> {Toplam_Istasyon}
+                </div>
+                """,
+                "style": {"backgroundColor": "#2c3e50", "color": "white", "borderRadius": "5px"}
             }
 
             r = pdk.Deck(
@@ -547,8 +572,12 @@ def main():
             
             # --- ALT TABLO ---
             st.markdown("### 🏆 İl Liderleri Listesi")
+            # Tabloyu da zenginleştirelim
+            display_table = leaders[['İl', 'Dağıtım Şirketi', 'Adet', 'GE_Istasyon', 'Toplam_Istasyon']].sort_values('Adet', ascending=False)
+            display_table.columns = ['İl', 'Lider Marka', 'Lider Adet', 'Güzel Enerji Adet', 'İl Toplam']
+            
             st.dataframe(
-                leaders[['İl', 'Dağıtım Şirketi', 'Adet']].sort_values('Adet', ascending=False),
+                display_table,
                 use_container_width=True,
                 hide_index=True
             )
@@ -1227,3 +1256,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
