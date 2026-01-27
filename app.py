@@ -363,8 +363,8 @@ def main():
     </style>
     
     <div class="duyuru-kutusu">
-        📢 DİKKAT: BÖLGE FİLTRESİNE TÜM BÖLGELER EKLENMİŞTİR! 🌍✅ <br>
-        <span style="font-size:0.7em; font-weight:normal;">(Standart Ege, Güneydoğu vb. tüm tanımlar güncellendi)</span>
+        📢 BÖLGE FİLTRESİNE TÜM BÖLGELER EKLENMİŞTİR! 🌍✅ <br>
+        <span style="font-size:0.7em; font-weight:normal;">(...)</span>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1299,3 +1299,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
