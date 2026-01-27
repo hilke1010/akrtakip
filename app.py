@@ -10,6 +10,7 @@ import math
 import networkx as nx
 import pydeck as pdk 
 from datetime import datetime, timedelta, date
+import re
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -19,59 +20,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- HAVERSINE (MESAFE HESAPLAMA) FONKSİYONU ---
-def haversine(lat1, lon1, lat2, lon2):
-    if any(x is None for x in [lat1, lon1, lat2, lon2]): return 99999
-    R = 6371
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    return R * c
-
-# --- DOSYA TARİHİ HESAPLAMA ---
-def get_file_last_modified(file_path):
-    try:
-        if not os.path.exists(file_path): return "DOSYA BULUNAMADI"
-        timestamp = os.path.getmtime(file_path)
-        utc_time = datetime.fromtimestamp(timestamp)
-        turkey_time = utc_time + timedelta(hours=3)
-        tr_months = {1: 'OCAK', 2: 'ŞUBAT', 3: 'MART', 4: 'NİSAN', 5: 'MAYIS', 6: 'HAZİRAN',
-                     7: 'TEMMUZ', 8: 'AĞUSTOS', 9: 'EYLÜL', 10: 'EKİM', 11: 'KASIM', 12: 'ARALIK'}
-        month_name = tr_months.get(turkey_time.month, "")
-        return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
-    except: return "TARİH ALINAMADI"
-
-# --- GİRİŞ ANİMASYONU ---
-def show_intro_animation():
-    if 'intro_played' not in st.session_state: st.session_state['intro_played'] = False
-    if st.session_state['intro_played']: return
-    placeholder = st.empty()
-    with placeholder.container():
-        st.markdown("""
-<div class='insight-box-danger'>
-    <div style="font-size:1.1em; font-weight:bold; margin-bottom:10px;">
-        ⚠️ Kritik Yenileme Dönemleri
-    </div>
-    <ul style="padding-left:20px; margin:0;">
-        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2027</span>: Toplam <b>435</b> Bayi</li>
-        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2028</span>: Toplam <b>461</b> Bayi</li>
-        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2029</span>: Toplam <b>455</b> Bayi</li>
-        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2030</span>: Toplam <b>762</b> Bayi</li>
-    </ul>
-</div>
-""", unsafe_allow_html=True)
-        time.sleep(1.5)
-    placeholder.empty()
-    st.session_state['intro_played'] = True
-
-# --- AYARLAR VE CSS ---
-MAX_ROW_DISPLAY = 1000
-MAX_MAP_POINTS = 50000
-PREVIEW_ROW_LIMIT = 100
-SABIT_DOSYA_ADI = "asatis.xlsx"
-
+# --- GLOBAL CSS ---
 st.markdown("""
 <style>
     .stMetric { background-color: #f0f2f6; border-left: 5px solid #2980b9; padding: 15px; border-radius: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
@@ -91,21 +40,14 @@ st.markdown("""
     @keyframes blinker-red { 50% { opacity: 0.5; color: #ff2b2b; } }
     @keyframes blinker-green { 50% { opacity: 0.5; color: #28a745; } }
 
-    /* 3. SEKME (İL LİDERLERİ) - YEŞİL */
-    button[data-testid="stTab"]:nth-child(3) p {
-        color: #28a745 !important; font-weight: 800 !important; animation: blinker-green 1.5s linear infinite;
+    /* 2. SEKME (EPDK ANALİZİ) - KIRMIZI YANIP SÖNER */
+    button[data-testid="stTab"]:nth-child(2) p {
+        color: #ff2b2b !important; font-weight: 800 !important; animation: blinker-red 1.5s linear infinite;
     }
 
-    /* DİĞER NEW OLANLAR - KIRMIZI */
-    /* 1 tabanlı indeksleme */
-    button[data-testid="stTab"]:nth-child(8) p, /* Yarıçap */
-    button[data-testid="stTab"]:nth-child(9) p, /* Rota */
-    button[data-testid="stTab"]:nth-child(10) p, /* Robo */
-    button[data-testid="stTab"]:nth-child(11) p, /* Vergi */
-    button[data-testid="stTab"]:nth-child(12) p, /* Detaylı Arama */
-    button[data-testid="stTab"]:nth-child(14) p  /* Fırsat Matrisi (Yeni) */
-    {
-        color: #ff2b2b !important; font-weight: 800 !important; animation: blinker-red 1.5s linear infinite;
+    /* 4. SEKME (İL LİDERLERİ) - YEŞİL */
+    button[data-testid="stTab"]:nth-child(4) p {
+        color: #28a745 !important; font-weight: 800 !important; animation: blinker-green 1.5s linear infinite;
     }
 
     .dealer-card, .robo-card {
@@ -156,37 +98,104 @@ CITY_COORDINATES = {
     "KİLİS": [36.7184, 37.1212], "OSMANİYE": [37.0742, 36.2467], "DÜZCE": [40.8438, 31.1565]
 }
 
-# --- YENİ BÖLGE TANIMLARI (GÜNCELLENMİŞ) ---
 BOLGE_TANIMLARI = {
-    "EGE": [
-        "ANTALYA", "BURDUR", "DENİZLİ", "MANİSA", "MUĞLA", "AYDIN", 
-        "ISPARTA", "İZMİR", "KÜTAHYA", "UŞAK"
-    ],
-    "GÜNEYDOĞU": [
-        "ADANA", "MERSİN", "GAZİANTEP", "KAHRAMANMARAŞ", "BATMAN", 
-        "ŞANLIURFA", "MARDİN", "ELAZIĞ", "DİYARBAKIR", "ADIYAMAN", 
-        "HATAY", "MALATYA", "MUŞ", "KARAMAN", "VAN", "OSMANİYE", 
-        "BİTLİS", "SİİRT", "ŞIRNAK", "BİNGÖL", "KİLİS"
-    ],
-    "ORTA ANADOLU": [
-        "ANKARA", "KONYA", "KAYSERİ", "ESKİŞEHİR", "YOZGAT", 
-        "KASTAMONU", "ZONGULDAK", "KARABÜK", "KIRIKKALE", "AFYONKARAHİSAR", 
-        "KIRŞEHİR", "NİĞDE", "NEVŞEHİR", "ÇANKIRI", "AKSARAY", 
-        "DÜZCE", "BOLU", "BARTIN"
-    ],
-    "KARADENİZ": [
-        "SİVAS", "SAMSUN", "ORDU", "SİNOP", "ÇORUM", 
-        "ERZURUM", "TRABZON", "AMASYA", "GİRESUN", "TOKAT", 
-        "KARS", "BAYBURT", "RİZE", "AĞRI", "ERZİNCAN", 
-        "ARTVİN", "IĞDIR", "ARDAHAN", "TUNCELİ", "GÜMÜŞHANE"
-    ],
-    "MARMARA": [
-        "İSTANBUL", "BALIKESİR", "BURSA", "SAKARYA", "EDİRNE", 
-        "BİLECİK", "ÇANAKKALE", "TEKİRDAĞ", "KIRKLARELİ", "KOCAELİ", "YALOVA"
-    ]
+    "EGE": ["ANTALYA", "BURDUR", "DENİZLİ", "MANİSA", "MUĞLA", "AYDIN", "ISPARTA", "İZMİR", "KÜTAHYA", "UŞAK"],
+    "GÜNEYDOĞU": ["ADANA", "MERSİN", "GAZİANTEP", "KAHRAMANMARAŞ", "BATMAN", "ŞANLIURFA", "MARDİN", "ELAZIĞ", "DİYARBAKIR", "ADIYAMAN", "HATAY", "MALATYA", "MUŞ", "KARAMAN", "VAN", "OSMANİYE", "BİTLİS", "SİİRT", "ŞIRNAK", "BİNGÖL", "KİLİS"],
+    "ORTA ANADOLU": ["ANKARA", "KONYA", "KAYSERİ", "ESKİŞEHİR", "YOZGAT", "KASTAMONU", "ZONGULDAK", "KARABÜK", "KIRIKKALE", "AFYONKARAHİSAR", "KIRŞEHİR", "NİĞDE", "NEVŞEHİR", "ÇANKIRI", "AKSARAY", "DÜZCE", "BOLU", "BARTIN"],
+    "KARADENİZ": ["SİVAS", "SAMSUN", "ORDU", "SİNOP", "ÇORUM", "ERZURUM", "TRABZON", "AMASYA", "GİRESUN", "TOKAT", "KARS", "BAYBURT", "RİZE", "AĞRI", "ERZİNCAN", "ARTVİN", "IĞDIR", "ARDAHAN", "TUNCELİ", "GÜMÜŞHANE"],
+    "MARMARA": ["İSTANBUL", "BALIKESİR", "BURSA", "SAKARYA", "EDİRNE", "BİLECİK", "ÇANAKKALE", "TEKİRDAĞ", "KIRKLARELİ", "KOCAELİ", "YALOVA"]
 }
 
 if 'crm_notes' not in st.session_state: st.session_state.crm_notes = {}
+
+# --- YARDIMCI FONKSİYONLAR ---
+def haversine(lat1, lon1, lat2, lon2):
+    if any(x is None for x in [lat1, lon1, lat2, lon2]): return 99999
+    R = 6371
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
+
+def get_file_last_modified(file_path):
+    try:
+        if not os.path.exists(file_path): return "DOSYA BULUNAMADI"
+        timestamp = os.path.getmtime(file_path)
+        utc_time = datetime.fromtimestamp(timestamp)
+        turkey_time = utc_time + timedelta(hours=3)
+        tr_months = {1: 'OCAK', 2: 'ŞUBAT', 3: 'MART', 4: 'NİSAN', 5: 'MAYIS', 6: 'HAZİRAN',
+                     7: 'TEMMUZ', 8: 'AĞUSTOS', 9: 'EYLÜL', 10: 'EKİM', 11: 'KASIM', 12: 'ARALIK'}
+        month_name = tr_months.get(turkey_time.month, "")
+        return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
+    except: return "TARİH ALINAMADI"
+
+def clean_turkish_number(x):
+    """Excel sayı formatını (2.911,30) float'a (2911.30) çevirir."""
+    if isinstance(x, str):
+        clean_str = x.replace('.', '').replace(',', '.')
+        try: return float(clean_str)
+        except ValueError: return 0.0
+    elif isinstance(x, (int, float)): return float(x)
+    return 0.0
+
+def turkish_upper(s):
+    charmap = {"i": "İ", "ı": "I", "ğ": "Ğ", "ü": "Ü", "ş": "Ş", "ö": "Ö", "ç": "Ç", "İ": "İ", "I": "I", "Ğ": "Ğ", "Ü": "Ü", "Ş": "Ş", "Ö": "Ö", "Ç": "Ç"}
+    for char, replacement in charmap.items(): s = s.replace(char, replacement)
+    return s.upper()
+
+def get_region(city_name):
+    city_upper = turkish_upper(str(city_name)).strip()
+    for region, cities in BOLGE_TANIMLARI.items():
+        if any(c == city_upper for c in cities): return region
+    return "DİĞER"
+
+def color_diff(val):
+    if isinstance(val, (int, float)):
+        color = '#16a34a' if val > 0 else '#dc2626' if val < 0 else 'black'
+        return f'color: {color}; font-weight: bold;'
+    return ''
+
+def parse_date_from_filename(filename):
+    months = {'ocak':1,'subat':2,'mart':3,'nisan':4,'mayis':5,'haziran':6,
+              'temmuz':7,'agustos':8,'eylul':9,'ekim':10,'kasim':11,'aralik':12,
+              'şubat':2,'mayıs':5,'ağustos':8,'eylül':9,'kasım':11,'aralık':12}
+    name = filename.lower().replace('.xlsx','').replace('.xls','')
+    year_match = re.search(r'202[0-9]', name)
+    if not year_match: return None
+    year = int(year_match.group(0))
+    month = 1
+    for m_name, m_val in months.items():
+        if m_name in name: month = m_val; break
+    return pd.Timestamp(year=year, month=month, day=1)
+
+def show_intro_animation():
+    if 'intro_played' not in st.session_state: st.session_state['intro_played'] = False
+    if st.session_state['intro_played']: return
+    placeholder = st.empty()
+    with placeholder.container():
+        st.markdown("""
+<div class='insight-box-danger'>
+    <div style="font-size:1.1em; font-weight:bold; margin-bottom:10px;">
+        ⚠️ Kritik Yenileme Dönemleri
+    </div>
+    <ul style="padding-left:20px; margin:0;">
+        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2027</span>: Toplam <b>435</b> Bayi</li>
+        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2028</span>: Toplam <b>461</b> Bayi</li>
+        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2029</span>: Toplam <b>455</b> Bayi</li>
+        <li style="margin-bottom:8px;"><span style="color:#c0392b; font-weight:bold;">2030</span>: Toplam <b>762</b> Bayi</li>
+    </ul>
+</div>
+""", unsafe_allow_html=True)
+        time.sleep(1.5)
+    placeholder.empty()
+    st.session_state['intro_played'] = True
+
+# --- AYARLAR ---
+MAX_ROW_DISPLAY = 1000
+MAX_MAP_POINTS = 50000
+SABIT_DOSYA_ADI = "asatis.xlsx"
 
 # --- VERİ YÜKLEME ---
 @st.cache_data
@@ -197,19 +206,12 @@ def load_data(file_path):
         df.columns = [str(c).strip() for c in df.columns]
         if 'Dağıtıcı' in df.columns: df.rename(columns={'Dağıtıcı': 'Dağıtım Şirketi'}, inplace=True)
         
-        # ŞEHİR İSİMLERİNİ TEMİZLE
         if 'İl' in df.columns: 
             df['İl'] = df['İl'].astype(str).str.upper().str.strip().str.replace('i', 'İ').str.replace('ı', 'I')
         if 'İlçe' in df.columns: 
             df['İlçe'] = df['İlçe'].astype(str).str.upper().str.strip().str.replace('i', 'İ').str.replace('ı', 'I')
 
-        date_cols = [
-            'Lisans Bitiş Tarihi', 
-            'Dağıtıcı ile Yapılan Sözleşme Bitiş Tarihi', 
-            'Lisans Başlangıç Tarihi',
-            'Dağıtıcı ile Yapılan Sözleşme Başlangıç Tarihi'
-        ]
-        
+        date_cols = ['Lisans Bitiş Tarihi', 'Dağıtıcı ile Yapılan Sözleşme Bitiş Tarihi', 'Lisans Başlangıç Tarihi', 'Dağıtıcı ile Yapılan Sözleşme Başlangıç Tarihi']
         for col in date_cols:
             if col in df.columns: df[col] = pd.to_datetime(df[col], dayfirst=True, errors='coerce')
 
@@ -221,9 +223,7 @@ def load_data(file_path):
             df['Kalan_Gun'] = (df[target_col] - today).dt.days
             df['Bitis_Yili'] = df[target_col].dt.year
             df['Bitis_Ayi_No'] = df[target_col].dt.month
-            
-            month_map = {1:'Ocak', 2:'Şubat', 3:'Mart', 4:'Nisan', 5:'Mayıs', 6:'Haziran', 
-                         7:'Temmuz', 8:'Ağustos', 9:'Eylül', 10:'Ekim', 11:'Kasım', 12:'Aralık'}
+            month_map = {1:'Ocak', 2:'Şubat', 3:'Mart', 4:'Nisan', 5:'Mayıs', 6:'Haziran', 7:'Temmuz', 8:'Ağustos', 9:'Eylül', 10:'Ekim', 11:'Kasım', 12:'Aralık'}
             df['Bitis_Ayi'] = df['Bitis_Ayi_No'].map(month_map)
         else: df['Kalan_Gun'] = np.nan
 
@@ -232,7 +232,6 @@ def load_data(file_path):
         else: df['Sozlesme_Suresi_Gun'] = np.nan
 
         df['Risk_Durumu'] = df['Kalan_Gun'].apply(lambda x: "KRİTİK" if x < 90 else "GÜVENLİ")
-        
         return df, target_col, start_col
     except Exception as e: return None, str(e), None
 
@@ -280,9 +279,6 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
     else:
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-# ==========================================
-# 🛠️ BAĞIMSIZ FİLTRE FONKSİYONU
-# ==========================================
 def create_tab_filters(df, key_prefix):
     st.markdown(f"#### 🔍 Filtre Paneli")
     st.markdown(f"<div class='filter-container'>", unsafe_allow_html=True)
@@ -316,6 +312,56 @@ def create_tab_filters(df, key_prefix):
     st.markdown("</div>", unsafe_allow_html=True)
     return filtered
 
+@st.cache_data
+def load_epdk_sales_data():
+    """Özellikle kasim2024 ve kasim2025 dosyalarını okur."""
+    all_data = []
+    # Otomatik algılanacak dosyalar
+    target_files = ['kasim2024.xlsx', 'kasim2025.xlsx']
+    
+    for filename in target_files:
+        if not os.path.exists(filename): continue
+        date_obj = parse_date_from_filename(filename)
+        if date_obj is None: continue
+        
+        try:
+            xls = pd.ExcelFile(filename)
+            for sheet in xls.sheet_names:
+                try: df = pd.read_excel(filename, sheet_name=sheet, header=[2, 3])
+                except: continue
+
+                lisans_col_idx = 1
+                for idx, col in enumerate(df.columns):
+                    c_s = " ".join([str(c) for c in col])
+                    if "Unvan" in c_s or "Lisans" in c_s:
+                        lisans_col_idx = idx; break
+                
+                benzin_cols = [c for c in df.columns if "Benzin" in str(c[0])]
+                motorin_cols = [c for c in df.columns if "Motorin" in str(c[0])]
+                
+                temp_df = pd.DataFrame()
+                temp_df['Firma'] = df.iloc[:, lisans_col_idx].astype(str).str.strip()
+                temp_df['Şehir'] = sheet.strip()
+                temp_df['Bölge'] = get_region(sheet)
+                temp_df['Tarih'] = date_obj
+                
+                b_sum = pd.Series(0.0, index=df.index)
+                for c in benzin_cols: b_sum += df[c].apply(clean_turkish_number)
+                m_sum = pd.Series(0.0, index=df.index)
+                for c in motorin_cols: m_sum += df[c].apply(clean_turkish_number)
+                
+                temp_df['Benzin Grubu'] = b_sum
+                temp_df['Motorin Grubu'] = m_sum
+                temp_df['Toplam'] = b_sum + m_sum
+                
+                temp_df = temp_df[~temp_df['Firma'].str.contains("Toplam", case=False, na=False)]
+                temp_df = temp_df[temp_df['Toplam'] > 0]
+                all_data.append(temp_df)
+        except: continue
+        
+    if all_data: return pd.concat(all_data, ignore_index=True)
+    return pd.DataFrame()
+
 # --- ANA UYGULAMA ---
 def main():
     show_intro_animation()
@@ -325,9 +371,7 @@ def main():
         st.stop()
     df, target_date_col, start_date_col = data_result
     
-    # ----------------------------------------------------
-    # 🛠️ KOORDİNAT SİMÜLASYONU (JITTER)
-    # ----------------------------------------------------
+    # Koordinat Simülasyonu
     if 'Enlem' not in df.columns or 'Boylam' not in df.columns:
         np.random.seed(42)
         df['base_lat'] = df['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
@@ -350,16 +394,9 @@ def main():
         st.info(f"📧 **İletişim:**\n\nkerim.aksu@milangaz.com.tr")
     with col_info3:
         st.warning("🔗 **Diğer Uygulamalar**")
-        st.markdown("""
-        <div style="font-size:0.9em;">
-        • 📊 <a href="https://pazarpayi.streamlit.app/" target="_blank">EPDK LPG AYLIK SEKTÖR RAPORU ( AÇIK KAYNAK SATIŞ )</a><br>
-        • 📰 <a href="https://newslpg.streamlit.app/" target="_blank">Haber Aracı</a><br>
-        • 📱 <a href="https://lpg2026.streamlit.app/" target="_blank">Mobil Hesaplayıcı</a>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("""<div style="font-size:0.9em;">• <a href="https://pazarpayi.streamlit.app/">LPG Raporu</a></div>""", unsafe_allow_html=True)
     st.divider()
 
-    # --- KPI ---
     c1, c2, c3 = st.columns(3)
     c1.metric("Toplam Veri Tabanı", f"{len(df):,}")
     c2.metric("Aktif Şirket", df['Dağıtım Şirketi'].nunique())
@@ -367,28 +404,28 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER (14 Adet) ---
+    # --- SEKMELER (15 Adet - 2. Sıraya Yeni Modül Eklendi) ---
     tabs = st.tabs([
-        "📊 Bölgesel & Durum",      # 0
-        "📅 Takvim",                # 1
-        "🦁 İl Liderleri [NEW]",    # 2
-        "⚡ Hızlı Analiz",          # 3
-        "⚔️ Karşılaştırma",         # 4
-        "📄 İl Karnesi",            # 5
-        "📍 İlçe Penetrasyonu",     # 6
-        "📍 Yarıçap (Radar) [NEW]", # 7
-        "🚗 Rota Planlayıcı [NEW]", # 8
-        "🤖 Robo-Yönetici [NEW]",   # 9
-        "💸 Vergi Zincir Analizi",  # 10
-        "🔍 Detaylı Arama [NEW]",   # 11
-        "🔮 Simülasyon",            # 12
-        "🎯 Fırsat Matrisi [NEW]"   # 13 (YENİ EKLENEN)
+        "📊 Bölgesel & Durum", 
+        "📈 EPDK Satış Analizi (YENİ)", 
+        "📅 Takvim", 
+        "🦁 İl Liderleri [NEW]", 
+        "⚡ Hızlı Analiz", 
+        "⚔️ Karşılaştırma", 
+        "📄 İl Karnesi", 
+        "📍 İlçe Penetrasyonu", 
+        "📍 Yarıçap (Radar) [NEW]", 
+        "🚗 Rota Planlayıcı [NEW]", 
+        "🤖 Robo-Yönetici [NEW]", 
+        "💸 Vergi Zincir Analizi", 
+        "🔍 Detaylı Arama [NEW]", 
+        "🔮 Simülasyon", 
+        "🎯 Fırsat Matrisi [NEW]"
     ])
 
     # 1. BÖLGESEL & DURUM
     with tabs[0]:
         st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
-        st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         df_tab1 = create_tab_filters(df, "tab1")
         
         if len(df_tab1) > MAX_MAP_POINTS:
@@ -409,7 +446,6 @@ def main():
                 fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
                 st.plotly_chart(fig_map, use_container_width=True)
 
-        st.divider()
         col_pie1, col_pie2 = st.columns(2)
         with col_pie1:
             st.metric("Seçili Bayi Sayısı", len(df_tab1))
@@ -425,11 +461,82 @@ def main():
         
         show_details_table(df_tab1, target_date_col)
 
-    # 2. TAKVİM
+    # 2. EPDK SATIŞ ANALİZİ (YENİ EKLENEN MODÜL)
     with tabs[1]:
-        st.subheader("📅 Takvim")
-        st.caption("👇 **Grafikteki sütunlara tıklayarak aşağıdaki tabloyu filtreleyebilirsiniz.**")
+        st.markdown("## 📈 EPDK Satış & Pazar Payı Analizi")
+        df_epdk = load_epdk_sales_data()
         
+        if df_epdk.empty:
+            st.warning("⚠️ Klasörde **kasim2024.xlsx** veya **kasim2025.xlsx** bulunamadı.")
+        else:
+            # EPDK Filtreleri
+            c_epdk1, c_epdk2, c_epdk3, c_epdk4 = st.columns(4)
+            reg_list = ["TÜRKİYE GENELİ (Tümü)"] + sorted(list(df_epdk['Bölge'].unique()))
+            sel_epdk_reg = c_epdk1.selectbox("Bölge", reg_list)
+            
+            if sel_epdk_reg == "TÜRKİYE GENELİ (Tümü)":
+                city_list = ["TÜM TÜRKİYE (Toplam)"] + sorted(list(df_epdk['Şehir'].unique()))
+            else:
+                city_list = [f"{sel_epdk_reg} GENELİ (Toplam)"] + sorted(list(df_epdk[df_epdk['Bölge'] == sel_epdk_reg]['Şehir'].unique()))
+            
+            sel_epdk_city = c_epdk2.selectbox("İl", city_list)
+            sel_segment = c_epdk3.selectbox("Ürün Grubu", ["Toplam", "Benzin Grubu", "Motorin Grubu"])
+            metric = c_epdk4.radio("Gösterim", ["Pazar Payı (%)", "Satış Miktarı (Ton)"])
+            
+            # Veri Hazırlama
+            if "TÜM TÜRKİYE" in sel_epdk_city:
+                df_act = df_epdk.copy()
+            elif "GENELİ (Toplam)" in sel_epdk_city:
+                df_act = df_epdk[df_epdk['Bölge'] == sel_epdk_reg].copy()
+            else:
+                df_act = df_epdk[df_epdk['Şehir'] == sel_epdk_city].copy()
+                
+            df_grp = df_act.groupby(['Firma', 'Tarih'])[['Benzin Grubu', 'Motorin Grubu', 'Toplam']].sum().reset_index()
+            t_col = sel_segment
+            m_totals = df_grp.groupby('Tarih')[t_col].transform('sum')
+            df_grp['Pazar Payı (%)'] = 0.0
+            mask = m_totals > 0
+            df_grp.loc[mask, 'Pazar Payı (%)'] = (df_grp.loc[mask, t_col] / m_totals.loc[mask]) * 100
+            df_grp['Satış Miktarı (Ton)'] = df_grp[t_col]
+            
+            # LFL
+            l_date = df_grp['Tarih'].max()
+            p_date = l_date - pd.DateOffset(years=1)
+            
+            cols = ['Firma', 'Satış Miktarı (Ton)', 'Pazar Payı (%)']
+            df_curr = df_grp[df_grp['Tarih'] == l_date][cols].set_axis(['Firma', 'Ton (Bu Ay)', 'Pay (Bu Ay)'], axis=1)
+            df_prev = df_grp[df_grp['Tarih'] == p_date][cols].set_axis(['Firma', 'Ton (Geçen Yıl)', 'Pay (Geçen Yıl)'], axis=1)
+            df_lfl = pd.merge(df_curr, df_prev, on="Firma", how="left").fillna(0)
+            df_lfl['Fark Ton'] = df_lfl['Ton (Bu Ay)'] - df_lfl['Ton (Geçen Yıl)']
+            df_lfl['Fark Pay'] = df_lfl['Pay (Bu Ay)'] - df_lfl['Pay (Geçen Yıl)']
+            
+            # Kazanan/Kaybeden Grafiği
+            st.markdown(f"### 📊 Pazar Payı Değişimi ({l_date.strftime('%B %Y')})")
+            df_chart = df_lfl[df_lfl['Fark Pay'].abs() > 0.01].copy()
+            df_chart['Durum'] = df_chart['Fark Pay'].apply(lambda x: 'Kazanan' if x > 0 else 'Kaybeden')
+            df_chart = df_chart.sort_values(by='Fark Pay', ascending=True)
+            
+            if len(df_chart) > 20:
+                top_g = df_chart.nlargest(10, 'Fark Pay')
+                top_l = df_chart.nsmallest(10, 'Fark Pay')
+                df_chart = pd.concat([top_l, top_g]).sort_values(by='Fark Pay', ascending=True)
+            
+            fig_bar = px.bar(df_chart, x="Fark Pay", y="Firma", color="Durum", orientation='h', text_auto='.2f', 
+                             color_discrete_map={'Kazanan': '#2ecc71', 'Kaybeden': '#e74c3c'})
+            st.plotly_chart(fig_bar, use_container_width=True)
+            
+            # Tablo
+            st.markdown("### 📋 Detaylı Tablo")
+            df_tbl = df_lfl.sort_values(by='Ton (Bu Ay)', ascending=False).reset_index(drop=True)
+            df_tbl.index += 1
+            st.dataframe(df_tbl.style.format({'Ton (Bu Ay)': "{:,.2f}", 'Pay (Bu Ay)': "{:.2f}%", 
+                                              'Ton (Geçen Yıl)': "{:,.2f}", 'Pay (Geçen Yıl)': "{:.2f}%", 
+                                              'Fark Ton': "{:+,.2f}", 'Fark Pay': "{:+.2f}"})
+                         .applymap(color_diff, subset=['Fark Ton', 'Fark Pay']), use_container_width=True)
+
+    # 3. TAKVİM
+    with tabs[2]:
+        st.subheader("📅 Takvim")
         df_cal = create_tab_filters(df, "tab5")
         if 'Bitis_Yili' in df_cal.columns:
             yrs = sorted(df_cal['Bitis_Yili'].dropna().astype(int).unique())
@@ -439,28 +546,13 @@ def main():
             if not df_yr.empty:
                 mon_counts = df_yr.groupby(['Bitis_Ayi_No', 'Bitis_Ayi']).size().reset_index(name='Adet')
                 mon_counts = mon_counts.sort_values('Bitis_Ayi_No')
-                
                 fig_cal = px.bar(mon_counts, x='Bitis_Ayi', y='Adet', text='Adet', title=f"{sel_yr} Yılı Sözleşme Bitiş Dağılımı")
-                fig_cal.update_layout(xaxis_title="Ay", yaxis_title="Sözleşme Sayısı")
-                
-                selection = st.plotly_chart(fig_cal, use_container_width=True, on_select="rerun")
-                
-                selected_month = None
-                if selection and selection['selection']['points']:
-                    selected_month = selection['selection']['points'][0]['x']
-                    st.info(f"🔍 **Seçilen Ay:** {selected_month}")
-                    filtered_table = df_yr[df_yr['Bitis_Ayi'] == selected_month]
-                else:
-                    st.info("Tüm yıl gösteriliyor. Detay için grafiğe tıklayın.")
-                    filtered_table = df_yr
-                
-                show_details_table(filtered_table, target_date_col)
+                st.plotly_chart(fig_cal, use_container_width=True)
+                show_details_table(df_yr, target_date_col)
 
-    # 3. İL HAKİMİYET HARİTASI (LOGO)
-    with tabs[2]:
+    # 4. İL HAKİMİYET HARİTASI (LOGO)
+    with tabs[3]:
         st.subheader("🦁 İl Hakimiyet Haritası (Lider Markalar)")
-        st.info("💡 Bu harita, GitHub'daki logoları çekerek her ilin lider markasını gösterir. Üzerine gelince detayları görebilirsin.")
-        
         LOGO_URL_BASLANGIC = "https://raw.githubusercontent.com/hilke1010/akrtakip/main/"
         LOGO_MAP = {
             "OPET": "opet.png", "SHELL": "shell.png", "PETROL OFİSİ": "po.png",
@@ -523,8 +615,8 @@ def main():
         else:
             st.warning("Veri yok.")
 
-    # 4. HIZLI ANALİZ
-    with tabs[3]:
+    # 5. HIZLI ANALİZ
+    with tabs[4]:
         st.subheader("⚡ Hızlı Analiz")
         df_tab2 = create_tab_filters(df, "tab2")
         
@@ -561,8 +653,8 @@ def main():
         else:
             st.warning("Veri yok.")
 
-    # 5. KARŞILAŞTIRMA
-    with tabs[4]:
+    # 6. KARŞILAŞTIRMA
+    with tabs[5]:
         st.subheader("⚔️ Rakip Karşılaştırma")
         df_tab3 = create_tab_filters(df, "tab3")
         
@@ -584,8 +676,8 @@ def main():
                             x='İl', y='Adet', color='Dağıtım Şirketi', barmode='group')
             st.plotly_chart(fig_vs, use_container_width=True)
 
-    # 6. İL KARNESİ
-    with tabs[5]:
+    # 7. İL KARNESİ
+    with tabs[6]:
         st.subheader("📄 İl Karnesi (360° Analiz)")
         
         all_provinces = sorted(df['İl'].unique().tolist())
@@ -649,8 +741,8 @@ def main():
                         except: pass
                     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    # 7. İLÇE PENETRASYONU
-    with tabs[6]:
+    # 8. İLÇE PENETRASYONU
+    with tabs[7]:
         st.subheader("📍 İlçe Analizi")
         df_dist = create_tab_filters(df, "tab7")
         if not df_dist.empty:
@@ -699,8 +791,8 @@ def main():
             else:
                 st.success("Tebrikler! Seçili bölgedeki tüm ilçelerde varlık gösteriyorsunuz.")
 
-    # 8. YARIÇAP ANALİZİ
-    with tabs[7]:
+    # 9. YARIÇAP ANALİZİ
+    with tabs[8]:
         st.subheader("📍 Yarıçap (Radar) Analizi")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         df_radar = create_tab_filters(df, "tab_radar_new")
@@ -738,8 +830,8 @@ def main():
         else:
             st.warning("Veri yok.")
 
-    # 9. ROTA PLANLAYICI
-    with tabs[8]:
+    # 10. ROTA PLANLAYICI
+    with tabs[9]:
         st.subheader("🚗 Akıllı Rota Planlayıcı")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         df_route = create_tab_filters(df, "tab_route_new")
@@ -776,8 +868,8 @@ def main():
             else: st.info("En az 2 bayi seçin.")
         else: st.warning("Veri yok.")
 
-    # 10. ROBO-YÖNETİCİ
-    with tabs[9]:
+    # 11. ROBO-YÖNETİCİ
+    with tabs[10]:
         st.subheader("🤖 Robo-Yönetici: Stratejik İstihbarat Raporu")
         st.info("💡 Bu rapor, seçili filtredeki pazar durumunu **GÜZEL ENERJİ AKARYAKIT A.Ş.** perspektifinden analiz eder.")
         df_robo = create_tab_filters(df, "tab_robo")
@@ -905,8 +997,8 @@ def main():
                 else: st.info("İleri tarihli sözleşme verisi bulunamadı.")
         else: st.warning("Rapor oluşturmak için lütfen yukarıdan en az bir filtre seçimi yapın.")
 
-    # 11. VERGİ ZİNCİR ANALİZİ
-    with tabs[10]:
+    # 12. VERGİ ZİNCİR ANALİZİ
+    with tabs[11]:
         st.subheader("💸 Vergi Zincir Haritası")
         st.info("💡 Bu ekran, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları listeler.")
         df_chain = create_tab_filters(df, "tab_tax_chain")
@@ -955,8 +1047,8 @@ def main():
             if not tax_col_name: st.error("Excel dosyasında 'Vergi No', 'VKN' veya benzeri bir sütun bulunamadı.")
             else: st.warning("Veri yok.")
 
-    # 12. DETAYLI ARAMA
-    with tabs[11]:
+    # 13. DETAYLI ARAMA
+    with tabs[12]:
         st.subheader("🔍 Detaylı Arama & Bayi Kimlik Kartı")
         if 'Dağıtım Şirketi' in df.columns: dist_col = 'Dağıtım Şirketi'
         else: dist_col = df.columns[0]
@@ -1011,8 +1103,8 @@ def main():
                 st.divider()
                 st.success("📜 **Lisans Durumu:** AKTİF")
 
-    # 13. SİMÜLASYON
-    with tabs[12]:
+    # 14. SİMÜLASYON
+    with tabs[13]:
         st.subheader("🔮 Simülasyon")
         df_sim = create_tab_filters(df, "tab4")
         all_comp = sorted(df['Dağıtım Şirketi'].dropna().unique().tolist())
@@ -1025,8 +1117,8 @@ def main():
         gain = int(tgt * rate / 100)
         st.metric("Yeni Toplam", curr + gain, delta=f"+{gain}")
 
-    # 14. FIRSAT MATRİSİ (YENİ EKLENEN)
-    with tabs[13]:
+    # 15. FIRSAT MATRİSİ (YENİ EKLENEN)
+    with tabs[14]:
         st.subheader("🎯 Stratejik Fırsat Matrisi")
         st.info("💡 **Nasıl Okunur?** \n* **Sağ Üst Köşe (Altın Madeni):** Hem pazarın büyük olduğu hem de yakında sözleşmesi bitecek çok bayinin olduğu yerler. Satış ekibini buraya yönlendirin.\n* **Baloncuk Boyutu:** O bölgedeki toplam istasyon sayısını gösterir.")
 
