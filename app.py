@@ -1,3 +1,4 @@
+import requests
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -43,38 +44,51 @@ def get_file_last_modified(file_path):
     except: return "TARİH ALINAMADI"
 
 # --- RESMİ GAZETE RSS (TÜM HABERLER) ---
-@st.cache_data(ttl=3600, show_spinner=False) # 1 Saat Cache
+# --- RESMİ GAZETE RSS (GÜÇLENDİRİLMİŞ VERSİYON) ---
+@st.cache_data(ttl=300, show_spinner=False) # 5 Dakika Cache (Test için düşürdüm)
 def fetch_all_rss_news():
     rss_url = "https://www.resmigazete.gov.tr/rss.xml"
+    
+    # Kendimizi Tarayıcı Gibi Tanıtıyoruz (Kritik Nokta Burası)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+    }
+    
     try:
-        feed = feedparser.parse(rss_url)
-        if feed.bozo: 
-            return None, "RSS Bağlantı Hatası"
+        # Önce requests ile veriyi çekiyoruz
+        response = requests.get(rss_url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            # Gelen veriyi feedparser'a yediriyoruz
+            feed = feedparser.parse(response.content)
             
-        news_items = []
-        # Senin özel ilgi alanların (Bunları yine de işaretleyelim)
-        keywords = ["EPDK", "LPG", "BENZİN", "AKARYAKIT", "PETROL", "VERGİ", "ENERJİ", "MOTORİN"]
-        tr_map = {ord('i'): 'İ', ord('ı'): 'I', ord('ğ'): 'Ğ', ord('ü'): 'Ü', ord('ş'): 'Ş', ord('ö'): 'Ö', ord('ç'): 'Ç'}
+            if not feed.entries:
+                return None, "RSS Çekildi ama içi boş (Site yapısı değişmiş olabilir)."
+                
+            news_items = []
+            keywords = ["EPDK", "LPG", "BENZİN", "AKARYAKIT", "PETROL", "VERGİ", "ENERJİ", "MOTORİN"]
+            tr_map = {ord('i'): 'İ', ord('ı'): 'I', ord('ğ'): 'Ğ', ord('ü'): 'Ü', ord('ş'): 'Ş', ord('ö'): 'Ö', ord('ç'): 'Ç'}
 
-        for entry in feed.entries:
-            title = entry.title
-            link = entry.link
+            for entry in feed.entries:
+                title = entry.title
+                link = entry.link
+                
+                # Etiketleme Mantığı
+                title_upper = title.translate(tr_map).upper()
+                matched = [k for k in keywords if k in title_upper]
+                is_important = "🔥 KRİTİK" if matched else "GENEL"
+                
+                news_items.append({
+                    "Durum": is_important,
+                    "Başlık": title,
+                    "Link": link,
+                    "Etiket": ", ".join(matched) if matched else "-"
+                })
             
-            # Etiketleme Mantığı
-            title_upper = title.translate(tr_map).upper()
-            matched = [k for k in keywords if k in title_upper]
+            return pd.DataFrame(news_items), None
+        else:
+            return None, f"Siteye Erişilemedi (Hata Kodu: {response.status_code})"
             
-            # Kategori atama (Highlight için)
-            is_important = "🔥 KRİTİK" if matched else "GENEL"
-            
-            news_items.append({
-                "Durum": is_important,
-                "Başlık": title,
-                "Link": link,
-                "Etiket": ", ".join(matched) if matched else "-"
-            })
-            
-        return pd.DataFrame(news_items), None
     except Exception as e:
         return None, str(e)
 
@@ -1208,3 +1222,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
