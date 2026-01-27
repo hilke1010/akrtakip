@@ -1,4 +1,3 @@
-import requests
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -8,8 +7,8 @@ import os
 import io
 import time
 import math
-import feedparser  # <-- RSS İÇİN GEREKLİ
-import yfinance as yf # <-- DÖVİZ VE BORSA İÇİN GEREKLİ (YENİ EKLENDİ)
+import networkx as nx
+import yfinance as yf # <-- PİYASA VERİLERİ İÇİN
 from datetime import datetime, timedelta, date
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
@@ -31,6 +30,32 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return R * c
 
+# --- PİYASA VERİLERİNİ ÇEKME (RATE LIMIT KORUMALI) ---
+@st.cache_data(ttl=900) # 15 Dakikada bir yeniler (Hata almamak için süreyi uzattık)
+def get_market_data_safe():
+    try:
+        # Tek seferde tüm veriyi çekiyoruz (3 istek yerine 1 istek = Daha az hata)
+        tickers = ["TRY=X", "EURTRY=X", "BZ=F"]
+        data = yf.download(tickers, period="1d", interval="1d", progress=False)
+        
+        # Veri formatı bazen değişebilir, güvenli çekim yapalım
+        if not data.empty:
+            # Pandas sürümüne göre 'Close' bazen MultiIndex olabilir
+            try:
+                usd = data['Close']['TRY=X'].iloc[-1]
+                eur = data['Close']['EURTRY=X'].iloc[-1]
+                brent = data['Close']['BZ=F'].iloc[-1]
+            except:
+                # Alternatif erişim (tekil sütunlar varsa)
+                usd = data.iloc[-1, 0] if data.shape[1] > 0 else 0
+                eur = data.iloc[-1, 1] if data.shape[1] > 1 else 0
+                brent = data.iloc[-1, 2] if data.shape[1] > 2 else 0
+            
+            return usd, eur, brent
+        return None, None, None
+    except Exception:
+        return None, None, None
+
 # --- DOSYA TARİHİ HESAPLAMA ---
 def get_file_last_modified(file_path):
     try:
@@ -43,77 +68,6 @@ def get_file_last_modified(file_path):
         month_name = tr_months.get(turkey_time.month, "")
         return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
     except: return "TARİH ALINAMADI"
-
-# --- FİNANS VERİLERİ ÇEKME (YENİ) ---
-@st.cache_data(ttl=300) # 5 dakikada bir yenile
-def fetch_market_data():
-    try:
-        # Yahoo Finance Ticker Sembolleri
-        tickers = {
-            'USD/TL': 'TRY=X',
-            'EUR/TL': 'EURTRY=X',
-            'Brent Petrol': 'BZ=F'
-        }
-        
-        data = {}
-        for name, ticker in tickers.items():
-            stock = yf.Ticker(ticker)
-            history = stock.history(period="2d") # Dün ve bugün
-            if len(history) >= 1:
-                current_price = history['Close'].iloc[-1]
-                # Önceki kapanış (değişim hesabı için)
-                prev_close = history['Close'].iloc[-2] if len(history) > 1 else current_price
-                change = ((current_price - prev_close) / prev_close) * 100
-                data[name] = (current_price, change)
-            else:
-                data[name] = (0.0, 0.0)
-        return data, None
-    except Exception as e:
-        return None, str(e)
-
-# --- RESMİ GAZETE RSS (GÜÇLENDİRİLMİŞ VERSİYON) ---
-@st.cache_data(ttl=300, show_spinner=False)
-def fetch_all_rss_news():
-    rss_url = "https://www.resmigazete.gov.tr/rss.xml"
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
-    }
-    
-    try:
-        response = requests.get(rss_url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            feed = feedparser.parse(response.content)
-            
-            if not feed.entries:
-                return None, "RSS Çekildi ama içi boş (Site yapısı değişmiş olabilir)."
-                
-            news_items = []
-            keywords = ["EPDK", "LPG", "BENZİN", "AKARYAKIT", "PETROL", "VERGİ", "ENERJİ", "MOTORİN"]
-            tr_map = {ord('i'): 'İ', ord('ı'): 'I', ord('ğ'): 'Ğ', ord('ü'): 'Ü', ord('ş'): 'Ş', ord('ö'): 'Ö', ord('ç'): 'Ç'}
-
-            for entry in feed.entries:
-                title = entry.title
-                link = entry.link
-                
-                title_upper = title.translate(tr_map).upper()
-                matched = [k for k in keywords if k in title_upper]
-                is_important = "🔥 KRİTİK" if matched else "GENEL"
-                
-                news_items.append({
-                    "Durum": is_important,
-                    "Başlık": title,
-                    "Link": link,
-                    "Etiket": ", ".join(matched) if matched else "-"
-                })
-            
-            return pd.DataFrame(news_items), None
-        else:
-            return None, f"Siteye Erişilemedi (Hata Kodu: {response.status_code})"
-            
-    except Exception as e:
-        return None, str(e)
 
 # --- GİRİŞ ANİMASYONU ---
 def show_intro_animation():
@@ -164,14 +118,12 @@ st.markdown("""
         50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* Sekmelerin Yanıp Sönmesi */
+    /* YENİ SIRALAMAYA GÖRE KIRMIZI YANIP SÖNECEK SEKMELER [NEW Olanlar] */
     button[data-testid="stTab"]:nth-child(7) p, /* Yarıçap */
     button[data-testid="stTab"]:nth-child(8) p, /* Rota */
     button[data-testid="stTab"]:nth-child(9) p, /* Robo */
     button[data-testid="stTab"]:nth-child(10) p, /* Vergi */
-    button[data-testid="stTab"]:nth-child(11) p, /* Detaylı Arama */
-    button[data-testid="stTab"]:nth-child(14) p, /* Resmi Gazete */
-    button[data-testid="stTab"]:nth-child(15) p { /* Küresel Piyasa (YENİ) */
+    button[data-testid="stTab"]:nth-child(11) p { /* Detaylı Arama */
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
@@ -207,6 +159,28 @@ st.markdown("""
     .robo-list { list-style-type: none; padding: 0; margin: 0; }
     .robo-list li { margin-bottom: 8px; font-size: 1em; padding-left: 10px; border-left: 3px solid #eee; }
     .robo-highlight { font-weight: bold; color: #d35400; }
+    
+    /* PİYASA ŞERİDİ STİLİ */
+    .market-strip {
+        background-color: #2c3e50;
+        color: white;
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+    }
+    .market-item {
+        font-size: 1.1em;
+        font-weight: bold;
+    }
+    .market-label {
+        color: #bdc3c7;
+        font-size: 0.8em;
+        margin-right: 5px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -424,6 +398,24 @@ def main():
         """, unsafe_allow_html=True)
     st.divider()
 
+    # --- 🌍 PİYASA VERİLERİ ŞERİDİ (ANA EKRAN) ---
+    # Verileri Çek
+    usd_val, eur_val, brent_val = get_market_data_safe()
+
+    # Eğer veri yoksa '---' göster
+    usd_disp = f"{usd_val:.2f} ₺" if usd_val else "---"
+    eur_disp = f"{eur_val:.2f} ₺" if eur_val else "---"
+    brent_disp = f"${brent_val:.2f}" if brent_val else "---"
+
+    st.markdown(f"""
+    <div class="market-strip">
+        <span class="market-item"><span class="market-label">🇺🇸 USD/TRY:</span>{usd_disp}</span>
+        <span class="market-item"><span class="market-label">🇪🇺 EUR/TRY:</span>{eur_disp}</span>
+        <span class="market-item"><span class="market-label">🛢️ BRENT:</span>{brent_disp}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    # ---------------------------------------------
+
     # --- KPI ---
     c1, c2, c3 = st.columns(3)
     c1.metric("Toplam Veri Tabanı", f"{len(df):,}")
@@ -432,7 +424,7 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER (Geri döndü) ---
+    # --- SEKMELER (GÖRSELE GÖRE YENİDEN SIRALANDI) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
         "📅 Takvim",
@@ -446,9 +438,7 @@ def main():
         "💸 Vergi Zincir Analizi [NEW]",
         "🔍 Detaylı Arama [NEW]",
         "🔮 Simülasyon",
-        "📡 Sözleşme Radar",
-        "📰 Resmi Gazete (Tümü)",
-        "🌍 Küresel Piyasa & Döviz [NEW]" # <--- YENİ TAB BURADA
+        "📡 Sözleşme Radar"
     ])
 
     # 1. BÖLGESEL & DURUM
@@ -1202,135 +1192,6 @@ def main():
                 show_details_table(risk, target_date_col)
             else:
                 st.success("Riskli kayıt yok.")
-
-    # 14. RESMİ GAZETE (RSS - TÜMÜ) [NEW]
-    with tabs[13]:
-        st.subheader("📰 Resmi Gazete (Canlı Akış)")
-        st.info("💡 Bu veriler Resmi Gazete RSS kaynağından anlık çekilmektedir. 'KRİTİK' etiketliler sektörle ilgilidir.")
-        
-        rg_df, rg_error = fetch_all_rss_news()
-        
-        if rg_error:
-            st.error(f"⚠️ RSS Hatası: {rg_error}")
-        else:
-            if not rg_df.empty:
-                # KRİTİK OLANLARI AYIR (Highlight için)
-                critical_news = rg_df[rg_df['Durum'] == '🔥 KRİTİK']
-                
-                if not critical_news.empty:
-                    st.markdown(f"""
-                    <div class='insight-box-danger'>
-                        <div style="font-size:1.1em; font-weight:bold;">🚨 GÜNDEMDE SEKTÖREL GELİŞME VAR!</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    st.dataframe(
-                        critical_news[['Başlık', 'Link', 'Etiket']], 
-                        column_config={"Link": st.column_config.LinkColumn("Habere Git")},
-                        use_container_width=True, hide_index=True
-                    )
-                else:
-                    st.success("✅ Şu ana kadar EPDK/LPG ile ilgili kritik bir başlık düşmedi.")
-                
-                st.divider()
-                st.markdown("### 📋 Tüm Başlıklar")
-                st.dataframe(
-                    rg_df[['Durum', 'Başlık', 'Link']],
-                    column_config={
-                        "Link": st.column_config.LinkColumn("Oku"),
-                        "Durum": st.column_config.TextColumn("Kategori", width="small")
-                    },
-                    use_container_width=True,
-                    hide_index=True
-                )
-            else:
-                st.warning("RSS boş döndü.")
-
-    # 15. KÜRESEL PİYASA & DÖVİZ (YEPYENİ BÖLÜM - IEA/OPEC/FOREX)
-    with tabs[14]:
-        st.subheader("🌍 Küresel Enerji & Finans Paneli")
-        st.caption("Piyasa verileri anlık (yfinance), analiz verileri projeksiyon (IEA/OPEC) bazlıdır.")
-        
-        # 1. CANLI DÖVİZ VE PETROL (UST KISIM)
-        market_data, market_error = fetch_market_data()
-        
-        if market_error:
-            st.error(f"Piyasa Verisi Hatası: {market_error}")
-        elif market_data:
-            c_usd, c_eur, c_oil = st.columns(3)
-            
-            usd_val, usd_chg = market_data.get('USD/TL', (0,0))
-            eur_val, eur_chg = market_data.get('EUR/TL', (0,0))
-            oil_val, oil_chg = market_data.get('Brent Petrol', (0,0))
-            
-            c_usd.metric("💵 USD / TRY", f"{usd_val:.2f} ₺", f"%{usd_chg:.2f}")
-            c_eur.metric("💶 EUR / TRY", f"{eur_val:.2f} ₺", f"%{eur_chg:.2f}")
-            c_oil.metric("🛢️ Brent Petrol", f"${oil_val:.2f}", f"%{oil_chg:.2f}")
-        
-        st.divider()
-        
-        # 2. GLOBAL ARZ-TALEP (IEA 2026 VERİLERİ)
-        st.markdown("### 🌐 Global Arz-Talep Dengesi (IEA 2026 Projeksiyon)")
-        
-        col_iea1, col_iea2 = st.columns([1, 2])
-        
-        with col_iea1:
-            st.markdown("""
-            <div class='insight-box-info'>
-                <b>📊 2026 Beklentisi:</b><br>
-                Global Arzın <b>108.7 mb/d</b> seviyesine çıkması bekleniyor.<br>
-                Talep tarafında ise özellikle Çin kaynaklı bir yavaşlama öngörülüyor.
-            </div>
-            """, unsafe_allow_html=True)
-            st.metric("Beklenen Global Arz (2026)", "108.7 mb/d", "Arz Fazlası")
-            
-        with col_iea2:
-            # Örnek Arz-Talep Grafiği (Dummy Data - Temsili)
-            years = [2023, 2024, 2025, 2026]
-            supply = [102.1, 103.5, 105.2, 108.7]
-            demand = [101.8, 102.9, 104.1, 105.5]
-            
-            fig_sd = go.Figure()
-            fig_sd.add_trace(go.Scatter(x=years, y=supply, mode='lines+markers', name='Arz (Supply)'))
-            fig_sd.add_trace(go.Scatter(x=years, y=demand, mode='lines+markers', name='Talep (Demand)', line=dict(dash='dot')))
-            fig_sd.update_layout(title="Global Petrol Arz vs Talep (Milyon Varil/Gün)", height=300)
-            st.plotly_chart(fig_sd, use_container_width=True)
-
-        st.divider()
-
-        # 3. RAFİNERİ VE STOKLAR
-        c_ref1, c_ref2, c_ref3 = st.columns(3)
-        
-        with c_ref1:
-            st.markdown("#### 🏭 Rafineri Kapasite Kullanımı")
-            # Gauge Chart
-            fig_gauge = go.Figure(go.Indicator(
-                mode = "gauge+number",
-                value = 82.5,
-                title = {'text': "Global Ortalama (%)"},
-                gauge = {'axis': {'range': [None, 100]}, 'bar': {'color': "darkblue"}}
-            ))
-            fig_gauge.update_layout(height=250)
-            st.plotly_chart(fig_gauge, use_container_width=True)
-            st.caption("Bahreyn ve İran'daki yeni kapasiteler marjları baskılıyor.")
-
-        with c_ref2:
-            st.markdown("#### 📉 Global Stoklar (OECD)")
-            st.markdown("""
-            <div class='insight-box-warning'>
-                <b>⚠️ Stok Alarmı:</b><br>
-                2025 sonu itibarıyla stoklarda <b>2.5 mb/d</b> artış (build) gözlemlendi. 
-                Bu durum fiyatlar üzerinde aşağı yönlü baskı oluşturuyor.
-            </div>
-            """, unsafe_allow_html=True)
-
-        with c_ref3:
-            st.markdown("#### 🚢 Navlun Endeksi (Tanker)")
-            # Temsili Navlun Grafiği
-            days = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum']
-            index_val = [1200, 1180, 1250, 1300, 1290]
-            fig_freight = px.line(x=days, y=index_val, title="Baltic Clean Tanker Index (Haftalık)")
-            fig_freight.update_layout(height=250)
-            st.plotly_chart(fig_freight, use_container_width=True)
 
 if __name__ == "__main__":
     main()
