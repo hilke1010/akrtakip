@@ -10,7 +10,6 @@ import math
 import networkx as nx
 import pydeck as pdk
 from datetime import datetime, timedelta, date
-from plotly.subplots import make_subplots
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -19,88 +18,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-
-# ==========================================
-# 🎬 YENİ: VERİ AKIŞI ANİMASYONU (SPLASH SCREEN)
-# ==========================================
-def show_matrix_loading_animation(df):
-    """
-    Sayfa ilk yüklendiğinde verilerin aktığı, sayıların sayıldığı
-    profesyonel bir yükleme ekranı gösterir.
-    """
-    # Eğer daha önce gösterildiyse tekrar gösterme (Filtrelerde çalışmasın)
-    if 'splash_shown' not in st.session_state:
-        st.session_state['splash_shown'] = False
-    
-    if st.session_state['splash_shown']:
-        return
-
-    # Verileri hazırla
-    total_recs = len(df)
-    total_comps = df['Dağıtım Şirketi'].nunique()
-    
-    # Boş bir alan yarat (Tüm ekranı kaplayacak)
-    placeholder = st.empty()
-    
-    # CSS ile Siyah Arka Plan ve Matrix Stili Yazı
-    # Adım Adım Veri Akışı Animasyonu
-    
-    # 1. Aşama: Bağlantı
-    with placeholder.container():
-        st.markdown("""
-        <style>
-        .loading-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
-            background-color: #0e1117; z-index: 99999;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-family: 'Courier New', monospace; color: #00ff41;
-        }
-        .loading-text { font-size: 2em; font-weight: bold; animation: pulse 1s infinite; }
-        .data-stream { font-size: 1.2em; color: #ffffff; margin-top: 10px; }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
-        </style>
-        <div class="loading-screen">
-            <div class="loading-text">🔌 SİSTEME BAĞLANILIYOR...</div>
-        </div>
-        """, unsafe_allow_html=True)
-        time.sleep(0.7)
-
-    # 2. Aşama: Veri Sayma (Hızlı artış efekti simülasyonu)
-    for i in range(0, total_recs, int(total_recs/5)):
-        with placeholder.container():
-            st.markdown(f"""
-            <div class="loading-screen">
-                <div class="loading-text">📂 VERİ TABANI OKUNUYOR</div>
-                <div class="data-stream">İşlenen Kayıt: {i:,} / {total_recs:,}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            time.sleep(0.1) # Çok hızlı akış
-
-    # 3. Aşama: Şirket Analizi
-    with placeholder.container():
-        st.markdown(f"""
-        <div class="loading-screen">
-            <div class="loading-text">🏢 REKABET ANALİZİ</div>
-            <div class="data-stream">Tespit Edilen Şirket: {total_comps} Adet</div>
-            <div class="data-stream" style="color:#f1c40f;">Pazar Payları Hesaplanıyor...</div>
-        </div>
-        """, unsafe_allow_html=True)
-        time.sleep(0.8)
-
-    # 4. Aşama: Harita ve Bitiş
-    with placeholder.container():
-        st.markdown(f"""
-        <div class="loading-screen">
-            <div class="loading-text" style="color:white;">✅ HAZIR</div>
-            <div class="data-stream">Coğrafi Katmanlar Yüklendi.</div>
-        </div>
-        """, unsafe_allow_html=True)
-        time.sleep(0.5)
-
-    # Temizle ve bayrağı işaretle
-    placeholder.empty()
-    st.session_state['splash_shown'] = True
-
 
 # --- HAVERSINE (MESAFE HESAPLAMA) FONKSİYONU ---
 def haversine(lat1, lon1, lat2, lon2):
@@ -126,10 +43,10 @@ def get_file_last_modified(file_path):
         return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
     except: return "TARİH ALINAMADI"
 
-# --- GİRİŞ ANİMASYONU (KUTUCUK) ---
+# --- GİRİŞ ANİMASYONU ---
 def show_intro_animation():
-    if 'intro_played_box' not in st.session_state: st.session_state['intro_played_box'] = False
-    if st.session_state['intro_played_box']: return
+    if 'intro_played' not in st.session_state: st.session_state['intro_played'] = False
+    if st.session_state['intro_played']: return
     placeholder = st.empty()
     with placeholder.container():
         st.markdown("""
@@ -147,7 +64,7 @@ def show_intro_animation():
 """, unsafe_allow_html=True)
         time.sleep(1.5)
     placeholder.empty()
-    st.session_state['intro_played_box'] = True
+    st.session_state['intro_played'] = True
 
 # --- AYARLAR VE CSS ---
 MAX_ROW_DISPLAY = 1000
@@ -155,40 +72,9 @@ MAX_MAP_POINTS = 50000
 PREVIEW_ROW_LIMIT = 100
 SABIT_DOSYA_ADI = "asatis.xlsx"
 
-# ==============================================================================
-# 🔥 GÜNCELLENMİŞ CSS: HOVER EFEKTLERİ EKLENDİ
-# ==============================================================================
 st.markdown("""
 <style>
-    /* --- KPI KUTULARI (stMetric) HOVER EFEKTİ --- */
-    .stMetric { 
-        background-color: #f0f2f6; 
-        border-left: 5px solid #2980b9; 
-        padding: 15px; 
-        border-radius: 5px; 
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
-        transition: all 0.3s ease-in-out; /* Yumuşak geçiş */
-    }
-    .stMetric:hover {
-        transform: scale(1.05); /* %5 Büyüme */
-        box-shadow: 0 10px 20px rgba(41, 128, 185, 0.4); /* Mavi parlama efekti */
-        border-left-color: #3498db; /* Kenarlık rengini aç */
-        background-color: #eef6fc; /* Arka planı hafif aç */
-        z-index: 10; /* Diğerlerinin üstüne çıksın */
-    }
-
-    /* --- SEKMELER (MENÜLER) HOVER EFEKTİ --- */
-    button[data-testid="stTab"] {
-        transition: all 0.3s ease;
-    }
-    button[data-testid="stTab"]:hover {
-        transform: scale(1.05); /* Hafif büyüme */
-        background-color: #f8f9fa !important; /* Hafif arka plan değişimi */
-        color: #2980b9 !important; /* Yazı rengi değişimi */
-        font-weight: bold;
-    }
-
-    /* --- DİĞER CSS KURALLARI --- */
+    .stMetric { background-color: #f0f2f6; border-left: 5px solid #2980b9; padding: 15px; border-radius: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
     .crm-box { background-color: #fff9c4; padding: 10px; border-radius: 5px; border: 1px solid #fbc02d; margin-bottom: 10px; }
     .warning-box { padding: 1rem; background-color: #ffeba0; border-left: 6px solid #ffa500; color: #5c3a00; border-radius: 4px; font-weight: bold; }
     .year-box { background-color: #e8f4f8; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #b3e5fc; margin-bottom: 5px; }
@@ -238,13 +124,7 @@ st.markdown("""
         padding: 20px;
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         font-family: sans-serif;
-        transition: transform 0.3s ease; /* ROBO KARTLARINA DA HOVER EKLEYELİM */
     }
-    .robo-card:hover {
-        transform: translateY(-5px); /* Hafif yukarı kalksın */
-        box-shadow: 0 8px 16px rgba(0,0,0,0.15);
-    }
-
     .dealer-header {
         border-bottom: 2px solid #3498db;
         padding-bottom: 10px;
@@ -268,7 +148,6 @@ st.markdown("""
     .robo-highlight { font-weight: bold; color: #d35400; }
 </style>
 """, unsafe_allow_html=True)
-# ==============================================================================
 
 # --- KOORDİNAT VERİTABANI ---
 CITY_COORDINATES = {
@@ -460,17 +339,6 @@ def create_tab_filters(df, key_prefix):
 
 # --- ANA UYGULAMA ---
 def main():
-    # VERİYİ YÜKLE
-    data_result = load_data(SABIT_DOSYA_ADI)
-    if data_result is None or data_result[0] is None:
-        st.error(f"⚠️ Hata: {data_result[1] if data_result else 'Veri Yüklenemedi'}")
-        st.stop()
-    df, target_date_col, start_date_col = data_result
-
-    # 🔥 YENİ: SPLASH SCREEN'I ÇAĞIR (VERİ YÜKLENDİKTEN HEMEN SONRA)
-    show_matrix_loading_animation(df)
-
-    # ... Sonra normal akış devam eder ...
     show_intro_animation()
 
     # --- DUYURU (AÇILIŞ ANİMASYONU ALTINA EKLE) ---
@@ -500,6 +368,11 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
+    data_result = load_data(SABIT_DOSYA_ADI)
+    if data_result is None or data_result[0] is None:
+        st.error(f"⚠️ Hata: {data_result[1] if data_result else 'Veri Yüklenemedi'}")
+        st.stop()
+    df, target_date_col, start_date_col = data_result
     
     # ----------------------------------------------------
     # 🛠️ KOORDİNAT SİMÜLASYONU (JITTER)
@@ -1426,3 +1299,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
