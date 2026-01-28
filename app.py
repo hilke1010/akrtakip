@@ -413,7 +413,12 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
 
     if 'Kalan_Gun' in display_df.columns: display_df = display_df.sort_values('Kalan_Gun')
     
-    # --- PROFESYONEL TABLO TASARIMI (YENİLENDİ) ---
+    def highlight_risk(val):
+        if not isinstance(val, (int, float)): return ''
+        if val < 0: return 'background-color: #ffcccc'
+        elif val < 90: return 'background-color: #ffe5cc'
+        elif val < 180: return 'background-color: #ffffcc'
+        return ''
     
     st.markdown(f"**📋 Listelenen Bayi:** {len(display_df)}")
     
@@ -424,70 +429,10 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
         st.download_button("📥 Excel İndir", buffer.getvalue(), "Bayi_Listesi.xlsx", "application/vnd.ms-excel")
     except: pass
 
-    # Stil Fonksiyonları
-    def color_risk_bg(val):
-        if val == 'KRİTİK':
-            return 'background-color: #ffebee; color: #c62828; font-weight: bold; text-align: center; border-radius: 10px;'
-        elif val == 'GÜVENLİ':
-            return 'background-color: #e8f5e9; color: #2e7d32; font-weight: bold; text-align: center; border-radius: 10px;'
-        return ''
-
-    def style_kalan_gun(val):
-        if not isinstance(val, (int, float)): return ''
-        # Daha modern renkler ve kalın font
-        if val < 90:
-            color = '#d32f2f' # Koyu Kırmızı
-            bg = '#ffebee'
-        elif val < 180:
-            color = '#ef6c00' # Koyu Turuncu
-            bg = '#fff3e0'
-        else:
-            color = '#2e7d32' # Koyu Yeşil
-            bg = '' # Normal arka plan
-        
-        style = f'color: {color}; font-weight: bold;'
-        if bg: style += f' background-color: {bg};'
-        return style
-
-    # Styler Objesini Oluşturma
-    styler = display_df.style
-
-    # 1. Başlık Stilleri (Professional Navy Blue)
-    styler.set_table_styles([
-        {'selector': 'th', 'props': [
-            ('background-color', '#1E3A8A'), # Kurumsal Lacivert
-            ('color', 'white'),
-            ('font-family', '"Segoe UI", sans-serif'),
-            ('font-size', '14px'),
-            ('text-align', 'center'),
-            ('font-weight', '600'),
-            ('border', '1px solid #ddd')
-        ]},
-        {'selector': 'td', 'props': [
-            ('font-family', '"Segoe UI", sans-serif'),
-            ('font-size', '13px'),
-            ('border-bottom', '1px solid #eee'),
-            ('padding', '8px')
-        ]},
-        {'selector': 'tr:hover', 'props': [
-            ('background-color', '#f5f5f5')
-        ]}
-    ])
-
-    # 2. Özel Kolon Formatlamaları
     if 'Kalan_Gun' in display_df.columns:
-        styler.map(style_kalan_gun, subset=['Kalan_Gun'])
-    
-    if 'Risk_Durumu' in display_df.columns:
-        styler.map(color_risk_bg, subset=['Risk_Durumu'])
-
-    # Tabloyu Göster
-    st.dataframe(
-        styler, 
-        use_container_width=True, 
-        hide_index=True,
-        height=500 # Kaydırma çubuğu için sabit yükseklik
-    )
+        st.dataframe(display_df.style.map(highlight_risk, subset=['Kalan_Gun']), use_container_width=True, hide_index=True)
+    else:
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 # ==========================================
 # 🛠️ BAĞIMSIZ FİLTRE FONKSİYONU
@@ -781,8 +726,8 @@ def main():
                 data=leaders,
                 get_icon="icon_data",
                 get_position='[lon, lat]',
-                get_size=30,       
-                size_scale=1,      
+                get_size=30,      
+                size_scale=1,     
                 pickable=True,
             )
 
@@ -943,8 +888,15 @@ def main():
             with c_list:
                 st.markdown("##### 📋 Bayi Listesi")
                 if not my_company_df.empty:
-                    # BURADA DA YENİ STİLİ KULLANALIM
-                    show_details_table(my_company_df, target_date_col)
+                    cols_rep = ['Unvan', 'İlçe', 'Dağıtım Şirketi', 'Bitis_Yili', 'Kalan_Gun', target_date_col]
+                    cols_use_rep = [c for c in cols_rep if c in my_company_df.columns]
+                    display_df = my_company_df[cols_use_rep].sort_values('Kalan_Gun')
+                    
+                    if target_date_col in display_df.columns:
+                        try: display_df[target_date_col] = pd.to_datetime(display_df[target_date_col]).dt.strftime('%d.%m.%Y')
+                        except: pass
+                        
+                    st.dataframe(display_df, use_container_width=True, hide_index=True)
 
     # 7. İLÇE PENETRASYONU
     with tabs[6]:
@@ -969,7 +921,13 @@ def main():
                 st.info("Tüm ilçeler gösteriliyor.")
                 filtered_table = df_dist
                 
-            show_details_table(filtered_table, target_date_col)
+            display_cols = ['Unvan', 'Dağıtım Şirketi', target_date_col, 'Kalan_Gun']
+            available_cols = [c for c in display_cols if c in filtered_table.columns]
+            table_to_show = filtered_table[available_cols].copy()
+            if target_date_col in table_to_show.columns:
+                try: table_to_show[target_date_col] = pd.to_datetime(table_to_show[target_date_col]).dt.strftime('%d.%m.%Y')
+                except: pass
+            st.dataframe(table_to_show, use_container_width=True, hide_index=True)
             
             st.markdown("---")
             st.markdown("##### 🚀 Fırsat Analizi: Boş Noktalar")
@@ -1022,7 +980,15 @@ def main():
                 )
                 st.plotly_chart(fig_rad, use_container_width=True)
                 
-                show_details_table(nearby_stations, target_date_col, extra_cols=['Mesafe'])
+                display_cols = ['Unvan', 'İlçe', 'Dağıtım Şirketi', target_date_col, 'Kalan_Gun', 'Mesafe']
+                cols_to_use = [c for c in display_cols if c in nearby_stations.columns]
+                
+                table_df = nearby_stations[cols_to_use].copy()
+                if target_date_col in table_df.columns:
+                    try: table_df[target_date_col] = pd.to_datetime(table_df[target_date_col]).dt.strftime('%d.%m.%Y')
+                    except: pass
+                
+                st.dataframe(table_df, use_container_width=True, hide_index=True)
         else:
             st.warning("Veri yok.")
 
@@ -1358,7 +1324,7 @@ def main():
                              try: sub_df[target_date_col] = pd.to_datetime(sub_df[target_date_col]).dt.strftime('%d.%m.%Y')
                              except: pass
                         
-                        show_details_table(sub_df[final_cols], target_date_col)
+                        st.dataframe(sub_df[final_cols], use_container_width=True, hide_index=True)
                     
         else:
             if not tax_col_name:
