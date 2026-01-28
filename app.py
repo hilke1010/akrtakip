@@ -82,7 +82,7 @@ def show_cinematic_intro(df):
     with placeholder.container():
         st.markdown("""
         <div class="intro-overlay">
-            <div class="main-text blink">🔌 SİSTEME BAĞLANILIYOR...</div>
+            <div class="main-text blink">🔌 VERİ ANALİZ EDİLİYOR...</div>
             <div class="sub-text">GÜVENLİ HAT OLUŞTURULUYOR</div>
         </div>
         """, unsafe_allow_html=True)
@@ -1533,3 +1533,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
