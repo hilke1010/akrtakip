@@ -229,6 +229,14 @@ st.markdown("""
         font-weight: 800 !important;
         animation: blinker-green 1.5s linear infinite;
     }
+    
+    /* YENİ SEKME GÜZEL ENERJİ LİDERLİĞİ (SON SEKME) */
+    button[data-testid="stTab"]:nth-child(13) p {
+        color: #28a745 !important;
+        font-weight: 900 !important;
+        text-transform: uppercase;
+        border-bottom: 2px solid #28a745;
+    }
 
     /* DİĞER NEW OLANLAR - KIRMIZI */
     /* 1 tabanlı indeksleme: 8, 9, 10, 11, 12. sekmeler (Kaydırma sonrası yeni numaralar) */
@@ -555,7 +563,7 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER (YENİ SIRALAMA - İL HAKİMİYET 3. SIRADA) ---
+    # --- SEKMELER (SİMÜLASYON ÇIKARILDI, GÜZEL ENERJİ LİDERLİĞİ EKLENDİ) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
         "📅 Takvim",
@@ -569,7 +577,7 @@ def main():
         "🤖 Robo-Yönetici [NEW]",
         "💸 Vergi Zincir Analizi [NEW]",
         "🔍 Detaylı Arama [NEW]",
-        "🔮 Simülasyon"
+        "🌟 Güzel Enerji Liderliği" # <-- YENİ TAB
     ])
 
     # 1. BÖLGESEL & DURUM
@@ -1422,19 +1430,78 @@ def main():
                 st.divider()
                 st.success("📜 **Lisans Durumu:** AKTİF")
 
-    # 13. SİMÜLASYON
+    # 13. SİMÜLASYON YERİNE -> GÜZEL ENERJİ LİDERLİĞİ [MODIFIED]
     with tabs[12]:
-        st.subheader("🔮 Simülasyon")
-        df_sim = create_tab_filters(df, "tab4")
-        all_comp = sorted(df['Dağıtım Şirketi'].dropna().unique().tolist())
-        c1, c2 = st.columns(2)
-        my_c = c1.selectbox("Sizin Şirket", all_comp, index=0)
-        tar_c = c2.selectbox("Hedef Rakip", [x for x in all_comp if x != my_c])
-        rate = st.slider("Kazanma Oranı (%)", 0, 100, 10)
-        curr = len(df_sim[df_sim['Dağıtım Şirketi'] == my_c])
-        tgt = len(df_sim[df_sim['Dağıtım Şirketi'] == tar_c])
-        gain = int(tgt * rate / 100)
-        st.metric("Yeni Toplam", curr + gain, delta=f"+{gain}")
+        st.subheader("🌟 Güzel Enerji Liderlik Haritası (İl & İlçe Krallıkları)")
+        st.info("Bu harita, sadece **GÜZEL ENERJİ**'nin rakiplerini geçerek 1. sırada olduğu bölgeleri gösterir.")
+        
+        HERO = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
+        
+        # --- 1. İL BAZINDA LİDERLİK ANALİZİ ---
+        # Önce illere göre grupla ve lideri bul
+        city_stats = df.groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
+        idx = city_stats.groupby(['İl'])['Adet'].transform(max) == city_stats['Adet']
+        leaders = city_stats[idx]
+        
+        # Sadece Güzel Enerji'nin lider olduğu illeri filtrele
+        hero_leaders = leaders[leaders['Dağıtım Şirketi'] == HERO].copy()
+        
+        col_map, col_table = st.columns([2, 1])
+        
+        with col_map:
+            if not hero_leaders.empty:
+                # Koordinatları ekle
+                hero_leaders['lat'] = hero_leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
+                hero_leaders['lon'] = hero_leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
+                
+                # Harita Katmanı (Yeşil Parlayan Noktalar)
+                layer = pdk.Layer(
+                    "ScatterplotLayer",
+                    hero_leaders,
+                    get_position='[lon, lat]',
+                    get_color='[0, 255, 0, 160]', # Yeşil
+                    get_radius=20000,
+                    pickable=True,
+                )
+                
+                tooltip_hero = {
+                    "html": "<b>{İl}</b><br/>Lider Adet: {Adet}",
+                    "style": {"backgroundColor": "green", "color": "white"}
+                }
+                
+                view_state = pdk.ViewState(latitude=39.0, longitude=35.0, zoom=5)
+                r = pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip=tooltip_hero)
+                st.pydeck_chart(r)
+                
+                st.success(f"🦁 Toplam **{len(hero_leaders)}** ilde pazar liderisiniz!")
+            else:
+                st.warning("Şu an hiçbir ilde liderlik (1. sıra) görünmüyor.")
+
+        # --- 2. İLÇE BAZINDA LİDERLİK LİSTESİ (TABLO) ---
+        with col_table:
+            st.markdown("### 🏘️ İlçe Krallıkları")
+            st.caption("Aşağıdaki ilçelerde rakiplerden daha fazla istasyona sahipsiniz.")
+            
+            # İlçe bazında analiz
+            if 'İlçe' in df.columns:
+                dist_stats = df.groupby(['İl', 'İlçe', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
+                # Her ilçenin liderini bul
+                idx_d = dist_stats.groupby(['İl', 'İlçe'])['Adet'].transform(max) == dist_stats['Adet']
+                dist_leaders = dist_stats[idx_d]
+                
+                # Sadece Hero olanları al
+                hero_dist_leaders = dist_leaders[dist_leaders['Dağıtım Şirketi'] == HERO].sort_values('Adet', ascending=False)
+                
+                if not hero_dist_leaders.empty:
+                    st.dataframe(
+                        hero_dist_leaders[['İl', 'İlçe', 'Adet']], 
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                else:
+                    st.info("İlçe bazında liderlik bulunamadı.")
+            else:
+                st.info("Veride İlçe bilgisi yok.")
 
 if __name__ == "__main__":
     main()
