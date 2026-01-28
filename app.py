@@ -9,9 +9,7 @@ import time
 import math
 import networkx as nx
 import pydeck as pdk
-import random
 from datetime import datetime, timedelta, date
-from plotly.subplots import make_subplots
 
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
@@ -20,86 +18,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-
-# ==========================================
-# 🎬 YENİ: SİNEMATİK AÇILIŞ ANİMASYONU (PRO)
-# ==========================================
-def show_cinematic_intro(df):
-    if 'intro_shown' not in st.session_state:
-        st.session_state['intro_shown'] = False
-    
-    if st.session_state['intro_shown']:
-        return
-
-    total_stations = len(df)
-    total_companies = df['Dağıtım Şirketi'].nunique()
-    total_cities = df['İl'].nunique()
-    
-    placeholder = st.empty()
-    
-    st.markdown("""
-    <style>
-    .intro-overlay {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
-        background-color: #000000; z-index: 999999;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        font-family: 'Courier New', monospace; letter-spacing: 2px;
-    }
-    .main-text {
-        font-size: 2.5em; font-weight: 900; color: #00ff41;
-        text-shadow: 0 0 10px #00ff41;
-        text-transform: uppercase;
-        margin-bottom: 20px;
-    }
-    .sub-text {
-        font-size: 1.2em; color: #ffffff; opacity: 0.8;
-    }
-    .blink { animation: blinker 1s linear infinite; }
-    @keyframes blinker { 50% { opacity: 0; } }
-    
-    .data-flash {
-        font-size: 3em; font-weight: bold; color: #00ff41;
-        text-shadow: 0 0 20px #00ff41;
-        animation: popIn 0.2s ease-out;
-    }
-    @keyframes popIn {
-        0% { transform: scale(0.5); opacity: 0; }
-        100% { transform: scale(1); opacity: 1; }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    with placeholder.container():
-        st.markdown("""
-        <div class="intro-overlay">
-            <div class="main-text blink">🔌 SİSTEME BAĞLANILIYOR...</div>
-            <div class="sub-text">GÜVENLİ HAT OLUŞTURULUYOR</div>
-        </div>
-        """, unsafe_allow_html=True)
-        time.sleep(2.0)
-
-    sequence = [
-        ("📂 VERİ TABANI OKUNDU", f"{total_stations:,} İSTASYON"),
-        ("🏢 REKABET ANALİZİ", f"{total_companies} DAĞITIM ŞİRKETİ"),
-        ("🌍 COĞRAFİ KAPSAM", f"{total_cities} İL TARANDI"),
-        ("✅ YETKİ KONTROLÜ", "ERİŞİM ONAYLANDI")
-    ]
-    
-    step_time = 3.0 / len(sequence)
-
-    for title, value in sequence:
-        with placeholder.container():
-            st.markdown(f"""
-            <div class="intro-overlay">
-                <div class="sub-text">{title}</div>
-                <div class="data-flash">{value}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            time.sleep(step_time)
-
-    placeholder.empty()
-    st.session_state['intro_shown'] = True
-
 
 # --- HAVERSINE (MESAFE HESAPLAMA) FONKSİYONU ---
 def haversine(lat1, lon1, lat2, lon2):
@@ -125,10 +43,10 @@ def get_file_last_modified(file_path):
         return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
     except: return "TARİH ALINAMADI"
 
-# --- GİRİŞ ANİMASYONU (KUTUCUK) ---
-def show_intro_animation_box():
-    if 'intro_played_box' not in st.session_state: st.session_state['intro_played_box'] = False
-    if st.session_state['intro_played_box']: return
+# --- GİRİŞ ANİMASYONU ---
+def show_intro_animation():
+    if 'intro_played' not in st.session_state: st.session_state['intro_played'] = False
+    if st.session_state['intro_played']: return
     placeholder = st.empty()
     with placeholder.container():
         st.markdown("""
@@ -146,7 +64,7 @@ def show_intro_animation_box():
 """, unsafe_allow_html=True)
         time.sleep(1.5)
     placeholder.empty()
-    st.session_state['intro_played_box'] = True
+    st.session_state['intro_played'] = True
 
 # --- AYARLAR VE CSS ---
 MAX_ROW_DISPLAY = 1000
@@ -169,25 +87,36 @@ st.markdown("""
     .district-chip { display: inline-block; background-color: #f1f3f5; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; border: 1px solid #ddd; cursor: help; }
     .filter-container { background-color: #e3f2fd; padding: 15px; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 15px; }
     
-    @keyframes blinker-red { 50% { opacity: 0.5; color: #ff2b2b; } }
-    @keyframes blinker-green { 50% { opacity: 0.5; color: #28a745; } }
+    /* --- SADE KIRMIZI YANIP SÖNME EFEKTİ --- */
+    @keyframes blinker-red {
+        50% { opacity: 0.5; color: #ff2b2b; }
+    }
+    
+    /* --- YEŞİL YANIP SÖNME EFEKTİ (YENİ HARİTA İÇİN) --- */
+    @keyframes blinker-green {
+        50% { opacity: 0.5; color: #28a745; }
+    }
 
+    /* 3. SEKME (İL LİDERLERİ) - YEŞİL */
     button[data-testid="stTab"]:nth-child(3) p {
         color: #28a745 !important;
         font-weight: 800 !important;
         animation: blinker-green 1.5s linear infinite;
     }
 
-    button[data-testid="stTab"]:nth-child(8) p, 
-    button[data-testid="stTab"]:nth-child(9) p, 
-    button[data-testid="stTab"]:nth-child(10) p, 
-    button[data-testid="stTab"]:nth-child(11) p, 
-    button[data-testid="stTab"]:nth-child(12) p { 
+    /* DİĞER NEW OLANLAR - KIRMIZI */
+    /* 1 tabanlı indeksleme: 8, 9, 10, 11, 12. sekmeler (Kaydırma sonrası yeni numaralar) */
+    button[data-testid="stTab"]:nth-child(8) p, /* Yarıçap */
+    button[data-testid="stTab"]:nth-child(9) p, /* Rota */
+    button[data-testid="stTab"]:nth-child(10) p, /* Robo */
+    button[data-testid="stTab"]:nth-child(11) p, /* Vergi */
+    button[data-testid="stTab"]:nth-child(12) p { /* Detaylı Arama */
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
     }
 
+    /* Robo Kartları (Sade Tasarım) */
     .dealer-card, .robo-card {
         background: white;
         border: 2px solid #e0e0e0;
@@ -251,7 +180,7 @@ CITY_COORDINATES = {
     "KİLİS": [36.7184, 37.1212], "OSMANİYE": [37.0742, 36.2467], "DÜZCE": [40.8438, 31.1565]
 }
 
-# --- BÖLGE TANIMLARI ---
+# --- BÖLGE TANIMLARI (YENİLENMİŞ ŞİRKET ÖZEL LİSTESİ) ---
 BOLGE_TANIMLARI = {
     "Orta Anadolu": [
         "ANKARA", "KONYA", "KAYSERİ", "ESKİŞEHİR", "YOZGAT", "KASTAMONU", 
@@ -328,15 +257,6 @@ def load_data(file_path):
         return df, target_col, start_col
     except Exception as e: return None, str(e), None
 
-# 🔥 PERFORMANS FIX: EXCEL İŞLEMİNİ HAFIZAYA (CACHE) ALDIK
-# Artık her tıkladığında yeniden hesaplamayacak, donma yapmayacak.
-@st.cache_data
-def convert_df_to_excel(df):
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Bayi Listesi')
-    return output.getvalue()
-
 def show_details_table(dataframe, target_date_col, extra_cols=None):
     if dataframe is None or dataframe.empty:
         st.info("Seçilen kriterlere uygun kayıt bulunamadı.")
@@ -369,19 +289,12 @@ def show_details_table(dataframe, target_date_col, extra_cols=None):
     
     st.markdown(f"**📋 Listelenen Bayi:** {len(display_df)}")
     
-    # 🔥 GÜNCELLEME: EXCEL İNDİRME HIZLANDIRILDI
-    # Eskiden burası her seferinde çalışıp sistemi kilitliyordu.
-    if not dataframe.empty:
-        try:
-            excel_data = convert_df_to_excel(dataframe) # Cache kullanır
-            st.download_button(
-                label="📥 Excel İndir",
-                data=excel_data,
-                file_name="Bayi_Listesi.xlsx",
-                mime="application/vnd.ms-excel"
-            )
-        except Exception as e:
-            st.error(f"Excel oluşturulurken hata: {e}")
+    buffer = io.BytesIO()
+    try:
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            dataframe.to_excel(writer, index=False, sheet_name='Bayi Listesi')
+        st.download_button("📥 Excel İndir", buffer.getvalue(), "Bayi_Listesi.xlsx", "application/vnd.ms-excel")
+    except: pass
 
     if 'Kalan_Gun' in display_df.columns:
         st.dataframe(display_df.style.map(highlight_risk, subset=['Kalan_Gun']), use_container_width=True, hide_index=True)
@@ -426,18 +339,7 @@ def create_tab_filters(df, key_prefix):
 
 # --- ANA UYGULAMA ---
 def main():
-    # VERİYİ YÜKLE
-    data_result = load_data(SABIT_DOSYA_ADI)
-    if data_result is None or data_result[0] is None:
-        st.error(f"⚠️ Hata: {data_result[1] if data_result else 'Veri Yüklenemedi'}")
-        st.stop()
-    df, target_date_col, start_date_col = data_result
-
-    # 🔥 SİNEMATİK AÇILIŞ (MATRIX TARZI)
-    show_cinematic_intro(df)
-
-    # ... Sonra normal akış devam eder ...
-    show_intro_animation_box()
+    show_intro_animation()
 
     # --- DUYURU (AÇILIŞ ANİMASYONU ALTINA EKLE) ---
     st.markdown("""
@@ -466,6 +368,11 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
+    data_result = load_data(SABIT_DOSYA_ADI)
+    if data_result is None or data_result[0] is None:
+        st.error(f"⚠️ Hata: {data_result[1] if data_result else 'Veri Yüklenemedi'}")
+        st.stop()
+    df, target_date_col, start_date_col = data_result
     
     # ----------------------------------------------------
     # 🛠️ KOORDİNAT SİMÜLASYONU (JITTER)
@@ -528,78 +435,74 @@ def main():
 
     # 1. BÖLGESEL & DURUM
     with tabs[0]:
-        # 🔥 SPINNER EKLENDİ: Beyaz ekranda bekleme yapmaz, dönen logo çıkar
-        with st.spinner('Harita ve Veriler Güncelleniyor...'):
-            st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
-            st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
-            df_tab1 = create_tab_filters(df, "tab1")
-            
-            if len(df_tab1) > MAX_MAP_POINTS:
-                st.warning("⚠️ Haritada çok fazla nokta var, lütfen filtreleyin.")
-            elif not df_tab1.empty:
-                map_data = df_tab1['İl'].value_counts().reset_index()
-                map_data.columns = ['İl', 'Adet']
-                map_data['lat'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[0])
-                map_data['lon'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[1])
-                map_data = map_data.dropna()
+        st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
+        st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
+        df_tab1 = create_tab_filters(df, "tab1")
+        
+        if len(df_tab1) > MAX_MAP_POINTS:
+            st.warning("⚠️ Haritada çok fazla nokta var, lütfen filtreleyin.")
+        elif not df_tab1.empty:
+            map_data = df_tab1['İl'].value_counts().reset_index()
+            map_data.columns = ['İl', 'Adet']
+            map_data['lat'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[0])
+            map_data['lon'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[1])
+            map_data = map_data.dropna()
 
-                if not map_data.empty:
-                    fig_map = px.scatter_mapbox(
-                        map_data, lat="lat", lon="lon", size="Adet", color="Adet",
-                        hover_name="İl", size_max=35, zoom=5, 
-                        mapbox_style="open-street-map", color_continuous_scale=px.colors.sequential.Bluered
-                    )
-                    fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
-                    st.plotly_chart(fig_map, use_container_width=True)
+            if not map_data.empty:
+                fig_map = px.scatter_mapbox(
+                    map_data, lat="lat", lon="lon", size="Adet", color="Adet",
+                    hover_name="İl", size_max=35, zoom=5, 
+                    mapbox_style="open-street-map", color_continuous_scale=px.colors.sequential.Bluered
+                )
+                fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+                st.plotly_chart(fig_map, use_container_width=True)
 
-            st.divider()
-            col_pie1, col_pie2 = st.columns(2)
-            with col_pie1:
-                st.metric("Seçili Bayi Sayısı", len(df_tab1))
-                city_pie = df_tab1['İl'].value_counts().reset_index()
-                city_pie.columns = ['İl', 'Adet']
-                fig_cp = px.pie(city_pie, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı")
-                st.plotly_chart(fig_cp, use_container_width=True)
-            with col_pie2:
-                dist_pie = df_tab1['Dağıtım Şirketi'].value_counts().reset_index()
-                dist_pie.columns = ['Dağıtım Şirketi', 'Adet']
-                fig_dp = px.pie(dist_pie, values='Adet', names='Dağıtım Şirketi', hole=0.4, title="Pazar Payı")
-                st.plotly_chart(fig_dp, use_container_width=True)
-            
-            show_details_table(df_tab1, target_date_col)
+        st.divider()
+        col_pie1, col_pie2 = st.columns(2)
+        with col_pie1:
+            st.metric("Seçili Bayi Sayısı", len(df_tab1))
+            city_pie = df_tab1['İl'].value_counts().reset_index()
+            city_pie.columns = ['İl', 'Adet']
+            fig_cp = px.pie(city_pie, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı")
+            st.plotly_chart(fig_cp, use_container_width=True)
+        with col_pie2:
+            dist_pie = df_tab1['Dağıtım Şirketi'].value_counts().reset_index()
+            dist_pie.columns = ['Dağıtım Şirketi', 'Adet']
+            fig_dp = px.pie(dist_pie, values='Adet', names='Dağıtım Şirketi', hole=0.4, title="Pazar Payı")
+            st.plotly_chart(fig_dp, use_container_width=True)
+        
+        show_details_table(df_tab1, target_date_col)
 
     # 2. TAKVİM
     with tabs[1]:
-        # 🔥 SPINNER EKLENDİ
-        with st.spinner('Takvim Verileri Yükleniyor...'):
-            st.subheader("📅 Takvim")
-            st.caption("👇 **Grafikteki sütunlara tıklayarak aşağıdaki tabloyu filtreleyebilirsiniz.**")
+        st.subheader("📅 Takvim")
+        st.caption("👇 **Grafikteki sütunlara tıklayarak aşağıdaki tabloyu filtreleyebilirsiniz.**")
+        
+        df_cal = create_tab_filters(df, "tab5")
+        if 'Bitis_Yili' in df_cal.columns:
+            yrs = sorted(df_cal['Bitis_Yili'].dropna().astype(int).unique())
+            sel_yr = st.selectbox("Yıl", yrs)
+            df_yr = df_cal[df_cal['Bitis_Yili'] == sel_yr]
             
-            df_cal = create_tab_filters(df, "tab5")
-            if 'Bitis_Yili' in df_cal.columns:
-                yrs = sorted(df_cal['Bitis_Yili'].dropna().astype(int).unique())
-                sel_yr = st.selectbox("Yıl", yrs)
-                df_yr = df_cal[df_cal['Bitis_Yili'] == sel_yr]
+            if not df_yr.empty:
+                mon_counts = df_yr.groupby(['Bitis_Ayi_No', 'Bitis_Ayi']).size().reset_index(name='Adet')
+                mon_counts = mon_counts.sort_values('Bitis_Ayi_No')
                 
-                if not df_yr.empty:
-                    mon_counts = df_yr.groupby(['Bitis_Ayi_No', 'Bitis_Ayi']).size().reset_index(name='Adet')
-                    mon_counts = mon_counts.sort_values('Bitis_Ayi_No')
-                    
-                    fig_cal = px.bar(mon_counts, x='Bitis_Ayi', y='Adet', text='Adet', title=f"{sel_yr} Yılı Sözleşme Bitiş Dağılımı")
-                    fig_cal.update_layout(xaxis_title="Ay", yaxis_title="Sözleşme Sayısı")
-                    
-                    selection = st.plotly_chart(fig_cal, use_container_width=True, on_select="rerun")
-                    
-                    selected_month = None
-                    if selection and selection['selection']['points']:
-                        selected_month = selection['selection']['points'][0]['x']
-                        st.info(f"🔍 **Seçilen Ay:** {selected_month}")
-                        filtered_table = df_yr[df_yr['Bitis_Ayi'] == selected_month]
-                    else:
-                        st.info("Tüm yıl gösteriliyor. Detay için grafiğe tıklayın.")
-                        filtered_table = df_yr
-                    
-                    show_details_table(filtered_table, target_date_col)
+                fig_cal = px.bar(mon_counts, x='Bitis_Ayi', y='Adet', text='Adet', title=f"{sel_yr} Yılı Sözleşme Bitiş Dağılımı")
+                fig_cal.update_layout(xaxis_title="Ay", yaxis_title="Sözleşme Sayısı")
+                
+                selection = st.plotly_chart(fig_cal, use_container_width=True, on_select="rerun")
+                
+                selected_month = None
+                if selection and selection['selection']['points']:
+                    selected_month = selection['selection']['points'][0]['x']
+                    st.info(f"🔍 **Seçilen Ay:** {selected_month}")
+                    filtered_table = df_yr[df_yr['Bitis_Ayi'] == selected_month]
+                else:
+                    st.info("Tüm yıl gösteriliyor. Detay için grafiğe tıklayın.")
+                    filtered_table = df_yr
+                
+                show_details_table(filtered_table, target_date_col)
 
     # 3. İL HAKİMİYET HARİTASI (LOGO) - DETAYLI TOOLTIP VERSİYON
     with tabs[2]:
@@ -1396,3 +1299,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
