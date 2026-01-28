@@ -27,7 +27,7 @@ st.set_page_config(
 def show_cinematic_intro(df):
     """
     Kullanıcının isteği üzerine:
-    1. 'Sisteme Bağlanılıyor' (2 sn sabit)
+    1. 'Veri Analiz Ediliyor' (2 sn sabit)
     2. Kritik verilerin seri geçişi (3 sn flaş efektli)
     """
     # Session state kontrolü (Sadece ilk açılışta çalışsın)
@@ -223,20 +223,28 @@ st.markdown("""
         50% { opacity: 0.5; color: #28a745; }
     }
 
-    /* 3. SEKME (İL LİDERLERİ) - YEŞİL */
-    button[data-testid="stTab"]:nth-child(3) p {
+    /* 4. SEKME (İL LİDERLERİ - YENİ SIRADA 4. OLDU) - YEŞİL */
+    button[data-testid="stTab"]:nth-child(4) p {
         color: #28a745 !important;
         font-weight: 800 !important;
         animation: blinker-green 1.5s linear infinite;
     }
+    
+    /* 2. SEKME GÜZEL ENERJİ LİDERLİĞİ (YENİ YERİ) */
+    button[data-testid="stTab"]:nth-child(2) p {
+        color: #28a745 !important;
+        font-weight: 900 !important;
+        text-transform: uppercase;
+        border-bottom: 2px solid #28a745;
+    }
 
     /* DİĞER NEW OLANLAR - KIRMIZI */
-    /* 1 tabanlı indeksleme: 8, 9, 10, 11, 12. sekmeler (Kaydırma sonrası yeni numaralar) */
-    button[data-testid="stTab"]:nth-child(8) p, /* Yarıçap */
-    button[data-testid="stTab"]:nth-child(9) p, /* Rota */
-    button[data-testid="stTab"]:nth-child(10) p, /* Robo */
-    button[data-testid="stTab"]:nth-child(11) p, /* Vergi */
-    button[data-testid="stTab"]:nth-child(12) p { /* Detaylı Arama */
+    /* İndeksler kaydığı için güncellendi */
+    button[data-testid="stTab"]:nth-child(9) p, /* Yarıçap */
+    button[data-testid="stTab"]:nth-child(10) p, /* Rota */
+    button[data-testid="stTab"]:nth-child(11) p, /* Robo */
+    button[data-testid="stTab"]:nth-child(12) p, /* Vergi */
+    button[data-testid="stTab"]:nth-child(13) p { /* Detaylı Arama */
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
@@ -507,8 +515,8 @@ def main():
     </style>
     
     <div class="duyuru-kutusu">
-        📢 BÖLGE FİLTRESİNE TÜM BÖLGELER EKLENMİŞTİR! 🌍✅ <br>
-        <span style="font-size:0.7em; font-weight:normal;">(...)</span>
+        📢 BÖLGE FİLTRESİNE TÜM BÖLGELER EKLENMİŞTİR!🌍✅ <br>
+        <span style="font-size:0.7em; font-weight:normal;">(Mobilden Ulaşım Geliştirilmiştir!)</span>
     </div>
     """, unsafe_allow_html=True)
     
@@ -555,11 +563,13 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER (YENİ SIRALAMA - İL HAKİMİYET 3. SIRADA) ---
+    # --- SEKMELER ---
+    # G.E Liderlik 2. Sıraya Taşındı (İndex 1)
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
+        "🌟 G.E LİDERLİK", 
         "📅 Takvim",
-        "🦁 İl Liderleri [NEW]",  # <-- 3. SIRAYA TAŞINDI
+        "🦁 İl Liderleri [NEW]",  
         "⚡ Hızlı Analiz",
         "⚔️ Karşılaştırma",
         "📄 İl Karnesi",
@@ -568,8 +578,7 @@ def main():
         "🚗 Rota Planlayıcı [NEW]",
         "🤖 Robo-Yönetici [NEW]",
         "💸 Vergi Zincir Analizi [NEW]",
-        "🔍 Detaylı Arama [NEW]",
-        "🔮 Simülasyon"
+        "🔍 Detaylı Arama [NEW]"
     ])
 
     # 1. BÖLGESEL & DURUM
@@ -612,8 +621,107 @@ def main():
         
         show_details_table(df_tab1, target_date_col)
 
-    # 2. TAKVİM
+    # 2. GÜZEL ENERJİ LİDERLİĞİ [MOVED AND UPDATED]
     with tabs[1]:
+        st.subheader("🌟 Güzel Enerji Liderlik Haritası (İl & İlçe Krallıkları)")
+        st.image("https://raw.githubusercontent.com/hilke1010/akrtakip/main/ge.png", width=150)
+        st.info("Bu harita, sadece **GÜZEL ENERJİ**'nin rakiplerini geçerek 1. sırada olduğu bölgeleri gösterir.")
+        
+        HERO = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
+        
+        # --- 1. İL BAZINDA LİDERLİK ANALİZİ ---
+        # Önce illere göre grupla ve lideri bul
+        city_stats = df.groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
+        idx = city_stats.groupby(['İl'])['Adet'].transform(max) == city_stats['Adet']
+        leaders = city_stats[idx]
+        
+        # Sadece Güzel Enerji'nin lider olduğu illeri filtrele
+        hero_leaders = leaders[leaders['Dağıtım Şirketi'] == HERO].copy()
+        
+        col_map, col_table = st.columns([2, 1])
+        
+        with col_map:
+            if not hero_leaders.empty:
+                # Koordinatları ekle
+                hero_leaders['lat'] = hero_leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
+                hero_leaders['lon'] = hero_leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
+                
+                # Harita Katmanı (Yeşil Parlayan Noktalar)
+                layer = pdk.Layer(
+                    "ScatterplotLayer",
+                    hero_leaders,
+                    get_position='[lon, lat]',
+                    get_color='[0, 255, 0, 160]', # Yeşil
+                    get_radius=20000,
+                    pickable=True,
+                )
+                
+                tooltip_hero = {
+                    "html": "<b>{İl}</b><br/>Lider Adet: {Adet}",
+                    "style": {"backgroundColor": "green", "color": "white"}
+                }
+                
+                view_state = pdk.ViewState(latitude=39.0, longitude=35.0, zoom=5)
+                r = pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip=tooltip_hero)
+                st.pydeck_chart(r)
+                
+                st.success(f"🦁 Toplam **{len(hero_leaders)}** ilde pazar liderisiniz!")
+            else:
+                st.warning("Şu an hiçbir ilde liderlik (1. sıra) görünmüyor.")
+
+        # --- 2. İLÇE BAZINDA LİDERLİK LİSTESİ (TABLO) ---
+        with col_table:
+            st.markdown("### 🏘️ İlçe Krallıkları")
+            st.caption("Aşağıdaki ilçelerde rakiplerden daha fazla istasyona sahipsiniz.")
+            
+            # İlçe bazında analiz
+            if 'İlçe' in df.columns:
+                # 1. İlçe bazlı toplam istasyon sayıları (Bağlam için)
+                district_totals = df.groupby(['İl', 'İlçe']).size().reset_index(name='Ilce_Toplam')
+
+                # 2. İlçe ve Şirket bazlı kırılım
+                dist_stats = df.groupby(['İl', 'İlçe', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
+                
+                # 3. Her ilçedeki MAX sayıyı bul
+                max_counts = dist_stats.groupby(['İl', 'İlçe'])['Adet'].transform('max')
+                
+                # 4. Sadece MAX sayıya sahip olanları filtrele (Liderler)
+                leaders_all = dist_stats[dist_stats['Adet'] == max_counts]
+                
+                # 5. Aynı ilçede kaç tane lider var? (1 ise Tek Lider, >1 ise Paylaşıyor)
+                leader_counts = leaders_all.groupby(['İl', 'İlçe']).size().reset_index(name='Lider_Sayisi')
+                
+                # 6. Güzel Enerji'nin lider olduğu yerleri çek (Adet == Max olanlar)
+                hero_potential = dist_stats[(dist_stats['Dağıtım Şirketi'] == HERO) & (dist_stats['Adet'] == max_counts)].copy()
+                
+                if not hero_potential.empty:
+                    # Durum bilgisini eklemek için merge yapıyoruz
+                    hero_potential = pd.merge(hero_potential, leader_counts, on=['İl', 'İlçe'], how='left')
+                    hero_potential = pd.merge(hero_potential, district_totals, on=['İl', 'İlçe'], how='left')
+                    
+                    # Durum sütunu
+                    hero_potential['Durum'] = np.where(
+                        hero_potential['Lider_Sayisi'] > 1, 
+                        "⚠️ LİDERLİĞİ PAYLAŞIYOR", 
+                        "🏆 TEK LİDER"
+                    )
+                    
+                    # Gerekli sütunları seç ve sırala
+                    final_table = hero_potential[['İl', 'İlçe', 'Adet', 'Ilce_Toplam', 'Durum']].sort_values(['Adet', 'İl'], ascending=False)
+                    final_table.columns = ['İl', 'İlçe', 'G.E Adet', 'Toplam İstasyon', 'Durum']
+
+                    st.dataframe(
+                        final_table, 
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                else:
+                    st.info("İlçe bazında liderlik bulunamadı.")
+            else:
+                st.info("Veride İlçe bilgisi yok.")
+
+    # 3. TAKVİM
+    with tabs[2]:
         st.subheader("📅 Takvim")
         st.caption("👇 **Grafikteki sütunlara tıklayarak aşağıdaki tabloyu filtreleyebilirsiniz.**")
         
@@ -643,8 +751,8 @@ def main():
                 
                 show_details_table(filtered_table, target_date_col)
 
-    # 3. İL HAKİMİYET HARİTASI (LOGO) - DETAYLI TOOLTIP VERSİYON
-    with tabs[2]:
+    # 4. İL HAKİMİYET HARİTASI (LOGO) - DETAYLI TOOLTIP VERSİYON
+    with tabs[3]:
         st.subheader("🦁 İl Hakimiyet Haritası (Lider Markalar)")
         st.info("💡  Her ilin lider markasını gösterir. Üzerine gelince detayları görebilirsin.")
         
@@ -767,8 +875,9 @@ def main():
             
         else:
             st.warning("Veri yok.")
-    # 4. HIZLI ANALİZ (INDEX KAYDI)
-    with tabs[3]:
+            
+    # 5. HIZLI ANALİZ
+    with tabs[4]:
         st.subheader("⚡ Hızlı Analiz")
         df_tab2 = create_tab_filters(df, "tab2")
         
@@ -808,8 +917,8 @@ def main():
         else:
             st.warning("Veri yok.")
 
-    # 5. KARŞILAŞTIRMA
-    with tabs[4]:
+    # 6. KARŞILAŞTIRMA
+    with tabs[5]:
         st.subheader("⚔️ Rakip Karşılaştırma")
         df_tab3 = create_tab_filters(df, "tab3")
         
@@ -831,8 +940,8 @@ def main():
                             x='İl', y='Adet', color='Dağıtım Şirketi', barmode='group')
             st.plotly_chart(fig_vs, use_container_width=True)
 
-    # 6. İL KARNESİ
-    with tabs[5]:
+    # 7. İL KARNESİ
+    with tabs[6]:
         st.subheader("📄 İl Karnesi (360° Analiz)")
         
         all_provinces = sorted(df['İl'].unique().tolist())
@@ -898,8 +1007,8 @@ def main():
                         
                     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    # 7. İLÇE PENETRASYONU
-    with tabs[6]:
+    # 8. İLÇE PENETRASYONU
+    with tabs[7]:
         st.subheader("📍 İlçe Analizi")
         df_dist = create_tab_filters(df, "tab7")
         if not df_dist.empty:
@@ -948,8 +1057,8 @@ def main():
             else:
                 st.success("Tebrikler! Seçili bölgedeki tüm ilçelerde varlık gösteriyorsunuz.")
 
-    # 8. YARIÇAP ANALİZİ [NEW]
-    with tabs[7]:
+    # 9. YARIÇAP ANALİZİ [NEW]
+    with tabs[8]:
         st.subheader("📍 Yarıçap (Radar) Analizi")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         
@@ -992,8 +1101,8 @@ def main():
         else:
             st.warning("Veri yok.")
 
-    # 9. ROTA PLANLAYICI [NEW]
-    with tabs[8]:
+    # 10. ROTA PLANLAYICI [NEW]
+    with tabs[9]:
         st.subheader("🚗 Akıllı Rota Planlayıcı")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         
@@ -1037,8 +1146,8 @@ def main():
         else:
              st.warning("Veri yok.")
 
-    # 10. ROBO-YÖNETİCİ [NEW]
-    with tabs[9]:
+    # 11. ROBO-YÖNETİCİ [NEW]
+    with tabs[10]:
         st.subheader("🤖 Robo-Yönetici: Stratejik İstihbarat Raporu (40+ Nokta)")
         st.info("💡 Bu rapor, seçili filtredeki pazar durumunu **GÜZEL ENERJİ AKARYAKIT A.Ş.** perspektifinden, İl ve İlçe kalelerini ayrıştırarak analiz eder.")
         
@@ -1253,8 +1362,8 @@ def main():
         else:
             st.warning("Rapor oluşturmak için lütfen yukarıdan en az bir filtre seçimi yapın.")
 
-    # 11. VERGİ ZİNCİR ANALİZİ [NEW]
-    with tabs[10]:
+    # 12. VERGİ ZİNCİR ANALİZİ [NEW]
+    with tabs[11]:
         st.subheader("💸 Vergi Zincir Haritası (Holding/Grup Analizi)")
         st.info("💡 Bu ekran, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları listeler.")
         
@@ -1332,8 +1441,8 @@ def main():
             else:
                 st.warning("Veri yok.")
 
-    # 12. DETAYLI ARAMA [NEW]
-    with tabs[11]:
+    # 13. DETAYLI ARAMA [NEW]
+    with tabs[12]:
         st.subheader("🔍 Detaylı Arama & Bayi Kimlik Kartı")
         st.info("💡 Aşağıdaki kutudan bayi seçimi yapın, sistem tüm bilgileri sizin için derlesin.")
         
@@ -1421,20 +1530,6 @@ def main():
                 
                 st.divider()
                 st.success("📜 **Lisans Durumu:** AKTİF")
-
-    # 13. SİMÜLASYON
-    with tabs[12]:
-        st.subheader("🔮 Simülasyon")
-        df_sim = create_tab_filters(df, "tab4")
-        all_comp = sorted(df['Dağıtım Şirketi'].dropna().unique().tolist())
-        c1, c2 = st.columns(2)
-        my_c = c1.selectbox("Sizin Şirket", all_comp, index=0)
-        tar_c = c2.selectbox("Hedef Rakip", [x for x in all_comp if x != my_c])
-        rate = st.slider("Kazanma Oranı (%)", 0, 100, 10)
-        curr = len(df_sim[df_sim['Dağıtım Şirketi'] == my_c])
-        tgt = len(df_sim[df_sim['Dağıtım Şirketi'] == tar_c])
-        gain = int(tgt * rate / 100)
-        st.metric("Yeni Toplam", curr + gain, delta=f"+{gain}")
 
 if __name__ == "__main__":
     main()
