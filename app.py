@@ -9,6 +9,7 @@ import time
 import math
 import networkx as nx
 import pydeck as pdk
+import random
 from datetime import datetime, timedelta, date
 from plotly.subplots import make_subplots
 
@@ -21,85 +22,96 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎬 YENİ: VERİ AKIŞI ANİMASYONU (SPLASH SCREEN)
+# 🎬 YENİ: SİNEMATİK AÇILIŞ ANİMASYONU (PRO)
 # ==========================================
-def show_matrix_loading_animation(df):
+def show_cinematic_intro(df):
     """
-    Sayfa ilk yüklendiğinde verilerin aktığı, sayıların sayıldığı
-    profesyonel bir yükleme ekranı gösterir.
+    Kullanıcının isteği üzerine:
+    1. 'Sisteme Bağlanılıyor' (2 sn sabit)
+    2. Kritik verilerin seri geçişi (3 sn flaş efektli)
     """
-    # Eğer daha önce gösterildiyse tekrar gösterme (Filtrelerde çalışmasın)
-    if 'splash_shown' not in st.session_state:
-        st.session_state['splash_shown'] = False
+    # Session state kontrolü (Sadece ilk açılışta çalışsın)
+    if 'intro_shown' not in st.session_state:
+        st.session_state['intro_shown'] = False
     
-    if st.session_state['splash_shown']:
+    if st.session_state['intro_shown']:
         return
 
-    # Verileri hazırla
-    total_recs = len(df)
-    total_comps = df['Dağıtım Şirketi'].nunique()
+    # Gerçek verileri hesapla (Animasyonda kullanacağız)
+    total_stations = len(df)
+    total_companies = df['Dağıtım Şirketi'].nunique()
+    total_cities = df['İl'].nunique()
     
-    # Boş bir alan yarat (Tüm ekranı kaplayacak)
     placeholder = st.empty()
     
-    # CSS ile Siyah Arka Plan ve Matrix Stili Yazı
-    # Adım Adım Veri Akışı Animasyonu
+    # --- CSS TASARIMI (MATRIX / TERMINAL TARZI) ---
+    st.markdown("""
+    <style>
+    .intro-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+        background-color: #000000; z-index: 999999;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        font-family: 'Courier New', monospace; letter-spacing: 2px;
+    }
+    .main-text {
+        font-size: 2.5em; font-weight: 900; color: #00ff41;
+        text-shadow: 0 0 10px #00ff41;
+        text-transform: uppercase;
+        margin-bottom: 20px;
+    }
+    .sub-text {
+        font-size: 1.2em; color: #ffffff; opacity: 0.8;
+    }
+    .blink { animation: blinker 1s linear infinite; }
+    @keyframes blinker { 50% { opacity: 0; } }
     
-    # 1. Aşama: Bağlantı
+    /* Hızlı veri akış efekti için */
+    .data-flash {
+        font-size: 3em; font-weight: bold; color: #00ff41;
+        text-shadow: 0 0 20px #00ff41;
+        animation: popIn 0.2s ease-out;
+    }
+    @keyframes popIn {
+        0% { transform: scale(0.5); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # --- AŞAMA 1: SİSTEME BAĞLANILIYOR (2 SANİYE) ---
     with placeholder.container():
         st.markdown("""
-        <style>
-        .loading-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
-            background-color: #0e1117; z-index: 99999;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-family: 'Courier New', monospace; color: #00ff41;
-        }
-        .loading-text { font-size: 2em; font-weight: bold; animation: pulse 1s infinite; }
-        .data-stream { font-size: 1.2em; color: #ffffff; margin-top: 10px; }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
-        </style>
-        <div class="loading-screen">
-            <div class="loading-text">🔌 SİSTEME BAĞLANILIYOR...</div>
+        <div class="intro-overlay">
+            <div class="main-text blink">🔌 SİSTEME BAĞLANILIYOR...</div>
+            <div class="sub-text">GÜVENLİ HAT OLUŞTURULUYOR</div>
         </div>
         """, unsafe_allow_html=True)
-        time.sleep(0.7)
+        time.sleep(2.0) # Tam 2 saniye bekle
 
-    # 2. Aşama: Veri Sayma (Hızlı artış efekti simülasyonu)
-    for i in range(0, total_recs, int(total_recs/5)):
+    # --- AŞAMA 2: VERİLERİN SERİ GEÇİŞİ (3 SANİYE TOPLAM) ---
+    # Sırayla gösterilecek veriler
+    sequence = [
+        ("📂 VERİ TABANI OKUNDU", f"{total_stations:,} İSTASYON"),
+        ("🏢 REKABET ANALİZİ", f"{total_companies} DAĞITIM ŞİRKETİ"),
+        ("🌍 COĞRAFİ KAPSAM", f"{total_cities} İL TARANDI"),
+        ("✅ YETKİ KONTROLÜ", "ERİŞİM ONAYLANDI")
+    ]
+    
+    step_time = 3.0 / len(sequence) # 3 saniyeyi adım sayısına böl
+
+    for title, value in sequence:
         with placeholder.container():
             st.markdown(f"""
-            <div class="loading-screen">
-                <div class="loading-text">📂 VERİ TABANI OKUNUYOR</div>
-                <div class="data-stream">İşlenen Kayıt: {i:,} / {total_recs:,}</div>
+            <div class="intro-overlay">
+                <div class="sub-text">{title}</div>
+                <div class="data-flash">{value}</div>
             </div>
             """, unsafe_allow_html=True)
-            time.sleep(0.1) # Çok hızlı akış
+            time.sleep(step_time)
 
-    # 3. Aşama: Şirket Analizi
-    with placeholder.container():
-        st.markdown(f"""
-        <div class="loading-screen">
-            <div class="loading-text">🏢 REKABET ANALİZİ</div>
-            <div class="data-stream">Tespit Edilen Şirket: {total_comps} Adet</div>
-            <div class="data-stream" style="color:#f1c40f;">Pazar Payları Hesaplanıyor...</div>
-        </div>
-        """, unsafe_allow_html=True)
-        time.sleep(0.8)
-
-    # 4. Aşama: Harita ve Bitiş
-    with placeholder.container():
-        st.markdown(f"""
-        <div class="loading-screen">
-            <div class="loading-text" style="color:white;">✅ HAZIR</div>
-            <div class="data-stream">Coğrafi Katmanlar Yüklendi.</div>
-        </div>
-        """, unsafe_allow_html=True)
-        time.sleep(0.5)
-
-    # Temizle ve bayrağı işaretle
+    # Temizle ve bayrağı kaldır
     placeholder.empty()
-    st.session_state['splash_shown'] = True
+    st.session_state['intro_shown'] = True
 
 
 # --- HAVERSINE (MESAFE HESAPLAMA) FONKSİYONU ---
@@ -126,8 +138,8 @@ def get_file_last_modified(file_path):
         return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
     except: return "TARİH ALINAMADI"
 
-# --- GİRİŞ ANİMASYONU (KUTUCUK) ---
-def show_intro_animation():
+# --- GİRİŞ ANİMASYONU (KUTUCUK) - BU ARTIK 2. SIRADA ÇIKACAK ---
+def show_intro_animation_box():
     if 'intro_played_box' not in st.session_state: st.session_state['intro_played_box'] = False
     if st.session_state['intro_played_box']: return
     placeholder = st.empty()
@@ -156,7 +168,7 @@ PREVIEW_ROW_LIMIT = 100
 SABIT_DOSYA_ADI = "asatis.xlsx"
 
 # ==============================================================================
-# 🔥 GÜNCELLENMİŞ CSS: HOVER EFEKTLERİ EKLENDİ
+# 🔥 CSS: HOVER EFEKTLERİ VE STİL AYARLARI
 # ==============================================================================
 st.markdown("""
 <style>
@@ -467,11 +479,11 @@ def main():
         st.stop()
     df, target_date_col, start_date_col = data_result
 
-    # 🔥 YENİ: SPLASH SCREEN'I ÇAĞIR (VERİ YÜKLENDİKTEN HEMEN SONRA)
-    show_matrix_loading_animation(df)
+    # 🔥 YENİ: SİNEMATİK AÇILIŞ ANİMASYONU (PRO)
+    show_cinematic_intro(df)
 
     # ... Sonra normal akış devam eder ...
-    show_intro_animation()
+    show_intro_animation_box()
 
     # --- DUYURU (AÇILIŞ ANİMASYONU ALTINA EKLE) ---
     st.markdown("""
