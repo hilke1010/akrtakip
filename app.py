@@ -155,9 +155,40 @@ MAX_MAP_POINTS = 50000
 PREVIEW_ROW_LIMIT = 100
 SABIT_DOSYA_ADI = "asatis.xlsx"
 
+# ==============================================================================
+# 🔥 GÜNCELLENMİŞ CSS: HOVER EFEKTLERİ EKLENDİ
+# ==============================================================================
 st.markdown("""
 <style>
-    .stMetric { background-color: #f0f2f6; border-left: 5px solid #2980b9; padding: 15px; border-radius: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
+    /* --- KPI KUTULARI (stMetric) HOVER EFEKTİ --- */
+    .stMetric { 
+        background-color: #f0f2f6; 
+        border-left: 5px solid #2980b9; 
+        padding: 15px; 
+        border-radius: 5px; 
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+        transition: all 0.3s ease-in-out; /* Yumuşak geçiş */
+    }
+    .stMetric:hover {
+        transform: scale(1.05); /* %5 Büyüme */
+        box-shadow: 0 10px 20px rgba(41, 128, 185, 0.4); /* Mavi parlama efekti */
+        border-left-color: #3498db; /* Kenarlık rengini aç */
+        background-color: #eef6fc; /* Arka planı hafif aç */
+        z-index: 10; /* Diğerlerinin üstüne çıksın */
+    }
+
+    /* --- SEKMELER (MENÜLER) HOVER EFEKTİ --- */
+    button[data-testid="stTab"] {
+        transition: all 0.3s ease;
+    }
+    button[data-testid="stTab"]:hover {
+        transform: scale(1.05); /* Hafif büyüme */
+        background-color: #f8f9fa !important; /* Hafif arka plan değişimi */
+        color: #2980b9 !important; /* Yazı rengi değişimi */
+        font-weight: bold;
+    }
+
+    /* --- DİĞER CSS KURALLARI --- */
     .crm-box { background-color: #fff9c4; padding: 10px; border-radius: 5px; border: 1px solid #fbc02d; margin-bottom: 10px; }
     .warning-box { padding: 1rem; background-color: #ffeba0; border-left: 6px solid #ffa500; color: #5c3a00; border-radius: 4px; font-weight: bold; }
     .year-box { background-color: #e8f4f8; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #b3e5fc; margin-bottom: 5px; }
@@ -207,7 +238,13 @@ st.markdown("""
         padding: 20px;
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         font-family: sans-serif;
+        transition: transform 0.3s ease; /* ROBO KARTLARINA DA HOVER EKLEYELİM */
     }
+    .robo-card:hover {
+        transform: translateY(-5px); /* Hafif yukarı kalksın */
+        box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+    }
+
     .dealer-header {
         border-bottom: 2px solid #3498db;
         padding-bottom: 10px;
@@ -231,6 +268,7 @@ st.markdown("""
     .robo-highlight { font-weight: bold; color: #d35400; }
 </style>
 """, unsafe_allow_html=True)
+# ==============================================================================
 
 # --- KOORDİNAT VERİTABANI ---
 CITY_COORDINATES = {
