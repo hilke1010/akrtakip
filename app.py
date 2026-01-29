@@ -595,52 +595,76 @@ def main():
 
     # 1. BÖLGESEL & DURUM
    # 1. BÖLGESEL & DURUM
-    # 1. BÖLGESEL & DURUM
     with tabs[0]:
-        st.subheader("🔥 Bölgesel Yoğunluk (Isı Analizi)")
+        st.subheader("🗺️ Bölgesel Yoğunluk (Bubble Map)")
+        
+        # Filtreleri çağır
         df_tab1 = create_tab_filters(df, "tab1")
         
         if not df_tab1.empty:
-            # Veriyi hazırla
+            # Harita verisi
             map_data = df_tab1.copy()
-            # Koordinatları ekle
             map_data['lat'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
             map_data['lon'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
             
-            # --- ISI HARİTASI KATMANI ---
+            # --- VIEW STATE (TÜRKİYE'YE KİLİTLEME AYARLARI) ---
+            view_state = pdk.ViewState(
+                latitude=39.0, 
+                longitude=35.0, 
+                zoom=5,         # Başlangıç zoom
+                min_zoom=4.5,   # Daha fazla uzaklaşamaz (Türkiye ekranda kalır)
+                max_zoom=10,    # Çok dibe giremez (Kaybolmayı önler)
+                pitch=0,        # Dümdüz görünüm (3D değil)
+                bearing=0
+            )
+
+            # --- KATMAN: ŞEFFAF BALONCUKLAR ---
+            # Üst üste binince renk koyulaşır, yoğunluk belli olur.
             layer = pdk.Layer(
-                "HeatmapLayer",
+                "ScatterplotLayer",
                 data=map_data,
                 get_position='[lon, lat]',
-                opacity=0.8,
-                get_weight=1, # Her istasyon 1 ağırlık
-                aggregation="SUM",
-                threshold=0.1, # Yoğunluk hassasiyeti
-                radiusPixels=50, # Parlama yarıçapı
-                # Renk: Mavi -> Yeşil -> Sarı -> Kırmızı (Ateş gibi)
-                color_range=[
-                    [65, 182, 196],
-                    [127, 205, 187],
-                    [237, 248, 177],
-                    [253, 174, 97],
-                    [215, 25, 28] 
-                ]
+                get_radius=8000,      # Daire büyüklüğü (metre cinsinden)
+                get_fill_color=[52, 152, 219, 100], # Mavi renk, %40 Opaklık (Şeffaf)
+                get_line_color=[255, 255, 255, 150], # Beyaz ince kenarlık
+                stroked=True,         # Kenarlık olsun
+                filled=True,          # İçi dolu olsun
+                line_width_min_pixels=1, # Kenarlık kalınlığı
+                pickable=True,        # Tıklanabilir
             )
 
-            # Harita Başlangıç Pozisyonu
-            view_state = pdk.ViewState(
-                latitude=39.0, longitude=35.0, zoom=5.2, pitch=0
-            )
+            # Tooltip: Üzerine gelince ne yazsın?
+            tooltip = {
+                "html": "<b>{İl}</b><br>{Dağıtım Şirketi}<br><i>{İlçe}</i>",
+                "style": {"backgroundColor": "white", "color": "#2c3e50", "border": "1px solid #eee"}
+            }
 
-            # --- KOYU TEMA (PARLAMASI İÇİN ŞART) ---
+            # Haritayı Çiz (CARTO_LIGHT: Temiz, aydınlık, kurumsal tema)
             r = pdk.Deck(
                 layers=[layer],
                 initial_view_state=view_state,
-                map_style=pdk.map_styles.CARTO_DARK, # Koyu Mod
-                tooltip={"html": "<b>Bölgesel Yoğunluk</b>", "style": {"color": "white"}}
+                map_style=pdk.map_styles.CARTO_LIGHT, 
+                tooltip=tooltip
             )
             
             st.pydeck_chart(r)
+
+            # --- ALTTAKİ GRAFİKLER (Aynı kalıyor) ---
+            st.divider()
+            col_pie1, col_pie2 = st.columns(2)
+            with col_pie1:
+                st.metric("Seçili Bayi Sayısı", len(df_tab1))
+                city_pie = df_tab1['İl'].value_counts().reset_index()
+                city_pie.columns = ['İl', 'Adet']
+                fig_cp = px.pie(city_pie, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı")
+                st.plotly_chart(fig_cp, use_container_width=True)
+            with col_pie2:
+                dist_pie = df_tab1['Dağıtım Şirketi'].value_counts().reset_index()
+                dist_pie.columns = ['Dağıtım Şirketi', 'Adet']
+                fig_dp = px.pie(dist_pie, values='Adet', names='Dağıtım Şirketi', hole=0.4, title="Pazar Payı")
+                st.plotly_chart(fig_dp, use_container_width=True)
+            
+            show_details_table(df_tab1, target_date_col)
 
             # ... Alt kısımdaki pasta grafik kodların aynı kalabilir ...
         st.divider()
@@ -1571,5 +1595,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
