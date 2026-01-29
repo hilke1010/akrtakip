@@ -594,29 +594,64 @@ def main():
     ])
 
     # 1. BÖLGESEL & DURUM
+   # 1. BÖLGESEL & DURUM
     with tabs[0]:
-        st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
-        st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
+        st.subheader("🗺️ Bölgesel Yoğunluk (3D Analiz)")
         df_tab1 = create_tab_filters(df, "tab1")
         
-        if len(df_tab1) > MAX_MAP_POINTS:
-            st.warning("⚠️ Haritada çok fazla nokta var, lütfen filtreleyin.")
-        elif not df_tab1.empty:
-            map_data = df_tab1['İl'].value_counts().reset_index()
-            map_data.columns = ['İl', 'Adet']
-            map_data['lat'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[0])
-            map_data['lon'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[1])
-            map_data = map_data.dropna()
+        if not df_tab1.empty:
+            # Veriyi hazırla
+            map_data = df_tab1.copy()
+            # Koordinatları garantile
+            map_data['lat'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
+            map_data['lon'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
+            
+            # --- 3D HEXAGON KATMANI (NEON EFEKTLİ) ---
+            layer = pdk.Layer(
+                "HexagonLayer",
+                data=map_data,
+                get_position='[lon, lat]',
+                radius=15000, # Altıgen genişliği (metre) - Şehir bazlı olduğu için büyük tuttum
+                elevation_scale=100, # Yükseklik çarpanı
+                elevation_range=[0, 3000],
+                extruded=True, # 3 Boyutlu olsun
+                pickable=True,
+                coverage=1,
+                # Renk Skalası (Mor -> Mavi -> Turkuaz -> Sarı -> Kırmızı)
+                color_range=[
+                    [255, 255, 178],
+                    [254, 204, 92],
+                    [253, 141, 60],
+                    [240, 59, 32],
+                    [189, 0, 38]
+                ],
+            )
 
-            if not map_data.empty:
-                fig_map = px.scatter_mapbox(
-                    map_data, lat="lat", lon="lon", size="Adet", color="Adet",
-                    hover_name="İl", size_max=35, zoom=5, 
-                    mapbox_style="open-street-map", color_continuous_scale=px.colors.sequential.Bluered
-                )
-                fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
-                st.plotly_chart(fig_map, use_container_width=True)
+            # Harita Açısı (Hafif yatık, sinematik)
+            view_state = pdk.ViewState(
+                latitude=39.0,
+                longitude=35.0,
+                zoom=5,
+                pitch=45, # Haritayı 45 derece yatırıyoruz (3D görünsün diye)
+                bearing=0
+            )
 
+            # Tooltip
+            tooltip = {
+                "html": "<b>Koordinat Yoğunluğu:</b> {elevationValue} İstasyon",
+                "style": {"backgroundColor": "#212121", "color": "white"}
+            }
+
+            r = pdk.Deck(
+                layers=[layer],
+                initial_view_state=view_state,
+                map_style=pdk.map_styles.CARTO_DARK, # KARANLIK MOD (Çok önemli!)
+                tooltip=tooltip
+            )
+            
+            st.pydeck_chart(r)
+
+            # ... Alt kısımdaki pasta grafik kodların aynı kalabilir ...
         st.divider()
         col_pie1, col_pie2 = st.columns(2)
         with col_pie1:
@@ -1545,3 +1580,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
