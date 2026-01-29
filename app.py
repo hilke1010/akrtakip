@@ -595,58 +595,49 @@ def main():
 
     # 1. BÖLGESEL & DURUM
    # 1. BÖLGESEL & DURUM
+    # 1. BÖLGESEL & DURUM
     with tabs[0]:
-        st.subheader("🗺️ Bölgesel Yoğunluk (3D Analiz)")
+        st.subheader("🔥 Bölgesel Yoğunluk (Isı Analizi)")
         df_tab1 = create_tab_filters(df, "tab1")
         
         if not df_tab1.empty:
             # Veriyi hazırla
             map_data = df_tab1.copy()
-            # Koordinatları garantile
+            # Koordinatları ekle
             map_data['lat'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
             map_data['lon'] = map_data['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
             
-            # --- 3D HEXAGON KATMANI (NEON EFEKTLİ) ---
+            # --- ISI HARİTASI KATMANI ---
             layer = pdk.Layer(
-                "HexagonLayer",
+                "HeatmapLayer",
                 data=map_data,
                 get_position='[lon, lat]',
-                radius=15000, # Altıgen genişliği (metre) - Şehir bazlı olduğu için büyük tuttum
-                elevation_scale=100, # Yükseklik çarpanı
-                elevation_range=[0, 3000],
-                extruded=True, # 3 Boyutlu olsun
-                pickable=True,
-                coverage=1,
-                # Renk Skalası (Mor -> Mavi -> Turkuaz -> Sarı -> Kırmızı)
+                opacity=0.8,
+                get_weight=1, # Her istasyon 1 ağırlık
+                aggregation="SUM",
+                threshold=0.1, # Yoğunluk hassasiyeti
+                radiusPixels=50, # Parlama yarıçapı
+                # Renk: Mavi -> Yeşil -> Sarı -> Kırmızı (Ateş gibi)
                 color_range=[
-                    [255, 255, 178],
-                    [254, 204, 92],
-                    [253, 141, 60],
-                    [240, 59, 32],
-                    [189, 0, 38]
-                ],
+                    [65, 182, 196],
+                    [127, 205, 187],
+                    [237, 248, 177],
+                    [253, 174, 97],
+                    [215, 25, 28] 
+                ]
             )
 
-            # Harita Açısı (Hafif yatık, sinematik)
+            # Harita Başlangıç Pozisyonu
             view_state = pdk.ViewState(
-                latitude=39.0,
-                longitude=35.0,
-                zoom=5,
-                pitch=45, # Haritayı 45 derece yatırıyoruz (3D görünsün diye)
-                bearing=0
+                latitude=39.0, longitude=35.0, zoom=5.2, pitch=0
             )
 
-            # Tooltip
-            tooltip = {
-                "html": "<b>Koordinat Yoğunluğu:</b> {elevationValue} İstasyon",
-                "style": {"backgroundColor": "#212121", "color": "white"}
-            }
-
+            # --- KOYU TEMA (PARLAMASI İÇİN ŞART) ---
             r = pdk.Deck(
                 layers=[layer],
                 initial_view_state=view_state,
-                map_style=pdk.map_styles.CARTO_DARK, # KARANLIK MOD (Çok önemli!)
-                tooltip=tooltip
+                map_style=pdk.map_styles.CARTO_DARK, # Koyu Mod
+                tooltip={"html": "<b>Bölgesel Yoğunluk</b>", "style": {"color": "white"}}
             )
             
             st.pydeck_chart(r)
@@ -1580,4 +1571,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
