@@ -8,23 +8,8 @@ import io
 import time
 import math
 import networkx as nx
-import pydeck as pdk
-import random
 from datetime import datetime, timedelta, date
-from plotly.subplots import make_subplots
-import streamlit as st
 
-st.set_page_config(page_title="Uygulamanın Adı", layout="wide")
-
-# Hamburger menüyü ve footer'ı gizleyen CSS kodu
-hide_menu_style = """
-    <style>
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    </style>
-    """
-st.markdown(hide_menu_style, unsafe_allow_html=True)
 # --- 1. SAYFA VE GENEL AYARLAR ---
 st.set_page_config(
     page_title="EPDK Akaryakıt Pazar Analizi",
@@ -32,99 +17,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-
-# ==========================================
-# 🎬 YENİ: SİNEMATİK AÇILIŞ ANİMASYONU (PRO)
-# ==========================================
-def show_cinematic_intro(df):
-    """
-    Kullanıcının isteği üzerine:
-    1. 'Veri Analiz Ediliyor' (2 sn sabit)
-    2. Kritik verilerin seri geçişi (3 sn flaş efektli)
-    """
-    # Session state kontrolü (Sadece ilk açılışta çalışsın)
-    if 'intro_shown' not in st.session_state:
-        st.session_state['intro_shown'] = False
-    
-    if st.session_state['intro_shown']:
-        return
-
-    # Gerçek verileri hesapla (Animasyonda kullanacağız)
-    total_stations = len(df)
-    total_companies = df['Dağıtım Şirketi'].nunique()
-    total_cities = df['İl'].nunique()
-    
-    placeholder = st.empty()
-    
-    # --- CSS TASARIMI (MATRIX / TERMINAL TARZI) ---
-    st.markdown("""
-    <style>
-    .intro-overlay {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
-        background-color: #000000; z-index: 999999;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        font-family: 'Courier New', monospace; letter-spacing: 2px;
-    }
-    .main-text {
-        font-size: 2.5em; font-weight: 900; color: #00ff41;
-        text-shadow: 0 0 10px #00ff41;
-        text-transform: uppercase;
-        margin-bottom: 20px;
-    }
-    .sub-text {
-        font-size: 1.2em; color: #ffffff; opacity: 0.8;
-    }
-    .blink { animation: blinker 1s linear infinite; }
-    @keyframes blinker { 50% { opacity: 0; } }
-    
-    /* Hızlı veri akış efekti için */
-    .data-flash {
-        font-size: 3em; font-weight: bold; color: #00ff41;
-        text-shadow: 0 0 20px #00ff41;
-        animation: popIn 0.2s ease-out;
-    }
-    @keyframes popIn {
-        0% { transform: scale(0.5); opacity: 0; }
-        100% { transform: scale(1); opacity: 1; }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # --- AŞAMA 1: SİSTEME BAĞLANILIYOR (2 SANİYE) ---
-    with placeholder.container():
-        st.markdown("""
-        <div class="intro-overlay">
-            <div class="main-text blink">🔌 VERİ ANALİZ EDİLİYOR...</div>
-            <div class="sub-text">GÜVENLİ HAT OLUŞTURULUYOR</div>
-        </div>
-        """, unsafe_allow_html=True)
-        time.sleep(2.0) # Tam 2 saniye bekle
-
-    # --- AŞAMA 2: VERİLERİN SERİ GEÇİŞİ (3 SANİYE TOPLAM) ---
-    # Sırayla gösterilecek veriler
-    sequence = [
-        ("📂 VERİ TABANI OKUNDU", f"{total_stations:,} İSTASYON"),
-        ("🏢 REKABET ANALİZİ", f"{total_companies} DAĞITIM ŞİRKETİ"),
-        ("🌍 COĞRAFİ KAPSAM", f"{total_cities} İL TARANDI"),
-        ("✅ YETKİ KONTROLÜ", "ERİŞİM ONAYLANDI")
-    ]
-    
-    step_time = 3.0 / len(sequence) # 3 saniyeyi adım sayısına böl
-
-    for title, value in sequence:
-        with placeholder.container():
-            st.markdown(f"""
-            <div class="intro-overlay">
-                <div class="sub-text">{title}</div>
-                <div class="data-flash">{value}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            time.sleep(step_time)
-
-    # Temizle ve bayrağı kaldır
-    placeholder.empty()
-    st.session_state['intro_shown'] = True
-
 
 # --- HAVERSINE (MESAFE HESAPLAMA) FONKSİYONU ---
 def haversine(lat1, lon1, lat2, lon2):
@@ -150,10 +42,10 @@ def get_file_last_modified(file_path):
         return f"{turkey_time.day} {month_name} {turkey_time.year} SAAT {turkey_time.strftime('%H:%M')}"
     except: return "TARİH ALINAMADI"
 
-# --- GİRİŞ ANİMASYONU (KUTUCUK) - BU ARTIK 2. SIRADA ÇIKACAK ---
-def show_intro_animation_box():
-    if 'intro_played_box' not in st.session_state: st.session_state['intro_played_box'] = False
-    if st.session_state['intro_played_box']: return
+# --- GİRİŞ ANİMASYONU ---
+def show_intro_animation():
+    if 'intro_played' not in st.session_state: st.session_state['intro_played'] = False
+    if st.session_state['intro_played']: return
     placeholder = st.empty()
     with placeholder.container():
         st.markdown("""
@@ -171,7 +63,7 @@ def show_intro_animation_box():
 """, unsafe_allow_html=True)
         time.sleep(1.5)
     placeholder.empty()
-    st.session_state['intro_played_box'] = True
+    st.session_state['intro_played'] = True
 
 # --- AYARLAR VE CSS ---
 MAX_ROW_DISPLAY = 1000
@@ -179,40 +71,9 @@ MAX_MAP_POINTS = 50000
 PREVIEW_ROW_LIMIT = 100
 SABIT_DOSYA_ADI = "asatis.xlsx"
 
-# ==============================================================================
-# 🔥 CSS: HOVER EFEKTLERİ VE STİL AYARLARI
-# ==============================================================================
 st.markdown("""
 <style>
-    /* --- KPI KUTULARI (stMetric) HOVER EFEKTİ --- */
-    .stMetric { 
-        background-color: #f0f2f6; 
-        border-left: 5px solid #2980b9; 
-        padding: 15px; 
-        border-radius: 5px; 
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
-        transition: all 0.3s ease-in-out; /* Yumuşak geçiş */
-    }
-    .stMetric:hover {
-        transform: scale(1.05); /* %5 Büyüme */
-        box-shadow: 0 10px 20px rgba(41, 128, 185, 0.4); /* Mavi parlama efekti */
-        border-left-color: #3498db; /* Kenarlık rengini aç */
-        background-color: #eef6fc; /* Arka planı hafif aç */
-        z-index: 10; /* Diğerlerinin üstüne çıksın */
-    }
-
-    /* --- SEKMELER (MENÜLER) HOVER EFEKTİ --- */
-    button[data-testid="stTab"] {
-        transition: all 0.3s ease;
-    }
-    button[data-testid="stTab"]:hover {
-        transform: scale(1.05); /* Hafif büyüme */
-        background-color: #f8f9fa !important; /* Hafif arka plan değişimi */
-        color: #2980b9 !important; /* Yazı rengi değişimi */
-        font-weight: bold;
-    }
-
-    /* --- DİĞER CSS KURALLARI --- */
+    .stMetric { background-color: #f0f2f6; border-left: 5px solid #2980b9; padding: 15px; border-radius: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
     .crm-box { background-color: #fff9c4; padding: 10px; border-radius: 5px; border: 1px solid #fbc02d; margin-bottom: 10px; }
     .warning-box { padding: 1rem; background-color: #ffeba0; border-left: 6px solid #ffa500; color: #5c3a00; border-radius: 4px; font-weight: bold; }
     .year-box { background-color: #e8f4f8; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #b3e5fc; margin-bottom: 5px; }
@@ -230,33 +91,14 @@ st.markdown("""
         50% { opacity: 0.5; color: #ff2b2b; }
     }
     
-    /* --- YEŞİL YANIP SÖNME EFEKTİ (YENİ HARİTA İÇİN) --- */
-    @keyframes blinker-green {
-        50% { opacity: 0.5; color: #28a745; }
-    }
-
-    /* 4. SEKME (İL LİDERLERİ - YENİ SIRADA 4. OLDU) - YEŞİL */
-    button[data-testid="stTab"]:nth-child(4) p {
-        color: #28a745 !important;
-        font-weight: 800 !important;
-        animation: blinker-green 1.5s linear infinite;
-    }
+    /* YENİ SIRALAMAYA GÖRE KIRMIZI YANIP SÖNECEK SEKMELER [NEW Olanlar] */
+    /* 1 tabanlı indeksleme: 7, 8, 9, 10, 11. sekmeler */
     
-    /* 2. SEKME GÜZEL ENERJİ LİDERLİĞİ (YENİ YERİ) */
-    button[data-testid="stTab"]:nth-child(2) p {
-        color: #28a745 !important;
-        font-weight: 900 !important;
-        text-transform: uppercase;
-        border-bottom: 2px solid #28a745;
-    }
-
-    /* DİĞER NEW OLANLAR - KIRMIZI */
-    /* İndeksler kaydığı için güncellendi */
-    button[data-testid="stTab"]:nth-child(9) p, /* Yarıçap */
-    button[data-testid="stTab"]:nth-child(10) p, /* Rota */
-    button[data-testid="stTab"]:nth-child(11) p, /* Robo */
-    button[data-testid="stTab"]:nth-child(12) p, /* Vergi */
-    button[data-testid="stTab"]:nth-child(13) p { /* Detaylı Arama */
+    button[data-testid="stTab"]:nth-child(7) p, /* Yarıçap */
+    button[data-testid="stTab"]:nth-child(8) p, /* Rota */
+    button[data-testid="stTab"]:nth-child(9) p, /* Robo */
+    button[data-testid="stTab"]:nth-child(10) p, /* Vergi */
+    button[data-testid="stTab"]:nth-child(11) p { /* Detaylı Arama */
         color: #ff2b2b !important;
         font-weight: 800 !important;
         animation: blinker-red 1.5s linear infinite;
@@ -270,13 +112,7 @@ st.markdown("""
         padding: 20px;
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         font-family: sans-serif;
-        transition: transform 0.3s ease; /* ROBO KARTLARINA DA HOVER EKLEYELİM */
     }
-    .robo-card:hover {
-        transform: translateY(-5px); /* Hafif yukarı kalksın */
-        box-shadow: 0 8px 16px rgba(0,0,0,0.15);
-    }
-
     .dealer-header {
         border-bottom: 2px solid #3498db;
         padding-bottom: 10px;
@@ -300,7 +136,6 @@ st.markdown("""
     .robo-highlight { font-weight: bold; color: #d35400; }
 </style>
 """, unsafe_allow_html=True)
-# ==============================================================================
 
 # --- KOORDİNAT VERİTABANI ---
 CITY_COORDINATES = {
@@ -333,30 +168,13 @@ CITY_COORDINATES = {
     "KİLİS": [36.7184, 37.1212], "OSMANİYE": [37.0742, 36.2467], "DÜZCE": [40.8438, 31.1565]
 }
 
-# --- BÖLGE TANIMLARI (YENİLENMİŞ ŞİRKET ÖZEL LİSTESİ) ---
+# --- BÖLGE TANIMLARI ---
 BOLGE_TANIMLARI = {
     "Orta Anadolu": [
-        "ANKARA", "KONYA", "KAYSERİ", "ESKİŞEHİR", "YOZGAT", "KASTAMONU", 
-        "ZONGULDAK", "KARABÜK", "KIRIKKALE", "AFYONKARAHİSAR", "KIRŞEHİR", 
-        "NİĞDE", "NEVŞEHİR", "ÇANKIRI", "AKSARAY", "DÜZCE", "BOLU", "BARTIN"
-    ],
-    "Marmara": [
-        "İSTANBUL", "BURSA", "BALIKESİR", "SAKARYA", "TEKİRDAĞ", "KOCAELİ", 
-        "EDİRNE", "ÇANAKKALE", "KIRKLARELİ", "BİLECİK", "YALOVA"
-    ],
-    "Ege": [
-        "İZMİR", "ANTALYA", "MANİSA", "AYDIN", "DENİZLİ", "MUĞLA", 
-        "KÜTAHYA", "ISPARTA", "BURDUR", "UŞAK"
-    ],
-    "Karadeniz": [
-        "SAMSUN", "TRABZON", "ORDU", "SİVAS", "TOKAT", "ERZURUM", "ÇORUM", 
-        "GİRESUN", "AMASYA", "RİZE", "KARS", "SİNOP", "AĞRI", "ERZİNCAN", 
-        "ARTVİN", "BAYBURT", "GÜMÜŞHANE", "IĞDIR", "ARDAHAN", "TUNCELİ"
-    ],
-    "Güneydoğu": [
-        "ADANA", "GAZİANTEP", "MERSİN", "ŞANLIURFA", "DİYARBAKIR", "HATAY", 
-        "KAHRAMANMARAŞ", "MALATYA", "MARDİN", "BATMAN", "ELAZIĞ", "ADIYAMAN", 
-        "VAN", "OSMANİYE", "ŞIRNAK", "MUŞ", "BİTLİS", "SİİRT", "KARAMAN", "KİLİS"
+        "DÜZCE", "KARABÜK", "KONYA", "BOLU", "AFYONKARAHİSAR",
+        "AKSARAY", "ESKİŞEHİR", "ANKARA", "KIRIKKALE", "KASTAMONU",
+        "ÇANKIRI", "YOZGAT", "KIRŞEHİR", "KAYSERİ", "NEVŞEHİR",
+        "NİĞDE", "ZONGULDAK", "BARTIN"
     ]
 }
 
@@ -492,46 +310,12 @@ def create_tab_filters(df, key_prefix):
 
 # --- ANA UYGULAMA ---
 def main():
-    # VERİYİ YÜKLE
+    show_intro_animation()
     data_result = load_data(SABIT_DOSYA_ADI)
     if data_result is None or data_result[0] is None:
         st.error(f"⚠️ Hata: {data_result[1] if data_result else 'Veri Yüklenemedi'}")
         st.stop()
     df, target_date_col, start_date_col = data_result
-
-    # 🔥 YENİ: SİNEMATİK AÇILIŞ ANİMASYONU (PRO)
-    show_cinematic_intro(df)
-
-    # ... Sonra normal akış devam eder ...
-    show_intro_animation_box()
-
-    # --- DUYURU (AÇILIŞ ANİMASYONU ALTINA EKLE) ---
-    st.markdown("""
-    <style>
-        @keyframes glowing {
-            0% { background-color: #2ecc71; box-shadow: 0 0 5px #2ecc71; transform: scale(1); }
-            50% { background-color: #27ae60; box-shadow: 0 0 20px #2ecc71; transform: scale(1.02); }
-            100% { background-color: #2ecc71; box-shadow: 0 0 5px #2ecc71; transform: scale(1); }
-        }
-        .duyuru-kutusu {
-            padding: 20px;
-            color: white;
-            text-align: center;
-            font-size: 22px;
-            font-weight: bold;
-            border-radius: 15px;
-            margin-bottom: 25px;
-            border: 2px solid white;
-            animation: glowing 1.5s infinite alternate; /* YANIP SÖNME EFEKTİ */
-        }
-    </style>
-    
-    <div class="duyuru-kutusu">
-        📢 BÖLGE FİLTRESİNE TÜM BÖLGELER EKLENMİŞTİR!🌍✅ <br>
-        <span style="font-size:0.7em; font-weight:normal;">(Mobilden Ulaşım Geliştirilmiştir!)</span>
-    </div>
-    """, unsafe_allow_html=True)
-    
     
     # ----------------------------------------------------
     # 🛠️ KOORDİNAT SİMÜLASYONU (JITTER)
@@ -575,13 +359,10 @@ def main():
     c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
     st.divider()
 
-    # --- SEKMELER ---
-    # G.E Liderlik 2. Sıraya Taşındı (İndex 1)
+    # --- SEKMELER (GÖRSELE GÖRE YENİDEN SIRALANDI) ---
     tabs = st.tabs([
         "📊 Bölgesel & Durum",
-        "🌟 G.E LİDERLİK", 
         "📅 Takvim",
-        "🦁 İl Liderleri [NEW]",  
         "⚡ Hızlı Analiz",
         "⚔️ Karşılaştırma",
         "📄 İl Karnesi",
@@ -590,7 +371,9 @@ def main():
         "🚗 Rota Planlayıcı [NEW]",
         "🤖 Robo-Yönetici [NEW]",
         "💸 Vergi Zincir Analizi [NEW]",
-        "🔍 Detaylı Arama [NEW]"
+        "🔍 Detaylı Arama [NEW]",
+        "🔮 Simülasyon",
+        "📡 Sözleşme Radar"
     ])
 
     # 1. BÖLGESEL & DURUM
@@ -633,107 +416,8 @@ def main():
         
         show_details_table(df_tab1, target_date_col)
 
-    # 2. GÜZEL ENERJİ LİDERLİĞİ [MOVED AND UPDATED]
+    # 2. TAKVİM
     with tabs[1]:
-        st.subheader("🌟 Güzel Enerji Liderlik Haritası (İl & İlçe Krallıkları)")
-        st.image("https://raw.githubusercontent.com/hilke1010/akrtakip/main/ge.png", width=150)
-        st.info("Bu harita, sadece **GÜZEL ENERJİ**'nin rakiplerini geçerek 1. sırada olduğu bölgeleri gösterir.")
-        
-        HERO = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ"
-        
-        # --- 1. İL BAZINDA LİDERLİK ANALİZİ ---
-        # Önce illere göre grupla ve lideri bul
-        city_stats = df.groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
-        idx = city_stats.groupby(['İl'])['Adet'].transform(max) == city_stats['Adet']
-        leaders = city_stats[idx]
-        
-        # Sadece Güzel Enerji'nin lider olduğu illeri filtrele
-        hero_leaders = leaders[leaders['Dağıtım Şirketi'] == HERO].copy()
-        
-        col_map, col_table = st.columns([2, 1])
-        
-        with col_map:
-            if not hero_leaders.empty:
-                # Koordinatları ekle
-                hero_leaders['lat'] = hero_leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
-                hero_leaders['lon'] = hero_leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
-                
-                # Harita Katmanı (Yeşil Parlayan Noktalar)
-                layer = pdk.Layer(
-                    "ScatterplotLayer",
-                    hero_leaders,
-                    get_position='[lon, lat]',
-                    get_color='[0, 255, 0, 160]', # Yeşil
-                    get_radius=20000,
-                    pickable=True,
-                )
-                
-                tooltip_hero = {
-                    "html": "<b>{İl}</b><br/>Lider Adet: {Adet}",
-                    "style": {"backgroundColor": "green", "color": "white"}
-                }
-                
-                view_state = pdk.ViewState(latitude=39.0, longitude=35.0, zoom=5)
-                r = pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip=tooltip_hero)
-                st.pydeck_chart(r)
-                
-                st.success(f"🦁 Toplam **{len(hero_leaders)}** ilde pazar liderisiniz!")
-            else:
-                st.warning("Şu an hiçbir ilde liderlik (1. sıra) görünmüyor.")
-
-        # --- 2. İLÇE BAZINDA LİDERLİK LİSTESİ (TABLO) ---
-        with col_table:
-            st.markdown("### 🏘️ İlçe Krallıkları")
-            st.caption("Aşağıdaki ilçelerde rakiplerden daha fazla istasyona sahipsiniz.")
-            
-            # İlçe bazında analiz
-            if 'İlçe' in df.columns:
-                # 1. İlçe bazlı toplam istasyon sayıları (Bağlam için)
-                district_totals = df.groupby(['İl', 'İlçe']).size().reset_index(name='Ilce_Toplam')
-
-                # 2. İlçe ve Şirket bazlı kırılım
-                dist_stats = df.groupby(['İl', 'İlçe', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
-                
-                # 3. Her ilçedeki MAX sayıyı bul
-                max_counts = dist_stats.groupby(['İl', 'İlçe'])['Adet'].transform('max')
-                
-                # 4. Sadece MAX sayıya sahip olanları filtrele (Liderler)
-                leaders_all = dist_stats[dist_stats['Adet'] == max_counts]
-                
-                # 5. Aynı ilçede kaç tane lider var? (1 ise Tek Lider, >1 ise Paylaşıyor)
-                leader_counts = leaders_all.groupby(['İl', 'İlçe']).size().reset_index(name='Lider_Sayisi')
-                
-                # 6. Güzel Enerji'nin lider olduğu yerleri çek (Adet == Max olanlar)
-                hero_potential = dist_stats[(dist_stats['Dağıtım Şirketi'] == HERO) & (dist_stats['Adet'] == max_counts)].copy()
-                
-                if not hero_potential.empty:
-                    # Durum bilgisini eklemek için merge yapıyoruz
-                    hero_potential = pd.merge(hero_potential, leader_counts, on=['İl', 'İlçe'], how='left')
-                    hero_potential = pd.merge(hero_potential, district_totals, on=['İl', 'İlçe'], how='left')
-                    
-                    # Durum sütunu
-                    hero_potential['Durum'] = np.where(
-                        hero_potential['Lider_Sayisi'] > 1, 
-                        "⚠️ LİDERLİĞİ PAYLAŞIYOR", 
-                        "🏆 TEK LİDER"
-                    )
-                    
-                    # Gerekli sütunları seç ve sırala
-                    final_table = hero_potential[['İl', 'İlçe', 'Adet', 'Ilce_Toplam', 'Durum']].sort_values(['Adet', 'İl'], ascending=False)
-                    final_table.columns = ['İl', 'İlçe', 'G.E Adet', 'Toplam İstasyon', 'Durum']
-
-                    st.dataframe(
-                        final_table, 
-                        use_container_width=True,
-                        hide_index=True
-                    )
-                else:
-                    st.info("İlçe bazında liderlik bulunamadı.")
-            else:
-                st.info("Veride İlçe bilgisi yok.")
-
-    # 3. TAKVİM
-    with tabs[2]:
         st.subheader("📅 Takvim")
         st.caption("👇 **Grafikteki sütunlara tıklayarak aşağıdaki tabloyu filtreleyebilirsiniz.**")
         
@@ -763,133 +447,8 @@ def main():
                 
                 show_details_table(filtered_table, target_date_col)
 
-    # 4. İL HAKİMİYET HARİTASI (LOGO) - DETAYLI TOOLTIP VERSİYON
-    with tabs[3]:
-        st.subheader("🦁 İl Hakimiyet Haritası (Lider Markalar)")
-        st.info("💡  Her ilin lider markasını gösterir. Üzerine gelince detayları görebilirsin.")
-        
-        # --- GITHUB ADRESİN ---
-        LOGO_URL_BASLANGIC = "https://raw.githubusercontent.com/hilke1010/akrtakip/main/"
-        
-        # Dosya Eşleştirmeleri
-        LOGO_MAP = {
-            "OPET": "opet.png",
-            "SHELL": "shell.png",
-            "PETROL OFİSİ": "po.png",
-            "GÜZEL ENERJİ": "ge.png",
-            "BP": "bp.png",
-            "TOTAL": "total.png",
-            "AYGAZ": "aygaz.png",
-            "İPRAGAZ": "ipragaz.png",
-            "MİLANGAZ": "milangaz.png",
-            "TP": "tp.png"
-        }
-        
-        DEFAULT_LOGO = "https://img.icons8.com/color/48/gas-station.png" 
-        HERO_COMPANY = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ" # Senin Şirketin Tam Adı
-
-        # --- VERİ HAZIRLIĞI ---
-        df_dom = create_tab_filters(df, "tab_dominance")
-        
-        if not df_dom.empty:
-            # 1. Her ildeki LİDERİ ve SAYISINI bul
-            city_stats = df_dom.groupby(['İl', 'Dağıtım Şirketi']).size().reset_index(name='Adet')
-            idx = city_stats.groupby(['İl'])['Adet'].transform(max) == city_stats['Adet']
-            leaders = city_stats[idx].drop_duplicates(subset=['İl']).copy()
-            
-            # --- YENİ EKLENEN HESAPLAMALAR ---
-            
-            # A. Her ildeki TOPLAM istasyon sayısı
-            total_per_city = df_dom.groupby('İl').size().reset_index(name='Toplam_Istasyon')
-            leaders = pd.merge(leaders, total_per_city, on='İl', how='left')
-            
-            # B. Her ildeki GÜZEL ENERJİ istasyon sayısı
-            ge_per_city = df_dom[df_dom['Dağıtım Şirketi'] == HERO_COMPANY].groupby('İl').size().reset_index(name='GE_Istasyon')
-            leaders = pd.merge(leaders, ge_per_city, on='İl', how='left')
-            
-            # Güzel Enerji'nin hiç olmadığı illerde NaN gelir, onları 0 yapalım
-            leaders['GE_Istasyon'] = leaders['GE_Istasyon'].fillna(0).astype(int)
-            
-            # ---------------------------------
-
-            # 2. Koordinatları Ekle
-            leaders['lat'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
-            leaders['lon'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
-            
-            # 3. İKON PAKETLEME
-            def create_icon_data(company_name):
-                url = DEFAULT_LOGO
-                comp_upper = str(company_name).upper()
-                for key, filename in LOGO_MAP.items():
-                    if key in comp_upper:
-                        url = LOGO_URL_BASLANGIC + filename
-                        break
-                return {
-                    "url": url,
-                    "width": 242,
-                    "height": 242,
-                    "anchorY": 242
-                }
-
-            leaders['icon_data'] = leaders['Dağıtım Şirketi'].apply(create_icon_data)
-            
-            # --- HARİTA ÇİZİMİ ---
-            view_state = pdk.ViewState(
-                latitude=39.0,
-                longitude=35.0,
-                zoom=5.5,
-                pitch=0
-            )
-
-            icon_layer = pdk.Layer(
-                type="IconLayer",
-                data=leaders,
-                get_icon="icon_data",
-                get_position='[lon, lat]',
-                get_size=30,      
-                size_scale=1,     
-                pickable=True,
-            )
-
-            # --- TOOLTIP GÜNCELLEMESİ BURADA ---
-            tooltip = {
-                "html": """
-                <div style='font-family: sans-serif; font-size: 14px; padding: 5px;'>
-                    <b>📍 {İl}</b><br/><hr>
-                    👑 <b>Lider:</b> {Dağıtım Şirketi} ({Adet})<br/>
-                    🦁 <b>Güzel Enerji:</b> {GE_Istasyon}<br/>
-                    📊 <b>İl Toplamı:</b> {Toplam_Istasyon}
-                </div>
-                """,
-                "style": {"backgroundColor": "#2c3e50", "color": "white", "borderRadius": "5px"}
-            }
-
-            r = pdk.Deck(
-                map_style=None,
-                initial_view_state=view_state,
-                layers=[icon_layer],
-                tooltip=tooltip
-            )
-
-            st.pydeck_chart(r)
-            
-            # --- ALT TABLO ---
-            st.markdown("### 🏆 İl Liderleri Listesi")
-            # Tabloyu da zenginleştirelim
-            display_table = leaders[['İl', 'Dağıtım Şirketi', 'Adet', 'GE_Istasyon', 'Toplam_Istasyon']].sort_values('Adet', ascending=False)
-            display_table.columns = ['İl', 'Lider Marka', 'Lider Adet', 'Güzel Enerji Adet', 'İl Toplam']
-            
-            st.dataframe(
-                display_table,
-                use_container_width=True,
-                hide_index=True
-            )
-            
-        else:
-            st.warning("Veri yok.")
-            
-    # 5. HIZLI ANALİZ
-    with tabs[4]:
+    # 3. HIZLI ANALİZ
+    with tabs[2]:
         st.subheader("⚡ Hızlı Analiz")
         df_tab2 = create_tab_filters(df, "tab2")
         
@@ -929,8 +488,8 @@ def main():
         else:
             st.warning("Veri yok.")
 
-    # 6. KARŞILAŞTIRMA
-    with tabs[5]:
+    # 4. KARŞILAŞTIRMA
+    with tabs[3]:
         st.subheader("⚔️ Rakip Karşılaştırma")
         df_tab3 = create_tab_filters(df, "tab3")
         
@@ -952,8 +511,8 @@ def main():
                             x='İl', y='Adet', color='Dağıtım Şirketi', barmode='group')
             st.plotly_chart(fig_vs, use_container_width=True)
 
-    # 7. İL KARNESİ
-    with tabs[6]:
+    # 5. İL KARNESİ
+    with tabs[4]:
         st.subheader("📄 İl Karnesi (360° Analiz)")
         
         all_provinces = sorted(df['İl'].unique().tolist())
@@ -1019,8 +578,8 @@ def main():
                         
                     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    # 8. İLÇE PENETRASYONU
-    with tabs[7]:
+    # 6. İLÇE PENETRASYONU
+    with tabs[5]:
         st.subheader("📍 İlçe Analizi")
         df_dist = create_tab_filters(df, "tab7")
         if not df_dist.empty:
@@ -1069,8 +628,8 @@ def main():
             else:
                 st.success("Tebrikler! Seçili bölgedeki tüm ilçelerde varlık gösteriyorsunuz.")
 
-    # 9. YARIÇAP ANALİZİ [NEW]
-    with tabs[8]:
+    # 7. YARIÇAP ANALİZİ [NEW]
+    with tabs[6]:
         st.subheader("📍 Yarıçap (Radar) Analizi")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         
@@ -1113,8 +672,8 @@ def main():
         else:
             st.warning("Veri yok.")
 
-    # 10. ROTA PLANLAYICI [NEW]
-    with tabs[9]:
+    # 8. ROTA PLANLAYICI [NEW]
+    with tabs[7]:
         st.subheader("🚗 Akıllı Rota Planlayıcı")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         
@@ -1158,8 +717,8 @@ def main():
         else:
              st.warning("Veri yok.")
 
-    # 11. ROBO-YÖNETİCİ [NEW]
-    with tabs[10]:
+    # 9. ROBO-YÖNETİCİ [NEW]
+    with tabs[8]:
         st.subheader("🤖 Robo-Yönetici: Stratejik İstihbarat Raporu (40+ Nokta)")
         st.info("💡 Bu rapor, seçili filtredeki pazar durumunu **GÜZEL ENERJİ AKARYAKIT A.Ş.** perspektifinden, İl ve İlçe kalelerini ayrıştırarak analiz eder.")
         
@@ -1374,8 +933,8 @@ def main():
         else:
             st.warning("Rapor oluşturmak için lütfen yukarıdan en az bir filtre seçimi yapın.")
 
-    # 12. VERGİ ZİNCİR ANALİZİ [NEW]
-    with tabs[11]:
+    # 10. VERGİ ZİNCİR ANALİZİ [NEW]
+    with tabs[9]:
         st.subheader("💸 Vergi Zincir Haritası (Holding/Grup Analizi)")
         st.info("💡 Bu ekran, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları listeler.")
         
@@ -1453,8 +1012,8 @@ def main():
             else:
                 st.warning("Veri yok.")
 
-    # 13. DETAYLI ARAMA [NEW]
-    with tabs[12]:
+    # 11. DETAYLI ARAMA [NEW]
+    with tabs[10]:
         st.subheader("🔍 Detaylı Arama & Bayi Kimlik Kartı")
         st.info("💡 Aşağıdaki kutudan bayi seçimi yapın, sistem tüm bilgileri sizin için derlesin.")
         
@@ -1542,6 +1101,32 @@ def main():
                 
                 st.divider()
                 st.success("📜 **Lisans Durumu:** AKTİF")
+
+    # 12. SİMÜLASYON
+    with tabs[11]:
+        st.subheader("🔮 Simülasyon")
+        df_sim = create_tab_filters(df, "tab4")
+        all_comp = sorted(df['Dağıtım Şirketi'].dropna().unique().tolist())
+        c1, c2 = st.columns(2)
+        my_c = c1.selectbox("Sizin Şirket", all_comp, index=0)
+        tar_c = c2.selectbox("Hedef Rakip", [x for x in all_comp if x != my_c])
+        rate = st.slider("Kazanma Oranı (%)", 0, 100, 10)
+        curr = len(df_sim[df_sim['Dağıtım Şirketi'] == my_c])
+        tgt = len(df_sim[df_sim['Dağıtım Şirketi'] == tar_c])
+        gain = int(tgt * rate / 100)
+        st.metric("Yeni Toplam", curr + gain, delta=f"+{gain}")
+
+    # 13. SÖZLEŞME RADAR
+    with tabs[12]:
+        st.subheader("📡 Sözleşme Radar")
+        df_rad = create_tab_filters(df, "tab6")
+        if 'Sozlesme_Suresi_Gun' in df_rad.columns:
+            risk = df_rad[(df_rad['Sozlesme_Suresi_Gun'] < 90) & (df_rad['Sozlesme_Suresi_Gun'] >= 0)]
+            if not risk.empty:
+                st.error(f"{len(risk)} Kritik Kayıt!")
+                show_details_table(risk, target_date_col)
+            else:
+                st.success("Riskli kayıt yok.")
 
 if __name__ == "__main__":
     main()
