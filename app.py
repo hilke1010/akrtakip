@@ -14,24 +14,7 @@ from datetime import datetime, timedelta, date
 from plotly.subplots import make_subplots
 import streamlit as st
 
-st.set_page_config(page_title="Uygulamanın Adı", layout="wide")
 
-# Hamburger menüyü ve footer'ı gizleyen CSS kodu
-hide_menu_style = """
-    <style>
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    </style>
-    """
-st.markdown(hide_menu_style, unsafe_allow_html=True)
-# --- 1. SAYFA VE GENEL AYARLAR ---
-st.set_page_config(
-    page_title="EPDK Akaryakıt Pazar Analizi",
-    page_icon="⛽",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
 
 # ==========================================
 # 🎬 YENİ: SİNEMATİK AÇILIŞ ANİMASYONU (PRO)
@@ -1545,4 +1528,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
