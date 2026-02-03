@@ -1,3 +1,5 @@
+ŞÖYLE KODUM VAR NASIL GELİŞTİREBİLİRSİN HER ZAMAN BANA TÜM KODU AT VE GEÇ AÇILIYOR MESELA 2026 OCAK TIKLIYORUM BEYAZ EKRANDA KALIYOR GEÇ GELİYOR 
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -12,8 +14,6 @@ import pydeck as pdk
 import random
 from datetime import datetime, timedelta, date
 from plotly.subplots import make_subplots
-
-st.set_page_config(page_title="Uygulamanın Adı", layout="wide")
 
 # Hamburger menüyü ve footer'ı gizleyen CSS kodu
 hide_menu_style = """
@@ -177,6 +177,8 @@ MAX_ROW_DISPLAY = 1000
 MAX_MAP_POINTS = 50000
 PREVIEW_ROW_LIMIT = 100
 SABIT_DOSYA_ADI = "asatis.xlsx"
+ENABLE_INTRO = False
+ENABLE_INTRO_BOX = False
 
 # ==============================================================================
 # 🔥 CSS: HOVER EFEKTLERİ VE STİL AYARLARI
@@ -499,10 +501,12 @@ def main():
     df, target_date_col, start_date_col = data_result
 
     # 🔥 YENİ: SİNEMATİK AÇILIŞ ANİMASYONU (PRO)
-    show_cinematic_intro(df)
+    if ENABLE_INTRO:
+        show_cinematic_intro(df)
 
     # ... Sonra normal akış devam eder ...
-    show_intro_animation_box()
+    if ENABLE_INTRO_BOX:
+        show_intro_animation_box()
 
     # --- DUYURU (AÇILIŞ ANİMASYONU ALTINA EKLE) ---
     st.markdown("""
@@ -576,7 +580,7 @@ def main():
 
     # --- SEKMELER ---
     # G.E Liderlik 2. Sıraya Taşındı (İndex 1)
-    tabs = st.tabs([
+    TAB_LABELS = [
         "📊 Bölgesel & Durum",
         "🌟 G.E LİDERLİK", 
         "📅 Takvim",
@@ -590,10 +594,12 @@ def main():
         "🤖 Robo-Yönetici [NEW]",
         "💸 Vergi Zincir Analizi [NEW]",
         "🔍 Detaylı Arama [NEW]"
-    ])
+    ]
+    active_tab = st.radio("Menu", TAB_LABELS, horizontal=True, key="main_tabs")
+
 
     # 1. BÖLGESEL & DURUM
-    with tabs[0]:
+    if active_tab == TAB_LABELS[0]:
         st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         df_tab1 = create_tab_filters(df, "tab1")
@@ -633,7 +639,7 @@ def main():
         show_details_table(df_tab1, target_date_col)
 
     # 2. GÜZEL ENERJİ LİDERLİĞİ [MOVED AND UPDATED]
-    with tabs[1]:
+    if active_tab == TAB_LABELS[1]:
         st.subheader("🌟 Güzel Enerji Liderlik Haritası (İl & İlçe Krallıkları)")
         st.image("https://raw.githubusercontent.com/hilke1010/akrtakip/main/ge.png", width=150)
         st.info("Bu harita, sadece **GÜZEL ENERJİ**'nin rakiplerini geçerek 1. sırada olduğu bölgeleri gösterir.")
@@ -732,7 +738,7 @@ def main():
                 st.info("Veride İlçe bilgisi yok.")
 
     # 3. TAKVİM
-    with tabs[2]:
+    if active_tab == TAB_LABELS[2]:
         st.subheader("📅 Takvim")
         st.caption("👇 **Grafikteki sütunlara tıklayarak aşağıdaki tabloyu filtreleyebilirsiniz.**")
         
@@ -763,7 +769,7 @@ def main():
                 show_details_table(filtered_table, target_date_col)
 
     # 4. İL HAKİMİYET HARİTASI (LOGO) - DETAYLI TOOLTIP VERSİYON
-    with tabs[3]:
+    if active_tab == TAB_LABELS[3]:
         st.subheader("🦁 İl Hakimiyet Haritası (Lider Markalar)")
         st.info("💡  Her ilin lider markasını gösterir. Üzerine gelince detayları görebilirsin.")
         
@@ -888,7 +894,7 @@ def main():
             st.warning("Veri yok.")
             
     # 5. HIZLI ANALİZ
-    with tabs[4]:
+    if active_tab == TAB_LABELS[4]:
         st.subheader("⚡ Hızlı Analiz")
         df_tab2 = create_tab_filters(df, "tab2")
         
@@ -929,7 +935,7 @@ def main():
             st.warning("Veri yok.")
 
     # 6. KARŞILAŞTIRMA
-    with tabs[5]:
+    if active_tab == TAB_LABELS[5]:
         st.subheader("⚔️ Rakip Karşılaştırma")
         df_tab3 = create_tab_filters(df, "tab3")
         
@@ -952,7 +958,7 @@ def main():
             st.plotly_chart(fig_vs, use_container_width=True)
 
     # 7. İL KARNESİ
-    with tabs[6]:
+    if active_tab == TAB_LABELS[6]:
         st.subheader("📄 İl Karnesi (360° Analiz)")
         
         all_provinces = sorted(df['İl'].unique().tolist())
@@ -1019,7 +1025,7 @@ def main():
                     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
     # 8. İLÇE PENETRASYONU
-    with tabs[7]:
+    if active_tab == TAB_LABELS[7]:
         st.subheader("📍 İlçe Analizi")
         df_dist = create_tab_filters(df, "tab7")
         if not df_dist.empty:
@@ -1069,7 +1075,7 @@ def main():
                 st.success("Tebrikler! Seçili bölgedeki tüm ilçelerde varlık gösteriyorsunuz.")
 
     # 9. YARIÇAP ANALİZİ [NEW]
-    with tabs[8]:
+    if active_tab == TAB_LABELS[8]:
         st.subheader("📍 Yarıçap (Radar) Analizi")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         
@@ -1113,7 +1119,7 @@ def main():
             st.warning("Veri yok.")
 
     # 10. ROTA PLANLAYICI [NEW]
-    with tabs[9]:
+    if active_tab == TAB_LABELS[9]:
         st.subheader("🚗 Akıllı Rota Planlayıcı")
         st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
         
@@ -1158,7 +1164,7 @@ def main():
              st.warning("Veri yok.")
 
     # 11. ROBO-YÖNETİCİ [NEW]
-    with tabs[10]:
+    if active_tab == TAB_LABELS[10]:
         st.subheader("🤖 Robo-Yönetici: Stratejik İstihbarat Raporu (40+ Nokta)")
         st.info("💡 Bu rapor, seçili filtredeki pazar durumunu **GÜZEL ENERJİ AKARYAKIT A.Ş.** perspektifinden, İl ve İlçe kalelerini ayrıştırarak analiz eder.")
         
@@ -1374,7 +1380,7 @@ def main():
             st.warning("Rapor oluşturmak için lütfen yukarıdan en az bir filtre seçimi yapın.")
 
     # 12. VERGİ ZİNCİR ANALİZİ [NEW]
-    with tabs[11]:
+    if active_tab == TAB_LABELS[11]:
         st.subheader("💸 Vergi Zincir Haritası (Holding/Grup Analizi)")
         st.info("💡 Bu ekran, **aynı Vergi Numarasına (VKN)** sahip olan ve toplam istasyon sayısı **8'den fazla** olan dev zincirleri/grupları listeler.")
         
@@ -1453,7 +1459,7 @@ def main():
                 st.warning("Veri yok.")
 
     # 13. DETAYLI ARAMA [NEW]
-    with tabs[12]:
+    if active_tab == TAB_LABELS[12]:
         st.subheader("🔍 Detaylı Arama & Bayi Kimlik Kartı")
         st.info("💡 Aşağıdaki kutudan bayi seçimi yapın, sistem tüm bilgileri sizin için derlesin.")
         
@@ -1544,4 +1550,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
