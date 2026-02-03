@@ -15,6 +15,26 @@ import random
 from datetime import datetime, timedelta, date
 from plotly.subplots import make_subplots
 
+# --- HARITA STİLİ (PRO) ---
+def style_mapbox(fig, center=None, zoom=None):
+    fig.update_layout(
+        template="plotly_white",
+        margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        mapbox_style="carto-positron",
+        hovermode="closest",
+        hoverlabel=dict(
+            bgcolor="#0f172a",
+            font_color="#f8fafc",
+            bordercolor="#38bdf8",
+            font_size=12
+        ),
+    )
+    if center is not None:
+        fig.update_layout(mapbox_center=center)
+    if zoom is not None:
+        fig.update_layout(mapbox_zoom=zoom)
+    return fig
+
 # Hamburger menüyü ve footer'ı gizleyen CSS kodu
 hide_menu_style = """
     <style>
@@ -185,6 +205,31 @@ ENABLE_INTRO_BOX = False
 # ==============================================================================
 st.markdown("""
 <style>
+    /* --- PRO HEADER / SECTION --- */
+    .pro-title {
+        font-size: 1.35em;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        color: #0b1f3a;
+    }
+    .pro-sub {
+        color: #4b5b6a;
+        font-size: 0.95em;
+    }
+    .pro-glow {
+        background: linear-gradient(120deg, #f6f9fc, #eef5ff, #f8fbff);
+        border: 1px solid #e1e8f0;
+        border-radius: 14px;
+        padding: 14px 16px;
+        box-shadow: 0 6px 18px rgba(12, 24, 38, 0.08);
+        animation: softPulse 6s ease-in-out infinite;
+    }
+    @keyframes softPulse {
+        0% { box-shadow: 0 6px 18px rgba(12,24,38,0.08); }
+        50% { box-shadow: 0 10px 24px rgba(21,64,110,0.16); }
+        100% { box-shadow: 0 6px 18px rgba(12,24,38,0.08); }
+    }
+
     /* --- KPI KUTULARI (stMetric) HOVER EFEKTİ --- */
     .stMetric { 
         background-color: #f0f2f6; 
@@ -299,6 +344,37 @@ st.markdown("""
     .robo-list { list-style-type: none; padding: 0; margin: 0; }
     .robo-list li { margin-bottom: 8px; font-size: 1em; padding-left: 10px; border-left: 3px solid #eee; }
     .robo-highlight { font-weight: bold; color: #d35400; }
+
+    /* --- KPI KARTLARI (CUSTOM) --- */
+    .kpi-card {
+        background: linear-gradient(135deg, #f8fafc, #eef2ff);
+        border: 1px solid #e2e8f0;
+        border-left: 6px solid #2563eb;
+        border-radius: 12px;
+        padding: 16px 18px;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
+        transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 14px 28px rgba(37, 99, 235, 0.25);
+        border-color: #60a5fa;
+    }
+    .kpi-title { font-size: 0.95em; color: #475569; font-weight: 700; letter-spacing: 0.3px; }
+    .kpi-value { font-size: 2.0em; color: #0f172a; font-weight: 900; margin-top: 4px; }
+    .kpi-delta { font-size: 0.9em; margin-top: 6px; font-weight: 700; }
+
+    .kpi-blue { border-left-color: #2563eb; }
+    .kpi-blue .kpi-delta { color: #2563eb; }
+
+    .kpi-green { border-left-color: #16a34a; }
+    .kpi-green .kpi-delta { color: #16a34a; }
+
+    .kpi-red { border-left-color: #dc2626; }
+    .kpi-red .kpi-delta { color: #dc2626; }
+
+    .kpi-amber { border-left-color: #f59e0b; }
+    .kpi-amber .kpi-delta { color: #f59e0b; }
 </style>
 """, unsafe_allow_html=True)
 # ==============================================================================
@@ -362,6 +438,19 @@ BOLGE_TANIMLARI = {
 }
 
 if 'crm_notes' not in st.session_state: st.session_state.crm_notes = {}
+
+def render_kpi_card(title, value, delta=None, tone="blue"):
+    delta_html = f"<div class='kpi-delta'>{delta}</div>" if delta else ""
+    st.markdown(
+        f"""
+        <div class="kpi-card kpi-{tone}">
+            <div class="kpi-title">{title}</div>
+            <div class="kpi-value">{value}</div>
+            {delta_html}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # --- VERİ YÜKLEME ---
 @st.cache_data
@@ -572,10 +661,13 @@ def main():
 
     # --- KPI ---
     c1, c2, c3 = st.columns(3)
-    c1.metric("Toplam Veri Tabanı", f"{len(df):,}")
-    c2.metric("Aktif Şirket", df['Dağıtım Şirketi'].nunique())
     acil_durum = len(df[df['Kalan_Gun'] < 90]) if 'Kalan_Gun' in df.columns else 0
-    c3.metric("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", delta_color="inverse")
+    with c1:
+        render_kpi_card("Toplam Veri Tabanı", f"{len(df):,}", tone="blue")
+    with c2:
+        render_kpi_card("Aktif Şirket", df['Dağıtım Şirketi'].nunique(), tone="green")
+    with c3:
+        render_kpi_card("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", tone="red")
     st.divider()
 
     # --- SEKMELER ---
@@ -600,8 +692,7 @@ def main():
 
     # 1. BÖLGESEL & DURUM
     if active_tab == TAB_LABELS[0]:
-        st.subheader("🗺️ Bölgesel Yoğunluk Haritası")
-        st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
+        st.markdown("<div class='pro-glow'><div class='pro-title'>🗺️ Bölgesel Yoğunluk Haritası</div><div class='pro-sub'>Seçili filtreye göre il bazlı yoğunluk. Harita üzerinde yakınlaştırma ve detay mümkündür.</div></div>", unsafe_allow_html=True)
         df_tab1 = create_tab_filters(df, "tab1")
         
         if len(df_tab1) > MAX_MAP_POINTS:
@@ -616,16 +707,22 @@ def main():
             if not map_data.empty:
                 fig_map = px.scatter_mapbox(
                     map_data, lat="lat", lon="lon", size="Adet", color="Adet",
-                    hover_name="İl", size_max=35, zoom=5, 
-                    mapbox_style="open-street-map", color_continuous_scale=px.colors.sequential.Bluered
+                    hover_name="İl", size_max=40, zoom=5,
+                    mapbox_style="carto-positron",
+                    color_continuous_scale=px.colors.sequential.Turbo,
+                    custom_data=["Adet"]
                 )
-                fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+                fig_map.update_traces(
+                    marker=dict(opacity=0.9, line=dict(color="white", width=1)),
+                    hovertemplate="<b>%{hovertext}</b><br>İstasyon: %{customdata[0]}<extra></extra>"
+                )
+                fig_map = style_mapbox(fig_map, center={"lat": 39.0, "lon": 35.0}, zoom=5)
                 st.plotly_chart(fig_map, use_container_width=True)
 
         st.divider()
         col_pie1, col_pie2 = st.columns(2)
         with col_pie1:
-            st.metric("Seçili Bayi Sayısı", len(df_tab1))
+            render_kpi_card("Seçili Bayi Sayısı", len(df_tab1), tone="blue")
             city_pie = df_tab1['İl'].value_counts().reset_index()
             city_pie.columns = ['İl', 'Adet']
             fig_cp = px.pie(city_pie, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı")
@@ -640,7 +737,7 @@ def main():
 
     # 2. GÜZEL ENERJİ LİDERLİĞİ [MOVED AND UPDATED]
     if active_tab == TAB_LABELS[1]:
-        st.subheader("🌟 Güzel Enerji Liderlik Haritası (İl & İlçe Krallıkları)")
+        st.markdown("<div class='pro-glow'><div class='pro-title'>🌟 Güzel Enerji Liderlik Haritası</div><div class='pro-sub'>İl ve ilçe bazında liderlik alanları, profesyonel harita görünümüyle.</div></div>", unsafe_allow_html=True)
         st.image("https://raw.githubusercontent.com/hilke1010/akrtakip/main/ge.png", width=150)
         st.info("Bu harita, sadece **GÜZEL ENERJİ**'nin rakiplerini geçerek 1. sırada olduğu bölgeleri gösterir.")
         
@@ -678,9 +775,14 @@ def main():
                     "style": {"backgroundColor": "green", "color": "white"}
                 }
                 
-                view_state = pdk.ViewState(latitude=39.0, longitude=35.0, zoom=5)
-                r = pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip=tooltip_hero)
-                st.pydeck_chart(r)
+                view_state = pdk.ViewState(latitude=39.0, longitude=35.0, zoom=5.2, pitch=30)
+            r = pdk.Deck(
+                layers=[layer],
+                initial_view_state=view_state,
+                tooltip=tooltip_hero,
+                map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+            )
+            st.pydeck_chart(r)
                 
                 st.success(f"🦁 Toplam **{len(hero_leaders)}** ilde pazar liderisiniz!")
             else:
@@ -770,8 +872,7 @@ def main():
 
     # 4. İL HAKİMİYET HARİTASI (LOGO) - DETAYLI TOOLTIP VERSİYON
     if active_tab == TAB_LABELS[3]:
-        st.subheader("🦁 İl Hakimiyet Haritası (Lider Markalar)")
-        st.info("💡  Her ilin lider markasını gösterir. Üzerine gelince detayları görebilirsin.")
+        st.markdown("<div class='pro-glow'><div class='pro-title'>🦁 İl Hakimiyet Haritası</div><div class='pro-sub'>Her ilin lider markasını profesyonel ikonlarla gösterir. Üzerine gelince detayları görürsün.</div></div>", unsafe_allow_html=True)
         
         # --- GITHUB ADRESİN ---
         LOGO_URL_BASLANGIC = "https://raw.githubusercontent.com/hilke1010/akrtakip/main/"
@@ -842,8 +943,8 @@ def main():
             view_state = pdk.ViewState(
                 latitude=39.0,
                 longitude=35.0,
-                zoom=5.5,
-                pitch=0
+                zoom=5.6,
+                pitch=25
             )
 
             icon_layer = pdk.Layer(
@@ -873,7 +974,8 @@ def main():
                 map_style=None,
                 initial_view_state=view_state,
                 layers=[icon_layer],
-                tooltip=tooltip
+                tooltip=tooltip,
+                map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
             )
 
             st.pydeck_chart(r)
@@ -926,7 +1028,7 @@ def main():
                 else:
                     st.info("Bu filtrede yakın zamanda biten sözleşme bulunmuyor.")
 
-            st.metric("Bu Filtredeki Toplam Bayi", len(df_tab2))
+            render_kpi_card("Bu Filtredeki Toplam Bayi", len(df_tab2), tone="blue")
             comp_dist = df_tab2['Dağıtım Şirketi'].value_counts().reset_index()
             comp_dist.columns = ['Şirket', 'Adet']
             fig_my_share = px.pie(comp_dist, names='Şirket', values='Adet', hole=0.5, title="Filtre İçi Pazar Payı")
@@ -948,8 +1050,12 @@ def main():
         df_b = df_tab3[df_tab3['Dağıtım Şirketi'] == comp_b]
         
         k1, k2 = st.columns(2)
-        k1.metric(f"{comp_a}", len(df_a))
-        k2.metric(f"{comp_b}", len(df_b), delta=len(df_b)-len(df_a))
+        with k1:
+            render_kpi_card(f"{comp_a}", len(df_a), tone="blue")
+        with k2:
+            delta_val = len(df_b) - len(df_a)
+            delta_txt = f"Fark: {delta_val:+}"
+            render_kpi_card(f"{comp_b}", len(df_b), delta=delta_txt, tone="amber")
         
         df_vs = df_tab3[df_tab3['Dağıtım Şirketi'].isin([comp_a, comp_b])]
         if not df_vs.empty:
@@ -978,10 +1084,14 @@ def main():
             my_share = (my_count / total_stations) * 100
             
             k1, k2, k3, k4 = st.columns(4)
-            k1.metric("🏙️ Toplam Pazar", total_stations)
-            k2.metric("👑 Pazar Lideri", f"{market_leader}", f"{leader_count} Bayi")
-            k3.metric(f"⛽ {target_company}", my_count)
-            k4.metric("📊 Pazar Payı", f"%{my_share:.1f}")
+            with k1:
+                render_kpi_card("🏙️ Toplam Pazar", total_stations, tone="blue")
+            with k2:
+                render_kpi_card("👑 Pazar Lideri", f"{market_leader}", delta=f"{leader_count} Bayi", tone="green")
+            with k3:
+                render_kpi_card(f"⛽ {target_company}", my_count, tone="amber")
+            with k4:
+                render_kpi_card("📊 Pazar Payı", f"%{my_share:.1f}", tone="blue")
             
             st.markdown("---")
             g1, g2 = st.columns(2)
@@ -1076,8 +1186,7 @@ def main():
 
     # 9. YARIÇAP ANALİZİ [NEW]
     if active_tab == TAB_LABELS[8]:
-        st.subheader("📍 Yarıçap (Radar) Analizi")
-        st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
+        st.markdown("<div class='pro-glow'><div class='pro-title'>📍 Yarıçap (Radar) Analizi</div><div class='pro-sub'>Seçili bayi etrafında rekabet haritası ve mesafe analizi.</div></div>", unsafe_allow_html=True)
         
         df_radar = create_tab_filters(df, "tab_radar_new")
         
@@ -1099,11 +1208,24 @@ def main():
                 nearby_stations['Nokta_Buyukluk'] = np.where(nearby_stations['Unvan'] == center_station_name, 25, 10)
                 
                 fig_rad = px.scatter_mapbox(
-                    nearby_stations, lat=lat_col, lon=lon_col, color='Renk', size='Nokta_Buyukluk', 
-                    hover_name='Unvan', hover_data=['Dağıtım Şirketi', 'İlçe', 'Mesafe', 'Kalan_Gun'],
-                    color_discrete_map={'MERKEZ': 'red', 'RAKİP': 'blue'},
-                    zoom=10, mapbox_style="open-street-map"
+                    nearby_stations, lat=lat_col, lon=lon_col, color='Renk', size='Nokta_Buyukluk',
+                    hover_name='Unvan',
+                    hover_data=['Dağıtım Şirketi', 'İlçe', 'Mesafe', 'Kalan_Gun'],
+                    custom_data=['Dağıtım Şirketi', 'İlçe', 'Mesafe', 'Kalan_Gun'],
+                    color_discrete_map={'MERKEZ': '#ff2d55', 'RAKİP': '#1e90ff'},
+                    zoom=10, mapbox_style="carto-positron"
                 )
+                fig_rad.update_traces(
+                    marker=dict(opacity=0.9, line=dict(color="white", width=1)),
+                    hovertemplate=(
+                        "<b>%{hovertext}</b><br>"
+                        "Şirket: %{customdata[0]}<br>"
+                        "İlçe: %{customdata[1]}<br>"
+                        "Mesafe: %{customdata[2]:.2f} km<br>"
+                        "Kalan Gün: %{customdata[3]}<extra></extra>"
+                    )
+                )
+                fig_rad = style_mapbox(fig_rad, center={"lat": float(center_row[lat_col]), "lon": float(center_row[lon_col])}, zoom=10)
                 st.plotly_chart(fig_rad, use_container_width=True)
                 
                 display_cols = ['Unvan', 'İlçe', 'Dağıtım Şirketi', target_date_col, 'Kalan_Gun', 'Mesafe']
@@ -1120,8 +1242,7 @@ def main():
 
     # 10. ROTA PLANLAYICI [NEW]
     if active_tab == TAB_LABELS[9]:
-        st.subheader("🚗 Akıllı Rota Planlayıcı")
-        st.info("💡 **İPUCU:** Haritayı büyütmek veya yakınlaştırmak için sağ üstteki araçları kullanabilirsiniz.")
+        st.markdown("<div class='pro-glow'><div class='pro-title'>🚗 Akıllı Rota Planlayıcı</div><div class='pro-sub'>Seçili istasyonlar için en verimli rota, profesyonel harita görünümü.</div></div>", unsafe_allow_html=True)
         
         df_route = create_tab_filters(df, "tab_route_new")
 
@@ -1149,13 +1270,26 @@ def main():
                 st.success("✅ En verimli rota oluşturuldu!")
                 
                 fig_rt = px.line_mapbox(
-                    route_df, lat=lat_col, lon=lon_col, hover_name='Unvan', zoom=9, mapbox_style="open-street-map"
+                    route_df, lat=lat_col, lon=lon_col, hover_name='Unvan', zoom=9, mapbox_style="carto-positron"
+                )
+                fig_rt.update_traces(
+                    line=dict(color="#00e676", width=4),
+                    hovertemplate="<b>%{hovertext}</b><extra></extra>"
                 )
                 fig_rt.add_trace(go.Scattermapbox(
                     lat=route_df[lat_col], lon=route_df[lon_col], mode='markers+text',
-                    marker=go.scattermapbox.Marker(size=14, color='green'),
-                    text=route_df['Sıra No'], textposition="top center", hoverinfo='text', hovertext=route_df['Unvan']
+                    marker=go.scattermapbox.Marker(size=14, color="#00c853", line=dict(color="white", width=1)),
+                    text=route_df['Sıra No'], textposition="top center",
+                    customdata=route_df[['Sıra No', 'İlçe', 'Dağıtım Şirketi']].values,
+                    hovertemplate=(
+                        "<b>%{hovertext}</b><br>"
+                        "Sıra: %{customdata[0]}<br>"
+                        "İlçe: %{customdata[1]}<br>"
+                        "Şirket: %{customdata[2]}<extra></extra>"
+                    ),
+                    hovertext=route_df['Unvan']
                 ))
+                fig_rt = style_mapbox(fig_rt, center={"lat": float(route_df[lat_col].mean()), "lon": float(route_df[lon_col].mean())}, zoom=9)
                 st.plotly_chart(fig_rt, use_container_width=True)
                 st.dataframe(route_df[['Sıra No', 'Unvan', 'İlçe', 'Dağıtım Şirketi']], use_container_width=True)
             else:
