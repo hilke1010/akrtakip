@@ -713,7 +713,7 @@ def main():
                     custom_data=["Adet"]
                 )
                 fig_map.update_traces(
-                    marker=dict(opacity=0.9, line=dict(color="white", width=1)),
+                    marker=dict(opacity=0.9),
                     hovertemplate="<b>%{hovertext}</b><br>İstasyon: %{customdata[0]}<extra></extra>"
                 )
                 fig_map = style_mapbox(fig_map, center={"lat": 39.0, "lon": 35.0}, zoom=5)
