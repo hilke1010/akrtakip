@@ -1,4 +1,4 @@
-ŞÖYLE KODUM VAR NASIL GELİŞTİREBİLİRSİN HER ZAMAN BANA TÜM KODU AT VE GEÇ AÇILIYOR MESELA 2026 OCAK TIKLIYORUM BEYAZ EKRANDA KALIYOR GEÇ GELİYOR 
+
 
 import streamlit as st
 import pandas as pd
@@ -1550,3 +1550,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
