@@ -776,14 +776,13 @@ def main():
                 }
                 
                 view_state = pdk.ViewState(latitude=39.0, longitude=35.0, zoom=5.2, pitch=30)
-            r = pdk.Deck(
-                layers=[layer],
-                initial_view_state=view_state,
-                tooltip=tooltip_hero,
-                map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
-            )
-            st.pydeck_chart(r)
-                
+                r = pdk.Deck(
+                    layers=[layer],
+                    initial_view_state=view_state,
+                    tooltip=tooltip_hero,
+                    map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+                )
+                st.pydeck_chart(r)
                 st.success(f"🦁 Toplam **{len(hero_leaders)}** ilde pazar liderisiniz!")
             else:
                 st.warning("Şu an hiçbir ilde liderlik (1. sıra) görünmüyor.")
