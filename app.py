@@ -970,7 +970,6 @@ def main():
             }
 
             r = pdk.Deck(
-                map_style=None,
                 initial_view_state=view_state,
                 layers=[icon_layer],
                 tooltip=tooltip,
