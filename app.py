@@ -22,6 +22,7 @@ def style_mapbox(fig, center=None, zoom=None):
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         mapbox_style="carto-positron",
         hovermode="closest",
+        transition=dict(duration=300, easing="cubic-in-out"),
         hoverlabel=dict(
             bgcolor="#0f172a",
             font_color="#f8fafc",
@@ -363,18 +364,43 @@ st.markdown("""
     .kpi-title { font-size: 0.95em; color: #475569; font-weight: 700; letter-spacing: 0.3px; }
     .kpi-value { font-size: 2.0em; color: #0f172a; font-weight: 900; margin-top: 4px; }
     .kpi-delta { font-size: 0.9em; margin-top: 6px; font-weight: 700; }
+    .kpi-head { display: flex; align-items: center; gap: 8px; }
+    .kpi-icon {
+        width: 28px; height: 28px; border-radius: 8px;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: radial-gradient(circle at 30% 30%, #ffffff, #e2e8f0);
+        box-shadow: inset 0 0 6px rgba(0,0,0,0.08);
+        animation: kpiFloat 2.4s ease-in-out infinite;
+    }
+    @keyframes kpiFloat {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-3px); }
+    }
 
     .kpi-blue { border-left-color: #2563eb; }
     .kpi-blue .kpi-delta { color: #2563eb; }
+    .kpi-blue .kpi-icon { color: #2563eb; }
 
     .kpi-green { border-left-color: #16a34a; }
     .kpi-green .kpi-delta { color: #16a34a; }
+    .kpi-green .kpi-icon { color: #16a34a; }
 
     .kpi-red { border-left-color: #dc2626; }
     .kpi-red .kpi-delta { color: #dc2626; }
+    .kpi-red .kpi-icon { color: #dc2626; }
 
     .kpi-amber { border-left-color: #f59e0b; }
     .kpi-amber .kpi-delta { color: #f59e0b; }
+    .kpi-amber .kpi-icon { color: #f59e0b; }
+
+    /* --- HAFIF HARITA CANLANDIRMA --- */
+    div[data-testid="stPlotlyChart"] {
+        animation: mapGlow 5s ease-in-out infinite;
+    }
+    @keyframes mapGlow {
+        0%, 100% { box-shadow: 0 0 0 rgba(0,0,0,0); }
+        50% { box-shadow: 0 0 18px rgba(56, 189, 248, 0.25); }
+    }
 </style>
 """, unsafe_allow_html=True)
 # ==============================================================================
@@ -439,12 +465,15 @@ BOLGE_TANIMLARI = {
 
 if 'crm_notes' not in st.session_state: st.session_state.crm_notes = {}
 
-def render_kpi_card(title, value, delta=None, tone="blue"):
+def render_kpi_card(title, value, delta=None, tone="blue", icon="⚡"):
     delta_html = f"<div class='kpi-delta'>{delta}</div>" if delta else ""
     st.markdown(
         f"""
         <div class="kpi-card kpi-{tone}">
-            <div class="kpi-title">{title}</div>
+            <div class="kpi-head">
+                <span class="kpi-icon">{icon}</span>
+                <div class="kpi-title">{title}</div>
+            </div>
             <div class="kpi-value">{value}</div>
             {delta_html}
         </div>
@@ -663,11 +692,11 @@ def main():
     c1, c2, c3 = st.columns(3)
     acil_durum = len(df[df['Kalan_Gun'] < 90]) if 'Kalan_Gun' in df.columns else 0
     with c1:
-        render_kpi_card("Toplam Veri Tabanı", f"{len(df):,}", tone="blue")
+        render_kpi_card("Toplam Veri Tabanı", f"{len(df):,}", tone="blue", icon="🗄️")
     with c2:
-        render_kpi_card("Aktif Şirket", df['Dağıtım Şirketi'].nunique(), tone="green")
+        render_kpi_card("Aktif Şirket", df['Dağıtım Şirketi'].nunique(), tone="green", icon="🏢")
     with c3:
-        render_kpi_card("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", tone="red")
+        render_kpi_card("Kritik Durum (Toplam)", acil_durum, delta="Acil Yenileme", tone="red", icon="🚨")
     st.divider()
 
     # --- SEKMELER ---
@@ -722,7 +751,7 @@ def main():
         st.divider()
         col_pie1, col_pie2 = st.columns(2)
         with col_pie1:
-            render_kpi_card("Seçili Bayi Sayısı", len(df_tab1), tone="blue")
+            render_kpi_card("Seçili Bayi Sayısı", len(df_tab1), tone="blue", icon="🧭")
             city_pie = df_tab1['İl'].value_counts().reset_index()
             city_pie.columns = ['İl', 'Adet']
             fig_cp = px.pie(city_pie, values='Adet', names='İl', hole=0.4, title="Şehir Dağılımı")
@@ -1026,7 +1055,7 @@ def main():
                 else:
                     st.info("Bu filtrede yakın zamanda biten sözleşme bulunmuyor.")
 
-            render_kpi_card("Bu Filtredeki Toplam Bayi", len(df_tab2), tone="blue")
+            render_kpi_card("Bu Filtredeki Toplam Bayi", len(df_tab2), tone="blue", icon="🧾")
             comp_dist = df_tab2['Dağıtım Şirketi'].value_counts().reset_index()
             comp_dist.columns = ['Şirket', 'Adet']
             fig_my_share = px.pie(comp_dist, names='Şirket', values='Adet', hole=0.5, title="Filtre İçi Pazar Payı")
@@ -1049,11 +1078,11 @@ def main():
         
         k1, k2 = st.columns(2)
         with k1:
-            render_kpi_card(f"{comp_a}", len(df_a), tone="blue")
+            render_kpi_card(f"{comp_a}", len(df_a), tone="blue", icon="🅰️")
         with k2:
             delta_val = len(df_b) - len(df_a)
             delta_txt = f"Fark: {delta_val:+}"
-            render_kpi_card(f"{comp_b}", len(df_b), delta=delta_txt, tone="amber")
+            render_kpi_card(f"{comp_b}", len(df_b), delta=delta_txt, tone="amber", icon="🅱️")
         
         df_vs = df_tab3[df_tab3['Dağıtım Şirketi'].isin([comp_a, comp_b])]
         if not df_vs.empty:
@@ -1083,13 +1112,13 @@ def main():
             
             k1, k2, k3, k4 = st.columns(4)
             with k1:
-                render_kpi_card("🏙️ Toplam Pazar", total_stations, tone="blue")
+                render_kpi_card("🏙️ Toplam Pazar", total_stations, tone="blue", icon="🏙️")
             with k2:
-                render_kpi_card("👑 Pazar Lideri", f"{market_leader}", delta=f"{leader_count} Bayi", tone="green")
+                render_kpi_card("👑 Pazar Lideri", f"{market_leader}", delta=f"{leader_count} Bayi", tone="green", icon="👑")
             with k3:
-                render_kpi_card(f"⛽ {target_company}", my_count, tone="amber")
+                render_kpi_card(f"⛽ {target_company}", my_count, tone="amber", icon="⛽")
             with k4:
-                render_kpi_card("📊 Pazar Payı", f"%{my_share:.1f}", tone="blue")
+                render_kpi_card("📊 Pazar Payı", f"%{my_share:.1f}", tone="blue", icon="📊")
             
             st.markdown("---")
             g1, g2 = st.columns(2)
@@ -1214,7 +1243,7 @@ def main():
                     zoom=10, mapbox_style="carto-positron"
                 )
                 fig_rad.update_traces(
-                    marker=dict(opacity=0.9, line=dict(color="white", width=1)),
+                    marker=dict(opacity=0.9),
                     hovertemplate=(
                         "<b>%{hovertext}</b><br>"
                         "Şirket: %{customdata[0]}<br>"
