@@ -471,13 +471,15 @@ def create_tab_filters(df, key_prefix):
     if sel_reg != "Tümü": filtered = filtered[filtered['İl'].isin(BOLGE_TANIMLARI[sel_reg])]
         
     with c2:
-        city_opts = sorted(filtered['İl'].unique().tolist())
+        # GÜNCELLEME: Boş değerler çökertmesin diye dropna() ve astype(str) eklendi
+        city_opts = sorted(filtered['İl'].dropna().astype(str).unique().tolist())
         sel_city = st.multiselect("🏢 İl", city_opts, key=f"{key_prefix}_city")
 
     if sel_city: filtered = filtered[filtered['İl'].isin(sel_city)]
         
     with c3:
-        dist_opts = sorted(filtered['İlçe'].unique().tolist()) if 'İlçe' in filtered.columns else []
+        # GÜNCELLEME: Senin aldığın hatayı çözen asıl satır burası
+        dist_opts = sorted(filtered['İlçe'].dropna().astype(str).unique().tolist()) if 'İlçe' in filtered.columns else []
         sel_dist = st.multiselect("📍 İlçe", dist_opts, key=f"{key_prefix}_dist")
 
     if sel_dist: filtered = filtered[filtered['İlçe'].isin(sel_dist)]
