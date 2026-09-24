@@ -1,114 +1,96 @@
-                    count = row['Toplam İstasyon']
-                    
-                    with st.expander(f"🔻 {vkn} - {unvan} ({count} İstasyon)"):
-                        # O gruba ait veriyi süz
-                        sub_df = matrix_data[matrix_data[tax_col_name] == vkn]
-                        # Gösterilecek kolonlar
-                        disp_cols = ['Unvan', 'Dağıtım Şirketi', 'İl', 'İlçe', target_date_col]
-                        final_cols = [c for c in disp_cols if c in sub_df.columns]
-                        
-                        # Tarih düzeltme
-                        if target_date_col in sub_df.columns:
-                             try: sub_df[target_date_col] = pd.to_datetime(sub_df[target_date_col]).dt.strftime('%d.%m.%Y')
-                             except: pass
-                        
-                        st.dataframe(sub_df[final_cols], use_container_width=True, hide_index=True)
-                    
-        else:
-            if not tax_col_name:
-                st.error("Excel dosyasında 'Vergi No', 'VKN' veya benzeri bir sütun bulunamadı.")
-            else:
-                st.warning("Veri yok.")
 
-    # 13. DETAYLI ARAMA [NEW]
-    if active_tab == TAB_LABELS[12]:
-        st.subheader("🔍 Detaylı Arama & Bayi Kimlik Kartı")
-        st.info("💡 Aşağıdaki kutudan bayi seçimi yapın, sistem tüm bilgileri sizin için derlesin.")
-        
-        # 1. AKILLI ARAMA LİSTESİ OLUŞTURMA
-        if 'Dağıtım Şirketi' in df.columns:
-            dist_col = 'Dağıtım Şirketi'
-        else:
-            dist_col = df.columns[0] # Fallback
-            
-        df['Arama_Etiketi'] = df['Unvan'].astype(str) + " | " + df['İl'].astype(str) + " - " + df.get('İlçe', '').astype(str) + " (" + df[dist_col].astype(str) + ")"
-        
-        search_options = sorted(df['Arama_Etiketi'].unique().tolist())
-        
-        # Arama kutusu
-        selected_label = st.selectbox(
-            "🔎 Bayi Seçin (Yazmaya başlayın...):",
-            options=[""] + search_options,
-            index=0,
-            placeholder="Örn: YILDIZ PETROL"
-        )
-        
-        # 2. BAYİ KİMLİK KARTI (GÜVENLİ NATIVE KART)
-        if selected_label:
-            row = df[df['Arama_Etiketi'] == selected_label].iloc[0]
-            
-            # Verileri Çek
-            unvan = row['Unvan']
-            dagitici = row.get('Dağıtım Şirketi', '-')
-            il = row.get('İl', '-')
-            ilce = row.get('İlçe', '-')
-            
-            # Akıllı Adres Bulucu
-            adres_col = None
-            for c in df.columns:
-                if "ADRES" in c.upper():
-                    adres_col = c
-                    break
-            
-            if adres_col:
-                adres = row.get(adres_col)
-                if pd.isna(adres) or str(adres).lower() == 'nan':
-                    adres = f"{ilce} / {il} (Detay Yok)"
-            else:
-                adres = f"{ilce} / {il}"
 
-            # Vergi No Bulucu
-            vergi_no = '-'
-            for c in df.columns:
-                clean_c = c.upper().replace('İ','I')
-                if "VERGI" in clean_c or "VKN" in clean_c:
-                    vergi_no = row[c]
-                    break
-            
-            # Tarihler (Hata veren yer burasıydı, düzeltildi)
-            baslangic = row[start_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(start_date_col)) else "-"
-            bitis = row[target_date_col].strftime('%d.%m.%Y') if pd.notnull(row.get(target_date_col)) else "-"
-            kalan = int(row['Kalan_Gun']) if pd.notnull(row.get('Kalan_Gun')) else 0
-            
-            # --- NATIVE STREAMLIT KART TASARIMI ---
-            # HTML yerine native kullanarak hatayı önlüyoruz
-            with st.container(border=True):
-                c_header1, c_header2 = st.columns([3, 1])
-                with c_header1:
-                    st.subheader(f"⛽ {unvan}")
-                    st.caption(f"📍 {il} / {ilce}")
-                with c_header2:
-                    st.info(f"{dagitici}")
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import numpy as np
+import os
+import io
+import time
+import math
+import networkx as nx
+import pydeck as pdk
+import random
+from datetime import datetime, timedelta, date
+from plotly.subplots import make_subplots
 
-                st.divider()
-                
-                c_info1, c_info2 = st.columns(2)
-                
-                with c_info1:
-                    st.markdown(f"**📍 Adres:** \n{adres}")
-                    st.write("") # Boşluk
-                    st.markdown(f"**🆔 Vergi / TC No:** \n`{vergi_no}`")
-                
-                with c_info2:
-                    st.markdown(f"**📅 Sözleşme Başlangıç:** \n{baslangic}")
-                    st.write("") # Boşluk
-                    
-                    # Renkli ve vurgulu bitiş tarihi
-                    kalan_renk = "red" if kalan < 90 else "green"
-                    st.markdown(f"**⏳ Sözleşme Bitiş:** \n{bitis} (:{kalan_renk}[**{kalan} Gün Kaldı**])")
-                
-                st.divider()
-                st.success("📜 **Lisans Durumu:** AKTİF")
+# Hamburger menüyü ve footer'ı gizleyen CSS kodu
+hide_menu_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+    """
+st.markdown(hide_menu_style, unsafe_allow_html=True)
+# --- 1. SAYFA VE GENEL AYARLAR ---
+st.set_page_config(
+    page_title="EPDK Akaryakıt Pazar Analizi",
+    page_icon="⛽",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-if __name__ == "__main__":
-    main()
+# ==========================================
+# 🎬 YENİ: SİNEMATİK AÇILIŞ ANİMASYONU (PRO)
+# ==========================================
+def show_cinematic_intro(df):
+    """
+    Kullanıcının isteği üzerine:
+    1. 'Veri Analiz Ediliyor' (2 sn sabit)
+    2. Kritik verilerin seri geçişi (3 sn flaş efektli)
+    """
+    # Session state kontrolü (Sadece ilk açılışta çalışsın)
+    if 'intro_shown' not in st.session_state:
+        st.session_state['intro_shown'] = False
+    
+    if st.session_state['intro_shown']:
+        return
+
+    # Gerçek verileri hesapla (Animasyonda kullanacağız)
+    total_stations = len(df)
+    total_companies = df['Dağıtım Şirketi'].nunique()
+    total_cities = df['İl'].nunique()
+    
+    placeholder = st.empty()
+    
+    # --- CSS TASARIMI (MATRIX / TERMINAL TARZI) ---
+    st.markdown("""
+    <style>
+    .intro-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+        background-color: #000000; z-index: 999999;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        font-family: 'Courier New', monospace; letter-spacing: 2px;
+    }
+    .main-text {
+        font-size: 2.5em; font-weight: 900; color: #00ff41;
+        text-shadow: 0 0 10px #00ff41;
+        text-transform: uppercase;
+        margin-bottom: 20px;
+    }
+    .sub-text {
+        font-size: 1.2em; color: #ffffff; opacity: 0.8;
+    }
+    .blink { animation: blinker 1s linear infinite; }
+    @keyframes blinker { 50% { opacity: 0; } }
+    
+    /* Hızlı veri akış efekti için */
+    .data-flash {
+        font-size: 3em; font-weight: bold; color: #00ff41;
+        text-shadow: 0 0 20px #00ff41;
+        animation: popIn 0.2s ease-out;
+    }
+    @keyframes popIn {
+        0% { transform: scale(0.5); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # --- AŞAMA 1: SİSTEME BAĞLANILIYOR (2 SANİYE) ---
+    with placeholder.container():
+        st.markdown("""
+        <div class="intro-overlay">
+            <div class="main-text blink">🔌 VERİ ANALİZ EDİLİYOR...</div>
