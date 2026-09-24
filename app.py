@@ -12,6 +12,8 @@ import math
 import networkx as nx
 import pydeck as pdk
 import random
+import base64
+import struct
 from datetime import datetime, timedelta, date
 from plotly.subplots import make_subplots
 
@@ -493,6 +495,70 @@ def create_tab_filters(df, key_prefix):
     st.markdown("</div>", unsafe_allow_html=True)
     return filtered
 
+# ==========================================
+# 🗺️ HARİTA YARDIMCI FONKSİYONLARI
+# ==========================================
+def calculate_map_view(dataframe, lat_col='lat', lon_col='lon'):
+    """Filtrelenen verilere göre harita merkezi ve zoom değerini otomatik hesaplar."""
+    try:
+        coords = dataframe[[lat_col, lon_col]].copy()
+        coords[lat_col] = pd.to_numeric(coords[lat_col], errors='coerce')
+        coords[lon_col] = pd.to_numeric(coords[lon_col], errors='coerce')
+        coords = coords.dropna()
+
+        if coords.empty:
+            return 39.0, 35.0, 4.5
+
+        center_lat = float(coords[lat_col].mean())
+        center_lon = float(coords[lon_col].mean())
+        lat_span = float(coords[lat_col].max() - coords[lat_col].min())
+        lon_span = float(coords[lon_col].max() - coords[lon_col].min())
+        span = max(lat_span, lon_span)
+
+        if span < 0.15:
+            zoom = 8.4
+        elif span < 0.75:
+            zoom = 7.2
+        elif span < 1.75:
+            zoom = 6.4
+        elif span < 3.5:
+            zoom = 5.7
+        elif span < 7.0:
+            zoom = 5.0
+        elif span < 12.0:
+            zoom = 4.5
+        else:
+            zoom = 4.0
+
+        return center_lat, center_lon, zoom
+    except Exception:
+        return 39.0, 35.0, 4.5
+
+
+def local_png_icon(filename):
+    """Repo içindeki PNG logoyu data-URI yapar; uzak URL/CORS sorununu ortadan kaldırır."""
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(base_dir, filename)
+        if not os.path.exists(path):
+            return None
+
+        raw = open(path, 'rb').read()
+        if len(raw) < 24 or raw[:8] != b'\x89PNG\r\n\x1a\n':
+            return None
+
+        width, height = struct.unpack('>II', raw[16:24])
+        encoded = base64.b64encode(raw).decode('ascii')
+        return {
+            'url': f'data:image/png;base64,{encoded}',
+            'width': int(width),
+            'height': int(height),
+            'anchorY': int(height)
+        }
+    except Exception:
+        return None
+
+
 # --- ANA UYGULAMA ---
 def main():
     # VERİYİ YÜKLE
@@ -616,9 +682,11 @@ def main():
             map_data = map_data.dropna()
 
             if not map_data.empty:
+                map_center_lat, map_center_lon, map_zoom = calculate_map_view(map_data, 'lat', 'lon')
                 fig_map = px.scatter_map(
                     map_data, lat="lat", lon="lon", size="Adet", color="Adet",
-                    hover_name="İl", size_max=35, zoom=5, 
+                    hover_name="İl", size_max=35, zoom=map_zoom,
+                    center={"lat": map_center_lat, "lon": map_center_lon},
                     map_style="open-street-map", color_continuous_scale=px.colors.sequential.Bluered
                 )
                 fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
@@ -775,10 +843,9 @@ def main():
         st.subheader("🦁 İl Hakimiyet Haritası (Lider Markalar)")
         st.info("💡  Her ilin lider markasını gösterir. Üzerine gelince detayları görebilirsin.")
         
-        # --- GITHUB ADRESİN ---
-        LOGO_URL_BASLANGIC = "https://raw.githubusercontent.com/hilke1010/akrtakip/main/"
-        
-        # Dosya Eşleştirmeleri
+        # --- LOGO DOSYALARI ---
+        # Logolar repo içinden base64 olarak gömülür. Böylece Streamlit Cloud / CORS kaynaklı
+        # "logo görünmüyor" sorunu oluşmaz.
         LOGO_MAP = {
             "OPET": "opet.png",
             "SHELL": "shell.png",
@@ -791,8 +858,7 @@ def main():
             "MİLANGAZ": "milangaz.png",
             "TP": "tp.png"
         }
-        
-        DEFAULT_LOGO = "https://img.icons8.com/color/48/gas-station.png" 
+
         HERO_COMPANY = "GÜZEL ENERJİ AKARYAKIT ANONİM ŞİRKETİ" # Senin Şirketin Tam Adı
 
         # --- VERİ HAZIRLIĞI ---
@@ -804,8 +870,6 @@ def main():
             idx = city_stats.groupby(['İl'])['Adet'].transform(max) == city_stats['Adet']
             leaders = city_stats[idx].drop_duplicates(subset=['İl']).copy()
             
-            # --- YENİ EKLENEN HESAPLAMALAR ---
-            
             # A. Her ildeki TOPLAM istasyon sayısı
             total_per_city = df_dom.groupby('İl').size().reset_index(name='Toplam_Istasyon')
             leaders = pd.merge(leaders, total_per_city, on='İl', how='left')
@@ -813,52 +877,87 @@ def main():
             # B. Her ildeki GÜZEL ENERJİ istasyon sayısı
             ge_per_city = df_dom[df_dom['Dağıtım Şirketi'] == HERO_COMPANY].groupby('İl').size().reset_index(name='GE_Istasyon')
             leaders = pd.merge(leaders, ge_per_city, on='İl', how='left')
-            
-            # Güzel Enerji'nin hiç olmadığı illerde NaN gelir, onları 0 yapalım
             leaders['GE_Istasyon'] = leaders['GE_Istasyon'].fillna(0).astype(int)
-            
-            # ---------------------------------
 
             # 2. Koordinatları Ekle
-            leaders['lat'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[0])
-            leaders['lon'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [39.0, 35.0])[1])
-            
-            # 3. İKON PAKETLEME
+            leaders['lat'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[0])
+            leaders['lon'] = leaders['İl'].map(lambda x: CITY_COORDINATES.get(x, [None, None])[1])
+            leaders = leaders.dropna(subset=['lat', 'lon']).copy()
+
+            # 3. LOGOLARI YEREL DOSYADAN YÜKLE
             def create_icon_data(company_name):
-                url = DEFAULT_LOGO
                 comp_upper = str(company_name).upper()
                 for key, filename in LOGO_MAP.items():
                     if key in comp_upper:
-                        url = LOGO_URL_BASLANGIC + filename
-                        break
-                return {
-                    "url": url,
-                    "width": 242,
-                    "height": 242,
-                    "anchorY": 242
-                }
+                        icon = local_png_icon(filename)
+                        if icon:
+                            return icon
+                return None
 
             leaders['icon_data'] = leaders['Dağıtım Şirketi'].apply(create_icon_data)
-            
-            # --- HARİTA ÇİZİMİ ---
+            leaders['Logo_Var'] = leaders['icon_data'].apply(lambda x: isinstance(x, dict))
+
+            # 4. FİLTREYE GÖRE OTOMATİK MERKEZ / ZOOM
+            view_lat, view_lon, view_zoom = calculate_map_view(leaders, 'lat', 'lon')
             view_state = pdk.ViewState(
-                latitude=39.0,
-                longitude=35.0,
-                zoom=5.5,
-                pitch=0
+                latitude=view_lat,
+                longitude=view_lon,
+                zoom=view_zoom,
+                pitch=0,
+                bearing=0
             )
 
-            icon_layer = pdk.Layer(
-                type="IconLayer",
+            layers = []
+
+            # Logosu olmayan şirketler de kaybolmasın diye işaret noktası
+            no_logo = leaders[~leaders['Logo_Var']].copy()
+            if not no_logo.empty:
+                layers.append(pdk.Layer(
+                    "ScatterplotLayer",
+                    data=no_logo,
+                    get_position='[lon, lat]',
+                    get_fill_color='[52, 152, 219, 210]',
+                    get_line_color='[255, 255, 255, 255]',
+                    get_radius=17000,
+                    radius_min_pixels=10,
+                    radius_max_pixels=22,
+                    line_width_min_pixels=2,
+                    stroked=True,
+                    filled=True,
+                    pickable=True
+                ))
+
+            # Mevcut logolar
+            with_logo = leaders[leaders['Logo_Var']].copy()
+            if not with_logo.empty:
+                layers.append(pdk.Layer(
+                    "IconLayer",
+                    data=with_logo,
+                    get_icon="icon_data",
+                    get_position='[lon, lat]',
+                    get_size=54,
+                    size_scale=1,
+                    size_min_pixels=34,
+                    size_max_pixels=72,
+                    pickable=True
+                ))
+
+            # İl adları artık haritanın üzerinde sürekli görünür
+            layers.append(pdk.Layer(
+                "TextLayer",
                 data=leaders,
-                get_icon="icon_data",
                 get_position='[lon, lat]',
-                get_size=30,      
-                size_scale=1,     
-                pickable=True,
-            )
+                get_text='İl',
+                get_size=15,
+                get_color='[20, 30, 40, 255]',
+                get_text_anchor='middle',
+                get_alignment_baseline='top',
+                get_pixel_offset='[0, 34]',
+                font_family='Arial, sans-serif',
+                font_weight=700,
+                pickable=False
+            ))
 
-            # --- TOOLTIP GÜNCELLEMESİ BURADA ---
             tooltip = {
                 "html": """
                 <div style='font-family: sans-serif; font-size: 14px; padding: 5px;'>
@@ -871,14 +970,15 @@ def main():
                 "style": {"backgroundColor": "#2c3e50", "color": "white", "borderRadius": "5px"}
             }
 
+            # CARTO tabanı token istemez; kara, yollar ve şehir isimleri görünür.
             r = pdk.Deck(
-                map_style=None,
+                map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
                 initial_view_state=view_state,
-                layers=[icon_layer],
+                layers=layers,
                 tooltip=tooltip
             )
 
-            st.pydeck_chart(r)
+            st.pydeck_chart(r, use_container_width=True)
             
             # --- ALT TABLO ---
             st.markdown("### 🏆 İl Liderleri Listesi")
