@@ -94,3 +94,35 @@ def show_cinematic_intro(df):
         st.markdown("""
         <div class="intro-overlay">
             <div class="main-text blink">🔌 VERİ ANALİZ EDİLİYOR...</div>
+            <div class="sub-text">GÜVENLİ HAT OLUŞTURULUYOR</div>
+        </div>
+        """, unsafe_allow_html=True)
+        time.sleep(2.0) # Tam 2 saniye bekle
+
+    # --- AŞAMA 2: VERİLERİN SERİ GEÇİŞİ (3 SANİYE TOPLAM) ---
+    # Sırayla gösterilecek veriler
+    sequence = [
+        ("📂 VERİ TABANI OKUNDU", f"{total_stations:,} İSTASYON"),
+        ("🏢 REKABET ANALİZİ", f"{total_companies} DAĞITIM ŞİRKETİ"),
+        ("🌍 COĞRAFİ KAPSAM", f"{total_cities} İL TARANDI"),
+        ("✅ YETKİ KONTROLÜ", "ERİŞİM ONAYLANDI")
+    ]
+    
+    step_time = 3.0 / len(sequence) # 3 saniyeyi adım sayısına böl
+
+    for title, value in sequence:
+        with placeholder.container():
+            st.markdown(f"""
+            <div class="intro-overlay">
+                <div class="sub-text">{title}</div>
+                <div class="data-flash">{value}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            time.sleep(step_time)
+
+    # Temizle ve bayrağı kaldır
+    placeholder.empty()
+    st.session_state['intro_shown'] = True
+
+
+# --- HAVERSINE (MESAFE HESAPLAMA) FONKSİYONU ---
